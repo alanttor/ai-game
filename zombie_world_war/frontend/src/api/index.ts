@@ -1,0 +1,6 @@
+export { apiClient, API_BASE_URL } from './client'
+export { authApi } from './auth'
+export { gameApi } from './game'
+export { leaderboardApi } from './leaderboard'
+export type { LoginRequest, RegisterRequest } from './auth'
+export type { LeaderboardEntry, PageResponse, UserRank, ScoreSubmitRequest, ScoreResponse } from './leaderboard'

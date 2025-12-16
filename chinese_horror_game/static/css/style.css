@@ -1,0 +1,1117 @@
+/* 基础样式 - 调亮版本 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --blood-red: #c41e3a;
+    --dark-red: #8B0000;
+    --ghost-white: #f5f0e8;
+    --paper-yellow: #fdf5e6;
+    --ink-black: #1e1e24;
+    --bg-dark: #252530;
+    --bg-medium: #2d2d38;
+    --text-light: #e8e4dc;
+    --candle-orange: #ff8c42;
+    --ghost-blue: #7a9ec2;
+}
+
+body {
+    font-family: 'Noto Serif SC', serif;
+    background-color: var(--bg-dark);
+    color: var(--text-light);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    opacity: 0;
+    transition: opacity 1s ease;
+}
+
+.screen.active {
+    display: flex;
+    opacity: 1;
+}
+
+/* 开场画面 */
+#intro-screen {
+    background: 
+        radial-gradient(ellipse at 30% 20%, rgba(196, 30, 58, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, rgba(196, 30, 58, 0.08) 0%, transparent 50%),
+        linear-gradient(180deg, #1e1e24 0%, #2a1a1a 50%, #1e1e24 100%);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 开场背景效果容器 */
+.intro-bg-effects {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 雾气层 */
+.fog-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 200%;
+    height: 40%;
+    background: 
+        linear-gradient(0deg, rgba(80, 80, 100, 0.15) 0%, transparent 60%),
+        linear-gradient(90deg, transparent 0%, rgba(100, 100, 120, 0.1) 50%, transparent 100%);
+    animation: introFogDrift 25s linear infinite;
+}
+
+@keyframes introFogDrift {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* 粒子层 - 漂浮的灰尘/鬼火 */
+.particles-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(2px 2px at 20% 30%, rgba(255, 200, 150, 0.4) 0%, transparent 100%),
+        radial-gradient(2px 2px at 40% 70%, rgba(255, 200, 150, 0.3) 0%, transparent 100%),
+        radial-gradient(2px 2px at 60% 20%, rgba(255, 200, 150, 0.35) 0%, transparent 100%),
+        radial-gradient(2px 2px at 80% 60%, rgba(255, 200, 150, 0.25) 0%, transparent 100%),
+        radial-gradient(3px 3px at 15% 80%, rgba(196, 30, 58, 0.3) 0%, transparent 100%),
+        radial-gradient(3px 3px at 70% 40%, rgba(196, 30, 58, 0.25) 0%, transparent 100%),
+        radial-gradient(2px 2px at 90% 85%, rgba(255, 200, 150, 0.3) 0%, transparent 100%),
+        radial-gradient(2px 2px at 35% 50%, rgba(255, 200, 150, 0.35) 0%, transparent 100%);
+    animation: particlesFloat 20s ease-in-out infinite;
+}
+
+@keyframes particlesFloat {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 0.8; }
+    25% { transform: translateY(-15px) translateX(10px); opacity: 1; }
+    50% { transform: translateY(-5px) translateX(-5px); opacity: 0.7; }
+    75% { transform: translateY(-20px) translateX(5px); opacity: 0.9; }
+}
+
+/* 装饰性纸人剪影 */
+.paper-figure-silhouette {
+    position: absolute;
+    bottom: 0;
+    width: 80px;
+    height: 200px;
+    background: linear-gradient(180deg, rgba(20, 20, 25, 0.8) 0%, rgba(20, 20, 25, 0.4) 80%, transparent 100%);
+    clip-path: polygon(50% 0%, 65% 15%, 70% 25%, 75% 50%, 70% 100%, 30% 100%, 25% 50%, 30% 25%, 35% 15%);
+    z-index: 2;
+    opacity: 0.6;
+    animation: silhouetteSway 8s ease-in-out infinite;
+}
+
+.paper-figure-silhouette.left {
+    left: 5%;
+    animation-delay: 0s;
+}
+
+.paper-figure-silhouette.right {
+    right: 5%;
+    animation-delay: 4s;
+    transform: scaleX(-1);
+}
+
+@keyframes silhouetteSway {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(3px) rotate(0.5deg); }
+    75% { transform: translateX(-3px) rotate(-0.5deg); }
+}
+
+.paper-figure-silhouette.right {
+    animation-name: silhouetteSwayRight;
+}
+
+@keyframes silhouetteSwayRight {
+    0%, 100% { transform: scaleX(-1) translateX(0) rotate(0deg); }
+    25% { transform: scaleX(-1) translateX(3px) rotate(0.5deg); }
+    75% { transform: scaleX(-1) translateX(-3px) rotate(-0.5deg); }
+}
+
+/* 增强蜡烛火焰效果 */
+.flame {
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 28px;
+    background: radial-gradient(ellipse at bottom, #fff 0%, var(--candle-orange) 30%, rgba(196, 30, 58, 0.8) 60%, transparent 100%);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    animation: flameFlicker 0.3s ease-in-out infinite alternate, flameSway 2s ease-in-out infinite;
+    filter: blur(1px);
+    box-shadow: 0 0 15px var(--candle-orange), 0 0 30px rgba(255, 140, 66, 0.5), 0 0 50px rgba(196, 30, 58, 0.3);
+}
+
+@keyframes flameFlicker {
+    0% { transform: translateX(-50%) scaleY(1) scaleX(1); opacity: 0.9; }
+    100% { transform: translateX(-50%) scaleY(1.15) scaleX(0.9); opacity: 1; }
+}
+
+@keyframes flameSway {
+    0%, 100% { transform: translateX(-50%) rotate(0deg); }
+    25% { transform: translateX(-45%) rotate(3deg); }
+    75% { transform: translateX(-55%) rotate(-3deg); }
+}
+
+.intro-content { text-align: center; z-index: 10; }
+
+.title-container {
+    margin-bottom: 40px;
+    animation: titleFloat 4s ease-in-out infinite;
+}
+
+@keyframes titleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.game-title {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 5rem;
+    color: var(--blood-red);
+    text-shadow: 0 0 20px rgba(196, 30, 58, 0.8), 0 0 40px rgba(196, 30, 58, 0.4), 3px 3px 0 #000;
+    letter-spacing: 0.3em;
+}
+
+.subtitle {
+    font-size: 1.4rem;
+    color: var(--paper-yellow);
+    margin-top: 15px;
+    letter-spacing: 0.4em;
+}
+
+.intro-text {
+    margin: 35px 0;
+    line-height: 2.2;
+    font-size: 1.1rem;
+}
+
+.intro-text p {
+    margin: 10px 0;
+    animation: fadeInUp 1s ease forwards;
+    opacity: 0;
+}
+.intro-text p:nth-child(1) { animation-delay: 0.5s; }
+.intro-text p:nth-child(2) { animation-delay: 1s; }
+.intro-text p:nth-child(3) { animation-delay: 1.5s; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.warning-text {
+    margin: 25px 0;
+    padding: 18px 25px;
+    border: 1px solid rgba(196, 30, 58, 0.4);
+    background: rgba(196, 30, 58, 0.08);
+    border-radius: 5px;
+    font-size: 0.9rem;
+    color: #d4a0a0;
+}
+
+.horror-btn {
+    background: linear-gradient(180deg, #8B0000 0%, var(--blood-red) 100%);
+    border: 2px solid var(--blood-red);
+    color: #fff;
+    padding: 16px 55px;
+    font-size: 1.2rem;
+    font-family: 'Noto Serif SC', serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 25px;
+    border-radius: 4px;
+}
+
+.horror-btn:hover {
+    background: var(--blood-red);
+    box-shadow: 0 0 25px rgba(196, 30, 58, 0.7);
+    transform: scale(1.05);
+}
+
+.candle-container { display: flex; justify-content: center; gap: 220px; margin-top: 50px; }
+
+.candle {
+    width: 18px;
+    height: 55px;
+    background: linear-gradient(180deg, #fff 0%, #f5deb3 100%);
+    position: relative;
+    border-radius: 2px;
+}
+
+.candle::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 35px;
+    background: radial-gradient(ellipse at bottom, var(--candle-orange) 0%, transparent 70%);
+    animation: candleFlicker 0.4s infinite alternate;
+    border-radius: 50% 50% 20% 20%;
+}
+
+@keyframes candleFlicker {
+    0% { transform: translateX(-50%) scale(1); opacity: 0.85; }
+    100% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+}
+
+
+/* ========== 游戏主界面 ========== */
+#game-screen {
+    flex-direction: column;
+    background: 
+        radial-gradient(ellipse at center, rgba(45, 45, 56, 0.9) 0%, rgba(30, 30, 36, 1) 100%),
+        var(--bg-dark);
+}
+
+.background-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.15;
+    transition: all 1s ease;
+}
+
+/* 恐怖效果层 - 不遮挡内容 */
+.horror-effects {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.static-noise {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0.03;
+}
+
+.vignette {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+}
+
+.blood-drip, .scan-line, .flicker-overlay {
+    display: none;
+}
+
+/* 状态栏 */
+.status-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 25px;
+    background: linear-gradient(180deg, rgba(30, 30, 36, 0.95) 0%, transparent 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+}
+
+.sanity-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sanity-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    opacity: 0.9;
+}
+
+.sanity-bar {
+    width: 180px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(196, 30, 58, 0.5);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.sanity-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blood-red) 0%, var(--ghost-blue) 100%);
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--ghost-blue);
+}
+
+.sanity-value {
+    font-size: 1rem;
+    color: var(--text-light);
+    min-width: 35px;
+    font-weight: bold;
+}
+
+.items-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.items-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    opacity: 0.9;
+}
+
+.items-list {
+    display: flex;
+    gap: 8px;
+}
+
+.item-tag {
+    background: rgba(196, 30, 58, 0.2);
+    border: 1px solid rgba(196, 30, 58, 0.5);
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    color: var(--paper-yellow);
+    border-radius: 3px;
+    animation: itemGlow 2s ease-in-out infinite;
+}
+
+@keyframes itemGlow {
+    0%, 100% { box-shadow: 0 0 5px rgba(196, 30, 58, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(196, 30, 58, 0.5); }
+}
+
+/* 主内容区 */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 90px 40px 40px;
+    z-index: 10;
+    max-width: 950px;
+    margin: 0 auto;
+}
+
+.scene-container {
+    background: linear-gradient(180deg, rgba(40, 40, 50, 0.95) 0%, rgba(35, 35, 45, 0.95) 100%);
+    border: 1px solid rgba(196, 30, 58, 0.3);
+    border-radius: 8px;
+    padding: 35px 45px;
+    margin-bottom: 25px;
+    width: 100%;
+    max-height: 55vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    animation: sceneAppear 0.8s ease;
+}
+
+@keyframes sceneAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.scene-container::-webkit-scrollbar { width: 6px; }
+.scene-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
+.scene-container::-webkit-scrollbar-thumb { background: var(--blood-red); border-radius: 3px; }
+
+.scene-title {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 2.2rem;
+    color: var(--blood-red);
+    text-align: center;
+    margin-bottom: 25px;
+    text-shadow: 0 0 15px rgba(196, 30, 58, 0.5);
+    animation: titlePulse 3s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+    0%, 100% { text-shadow: 0 0 15px rgba(196, 30, 58, 0.5); }
+    50% { text-shadow: 0 0 25px rgba(196, 30, 58, 0.8); }
+}
+
+.scene-text {
+    line-height: 2.1;
+    font-size: 1.1rem;
+    color: var(--text-light);
+}
+
+.scene-text p {
+    margin: 14px 0;
+    opacity: 0;
+    animation: textFadeIn 0.6s ease forwards;
+}
+
+.scene-text p:nth-child(1) { animation-delay: 0.1s; }
+.scene-text p:nth-child(2) { animation-delay: 0.25s; }
+.scene-text p:nth-child(3) { animation-delay: 0.4s; }
+.scene-text p:nth-child(4) { animation-delay: 0.55s; }
+.scene-text p:nth-child(5) { animation-delay: 0.7s; }
+.scene-text p:nth-child(6) { animation-delay: 0.85s; }
+.scene-text p:nth-child(7) { animation-delay: 1s; }
+.scene-text p:nth-child(8) { animation-delay: 1.15s; }
+.scene-text p:nth-child(9) { animation-delay: 1.3s; }
+.scene-text p:nth-child(10) { animation-delay: 1.45s; }
+
+@keyframes textFadeIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* 文本样式 */
+.narration { color: var(--text-light); }
+
+.dialogue {
+    color: var(--paper-yellow);
+    font-style: italic;
+    padding-left: 18px;
+    border-left: 3px solid var(--paper-yellow);
+    margin-left: 10px;
+}
+
+.horror {
+    color: #ff4444;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 68, 68, 0.6);
+    animation: horrorGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes horrorGlow {
+    0%, 100% { text-shadow: 0 0 10px rgba(255, 68, 68, 0.6); }
+    50% { text-shadow: 0 0 20px rgba(255, 68, 68, 0.9), 0 0 30px rgba(255, 68, 68, 0.4); }
+}
+
+.detail {
+    color: var(--ghost-blue);
+    font-size: 1rem;
+}
+
+.whisper {
+    color: rgba(232, 228, 220, 0.6);
+    font-style: italic;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    animation: whisperFade 3s ease-in-out infinite;
+}
+
+@keyframes whisperFade {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.9; }
+}
+
+.letter, .diary {
+    font-family: 'Ma Shan Zheng', cursive;
+    color: var(--paper-yellow);
+    background: rgba(253, 245, 230, 0.08);
+    padding: 12px 20px;
+    border-left: 3px solid var(--paper-yellow);
+    margin: 12px 0;
+    border-radius: 0 5px 5px 0;
+}
+
+.couplet {
+    font-family: 'Ma Shan Zheng', cursive;
+    color: var(--blood-red);
+    font-size: 1.4rem;
+    text-align: center;
+    margin: 8px 0;
+    text-shadow: 0 0 10px rgba(196, 30, 58, 0.4);
+}
+
+.ending {
+    text-align: center;
+    font-size: 1.3rem;
+    color: var(--blood-red);
+    margin-top: 25px;
+    text-shadow: 0 0 15px rgba(196, 30, 58, 0.5);
+}
+
+
+/* ========== 选项区 ========== */
+.choices-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 650px;
+}
+
+.choice-btn {
+    background: linear-gradient(90deg, rgba(45, 45, 56, 0.95) 0%, rgba(50, 50, 62, 0.95) 100%);
+    border: 1px solid rgba(196, 30, 58, 0.4);
+    color: var(--text-light);
+    padding: 16px 25px;
+    font-size: 1.05rem;
+    font-family: 'Noto Serif SC', serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+    position: relative;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.choice-btn::before {
+    content: '▸';
+    margin-right: 12px;
+    color: var(--blood-red);
+    transition: all 0.3s ease;
+}
+
+.choice-btn:hover {
+    background: linear-gradient(90deg, rgba(196, 30, 58, 0.25) 0%, rgba(196, 30, 58, 0.15) 100%);
+    border-color: var(--blood-red);
+    transform: translateX(8px);
+    box-shadow: -4px 0 20px rgba(196, 30, 58, 0.4), 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.choice-btn:hover::before {
+    transform: translateX(5px);
+    color: #ff6666;
+}
+
+.choice-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.choice-btn.disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: rgba(45, 45, 56, 0.95);
+}
+
+.choice-btn.dangerous {
+    border-color: rgba(255, 80, 80, 0.5);
+    background: linear-gradient(90deg, rgba(60, 30, 30, 0.95) 0%, rgba(50, 35, 35, 0.95) 100%);
+}
+
+.choice-btn.dangerous::after {
+    content: '⚠';
+    position: absolute;
+    right: 15px;
+    color: rgba(255, 100, 100, 0.6);
+    font-size: 0.9rem;
+}
+
+.choice-btn.dangerous:hover {
+    background: linear-gradient(90deg, rgba(196, 30, 58, 0.35) 0%, rgba(196, 30, 58, 0.2) 100%);
+    box-shadow: -4px 0 25px rgba(255, 50, 50, 0.5), 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 随机事件 */
+.random-event {
+    background: rgba(196, 30, 58, 0.15);
+    border: 1px solid rgba(196, 30, 58, 0.4);
+    border-radius: 5px;
+    padding: 15px 22px;
+    margin-bottom: 18px;
+    width: 100%;
+    animation: eventAppear 0.5s ease;
+}
+
+@keyframes eventAppear {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.random-event.hidden { display: none; }
+
+/* 理智警告 */
+.insanity-warning {
+    background: rgba(122, 158, 194, 0.15);
+    border: 1px solid rgba(122, 158, 194, 0.4);
+    border-radius: 5px;
+    padding: 15px 22px;
+    margin-bottom: 18px;
+    color: var(--ghost-blue);
+    font-style: italic;
+    width: 100%;
+}
+
+.insanity-warning.hidden { display: none; }
+
+/* 秘密面板 */
+.secrets-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(35, 35, 45, 0.98);
+    border: 2px solid var(--blood-red);
+    border-radius: 10px;
+    padding: 30px;
+    z-index: 200;
+    min-width: 320px;
+    max-width: 500px;
+    max-height: 65vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.secrets-panel.hidden { display: none; }
+
+.secrets-panel h3 {
+    font-family: 'Ma Shan Zheng', cursive;
+    color: var(--blood-red);
+    font-size: 1.6rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.secrets-panel ul { list-style: none; }
+
+.secrets-panel li {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(196, 30, 58, 0.2);
+    color: var(--paper-yellow);
+}
+
+.secrets-panel li::before {
+    content: '◆';
+    margin-right: 10px;
+    color: var(--blood-red);
+}
+
+.close-btn {
+    display: block;
+    margin: 20px auto 0;
+    background: transparent;
+    border: 1px solid var(--blood-red);
+    color: var(--text-light);
+    padding: 10px 35px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+}
+
+.close-btn:hover {
+    background: var(--blood-red);
+}
+
+/* 菜单按钮 */
+.menu-buttons {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 50;
+}
+
+.menu-btn {
+    width: 48px;
+    height: 48px;
+    background: rgba(35, 35, 45, 0.9);
+    border: 1px solid rgba(196, 30, 58, 0.5);
+    color: var(--text-light);
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+}
+
+.menu-btn:hover {
+    background: var(--blood-red);
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(196, 30, 58, 0.5);
+}
+
+/* 结局画面 */
+#ending-screen {
+    background: 
+        radial-gradient(ellipse at center, rgba(50, 30, 30, 0.9) 0%, rgba(30, 20, 20, 1) 100%);
+    justify-content: center;
+    align-items: center;
+}
+
+.ending-content {
+    text-align: center;
+    max-width: 600px;
+    padding: 40px;
+    animation: endingAppear 1s ease;
+}
+
+@keyframes endingAppear {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.ending-title {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 3rem;
+    color: var(--blood-red);
+    margin-bottom: 30px;
+    text-shadow: 0 0 30px rgba(196, 30, 58, 0.7);
+}
+
+.ending-text {
+    line-height: 2;
+    margin-bottom: 30px;
+    color: var(--text-light);
+}
+
+.ending-stats {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 20px 30px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(196, 30, 58, 0.4);
+    border-radius: 8px;
+}
+
+.ending-stats p {
+    margin: 10px 0;
+    color: var(--paper-yellow);
+}
+
+/* 跳吓效果 */
+.jumpscare {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.jumpscare.hidden { display: none; }
+
+/* 隐藏的元素 */
+.ghost-container, .ambience-indicator { display: none; }
+#horror-message.hidden, #countdown-warning.hidden { display: none; }
+
+#horror-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 25, 0.95);
+    border: 2px solid var(--blood-red);
+    padding: 25px 45px;
+    z-index: 600;
+    border-radius: 8px;
+    animation: messageShake 0.5s ease;
+}
+
+@keyframes messageShake {
+    0%, 100% { transform: translate(-50%, -50%) rotate(0); }
+    25% { transform: translate(-50%, -50%) rotate(-1deg); }
+    75% { transform: translate(-50%, -50%) rotate(1deg); }
+}
+
+#horror-message p {
+    color: var(--blood-red);
+    font-size: 1.4rem;
+    font-family: 'Ma Shan Zheng', cursive;
+    text-shadow: 0 0 15px rgba(196, 30, 58, 0.7);
+    margin: 0;
+}
+
+
+/* ========== 沉浸式动画效果 ========== */
+
+/* 场景切换动画 */
+@keyframes sceneTransition {
+    0% { opacity: 0; filter: blur(10px); }
+    100% { opacity: 1; filter: blur(0); }
+}
+
+.scene-container.transitioning {
+    animation: sceneTransition 0.8s ease;
+}
+
+/* 烛光摇曳效果 - 应用于整个游戏界面 */
+#game-screen::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at 50% 30%, rgba(255, 140, 66, 0.03) 0%, transparent 50%);
+    animation: candleLightFlicker 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes candleLightFlicker {
+    0%, 100% { opacity: 0.8; }
+    25% { opacity: 1; }
+    50% { opacity: 0.6; }
+    75% { opacity: 0.9; }
+}
+
+/* 雾气飘动效果 */
+#game-screen::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 200%; height: 30%;
+    background: linear-gradient(0deg, rgba(100, 100, 120, 0.08) 0%, transparent 100%);
+    animation: fogDrift 20s linear infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+
+@keyframes fogDrift {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* 灰尘粒子效果 */
+.dust-particle {
+    position: fixed;
+    width: 3px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: dustFloat 15s linear infinite;
+}
+
+@keyframes dustFloat {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.5; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+/* 呼吸效果 - 场景容器 */
+.scene-container {
+    animation: breathe 6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+    0%, 100% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
+    50% { box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(196, 30, 58, 0.1); }
+}
+
+/* 文字打字机效果增强 */
+.typewriter-text {
+    overflow: hidden;
+    border-right: 2px solid var(--blood-red);
+    white-space: nowrap;
+    animation: typing 3s steps(40, end), blinkCursor 0.75s step-end infinite;
+}
+
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes blinkCursor {
+    from, to { border-color: transparent; }
+    50% { border-color: var(--blood-red); }
+}
+
+/* 恐怖文字特效 */
+.horror {
+    position: relative;
+    display: inline;
+}
+
+.horror::before {
+    content: attr(data-text);
+    position: absolute;
+    left: 2px;
+    text-shadow: -1px 0 rgba(255, 0, 0, 0.5);
+    top: 0;
+    color: rgba(255, 0, 0, 0.5);
+    overflow: hidden;
+    animation: glitch 2s infinite;
+    pointer-events: none;
+}
+
+@keyframes glitch {
+    0%, 90%, 100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+    92% { clip-path: inset(30% 0 60% 0); transform: translate(-2px, 1px); }
+    94% { clip-path: inset(70% 0 10% 0); transform: translate(2px, -1px); }
+    96% { clip-path: inset(10% 0 80% 0); transform: translate(-1px, 2px); }
+    98% { clip-path: inset(50% 0 30% 0); transform: translate(1px, -2px); }
+}
+
+/* 选项出现动画 */
+.choice-btn {
+    opacity: 0;
+    animation: choiceSlideIn 0.5s ease forwards;
+}
+
+.choice-btn:nth-child(1) { animation-delay: 1.5s; }
+.choice-btn:nth-child(2) { animation-delay: 1.7s; }
+.choice-btn:nth-child(3) { animation-delay: 1.9s; }
+.choice-btn:nth-child(4) { animation-delay: 2.1s; }
+.choice-btn:nth-child(5) { animation-delay: 2.3s; }
+
+@keyframes choiceSlideIn {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* 低理智效果 - 更温和 */
+.low-sanity .scene-container {
+    animation: breathe 4s ease-in-out infinite, subtleShake 8s ease-in-out infinite;
+}
+
+@keyframes subtleShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-1px); }
+    75% { transform: translateX(1px); }
+}
+
+.critical-sanity .scene-container {
+    border-color: rgba(255, 80, 80, 0.5);
+    animation: breathe 3s ease-in-out infinite, criticalPulse 2s ease-in-out infinite;
+}
+
+@keyframes criticalPulse {
+    0%, 100% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 0 30px rgba(255, 50, 50, 0.1); }
+    50% { box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5), inset 0 0 50px rgba(255, 50, 50, 0.2); }
+}
+
+/* 屏幕抖动 - 更温和 */
+@keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-2px, -1px); }
+    40% { transform: translate(2px, 1px); }
+    60% { transform: translate(-1px, 2px); }
+    80% { transform: translate(1px, -1px); }
+}
+
+/* 屏幕扭曲效果 */
+.screen-distort {
+    animation: distortEffect 0.4s ease;
+}
+
+@keyframes distortEffect {
+    0%, 100% { filter: none; }
+    25% { filter: hue-rotate(10deg) saturate(1.2); }
+    50% { filter: hue-rotate(-10deg) saturate(0.8); }
+    75% { filter: hue-rotate(5deg) saturate(1.1); }
+}
+
+/* 鬼影闪现 */
+.ghost-flash {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(196, 30, 58, 0.15);
+    z-index: 500;
+    pointer-events: none;
+    animation: ghostFlashAnim 0.15s ease;
+}
+
+@keyframes ghostFlashAnim {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+
+/* 眼睛注视效果 */
+.watching-eyes {
+    position: fixed;
+    font-size: 50px;
+    z-index: 300;
+    pointer-events: none;
+    animation: eyesAppear 4s ease;
+    filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.6));
+}
+
+@keyframes eyesAppear {
+    0%, 70%, 100% { opacity: 0; }
+    75%, 95% { opacity: 0.5; }
+}
+
+/* 纸人阴影 */
+.paper-figure-shadow {
+    position: fixed;
+    width: 60px;
+    height: 150px;
+    background: linear-gradient(180deg, rgba(30, 30, 40, 0.6) 0%, transparent 100%);
+    z-index: 150;
+    pointer-events: none;
+    animation: paperShadowMove 12s linear;
+    clip-path: polygon(50% 0%, 85% 20%, 85% 100%, 15% 100%, 15% 20%);
+}
+
+@keyframes paperShadowMove {
+    0% { left: -80px; opacity: 0; }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.4; }
+    100% { left: calc(100% + 80px); opacity: 0; }
+}
+
+/* 诡异微笑 */
+.creepy-smile {
+    position: fixed;
+    font-size: 100px;
+    z-index: 200;
+    pointer-events: none;
+    animation: smileAppear 5s ease;
+    filter: drop-shadow(0 0 20px rgba(196, 30, 58, 0.5)) brightness(0.7);
+}
+
+@keyframes smileAppear {
+    0%, 80%, 100% { opacity: 0; }
+    85%, 95% { opacity: 0.25; }
+}
+
+/* 血滴效果 */
+.blood-drop {
+    position: fixed;
+    width: 8px;
+    height: 16px;
+    background: linear-gradient(180deg, var(--blood-red) 0%, #600 100%);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    z-index: 400;
+    pointer-events: none;
+    animation: bloodFall 2.5s ease-in forwards;
+}
+
+@keyframes bloodFall {
+    0% { transform: translateY(-50px); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .game-title { font-size: 3rem; }
+    .main-content { padding: 75px 15px 25px; }
+    .scene-container { padding: 20px 25px; }
+    .scene-title { font-size: 1.6rem; }
+    .scene-text { font-size: 1rem; }
+    .status-bar { flex-direction: column; gap: 8px; padding: 8px 15px; }
+    .sanity-bar { width: 140px; }
+    .candle-container { gap: 100px; }
+    .choice-btn { padding: 14px 20px; font-size: 1rem; }
+}

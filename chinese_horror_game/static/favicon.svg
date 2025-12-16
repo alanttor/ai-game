@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- 纸人头部 -->
+  <ellipse cx="32" cy="20" rx="14" ry="16" fill="#f5deb3" stroke="#8B0000" stroke-width="1"/>
+  <!-- 眼睛 - 空洞 -->
+  <ellipse cx="26" cy="18" rx="3" ry="4" fill="#1a0505"/>
+  <ellipse cx="38" cy="18" rx="3" ry="4" fill="#1a0505"/>
+  <!-- 红色瞳孔 -->
+  <circle cx="26" cy="19" r="1.5" fill="#8B0000"/>
+  <circle cx="38" cy="19" r="1.5" fill="#8B0000"/>
+  <!-- 诡异微笑 -->
+  <path d="M24 28 Q32 34 40 28" stroke="#8B0000" stroke-width="2" fill="none"/>
+  <!-- 身体 -->
+  <rect x="24" y="36" width="16" height="24" fill="#f5deb3" stroke="#8B0000" stroke-width="1"/>
+  <!-- 血迹 -->
+  <circle cx="30" cy="45" r="3" fill="#8B0000" opacity="0.7"/>
+  <ellipse cx="34" cy="52" rx="2" ry="4" fill="#8B0000" opacity="0.6"/>
+  <!-- 符咒 -->
+  <text x="32" y="48" font-size="8" fill="#8B0000" text-anchor="middle" font-family="serif">咒</text>
+</svg>

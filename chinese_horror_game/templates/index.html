@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纸人归魂 - 中式恐怖文字冒险</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 开场动画 -->
+    <div id="intro-screen" class="screen active">
+        <!-- 背景装饰 -->
+        <div class="intro-bg-effects">
+            <div class="fog-layer"></div>
+            <div class="particles-layer"></div>
+        </div>
+        
+        <div class="intro-content">
+            <div class="title-container">
+                <h1 class="game-title">纸人归魂</h1>
+                <p class="subtitle">中式恐怖文字冒险</p>
+            </div>
+            <div class="intro-text">
+                <p>民国二十三年，深秋。</p>
+                <p>一封沾血的家书，一座尘封的老宅，</p>
+                <p>六十年的怨恨，等待着最后的清算...</p>
+            </div>
+            <div class="warning-text">
+                <p>⚠ 警告：本游戏包含恐怖元素</p>
+                <p>建议在安静、昏暗的环境中游玩</p>
+                <p>佩戴耳机以获得最佳体验</p>
+            </div>
+            <button id="start-btn" class="horror-btn">进入老宅</button>
+            <div class="candle-container">
+                <div class="candle">
+                    <div class="flame"></div>
+                </div>
+                <div class="candle">
+                    <div class="flame"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 装饰性纸人剪影 -->
+        <div class="paper-figure-silhouette left"></div>
+        <div class="paper-figure-silhouette right"></div>
+    </div>
+
+    <!-- 游戏主界面 -->
+    <div id="game-screen" class="screen">
+        <!-- 背景层 -->
+        <div id="background-layer" class="background-layer"></div>
+        
+        <!-- 恐怖效果层 -->
+        <div id="horror-effects" class="horror-effects">
+            <div class="static-noise"></div>
+            <div class="vignette"></div>
+            <div class="blood-drip"></div>
+            <div class="scan-line"></div>
+            <div class="flicker-overlay"></div>
+        </div>
+        
+        <!-- 鬼影容器 -->
+        <div id="ghost-container" class="ghost-container"></div>
+        
+        <!-- 环境音效指示 -->
+        <div id="ambience-indicator" class="ambience-indicator"></div>
+
+        <!-- 状态栏 -->
+        <div id="status-bar" class="status-bar">
+            <div class="sanity-container">
+                <span class="sanity-label">理智</span>
+                <div class="sanity-bar">
+                    <div id="sanity-fill" class="sanity-fill"></div>
+                </div>
+                <span id="sanity-value" class="sanity-value">100</span>
+            </div>
+            <div class="items-container">
+                <span class="items-label">物品</span>
+                <div id="items-list" class="items-list"></div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div id="main-content" class="main-content">
+            <div class="scene-container">
+                <h2 id="scene-title" class="scene-title"></h2>
+                <div id="scene-text" class="scene-text"></div>
+            </div>
+            
+            <!-- 随机事件提示 -->
+            <div id="random-event" class="random-event hidden"></div>
+            
+            <!-- 理智警告 -->
+            <div id="insanity-warning" class="insanity-warning hidden"></div>
+            
+            <!-- 选项区 -->
+            <div id="choices-container" class="choices-container"></div>
+        </div>
+
+        <!-- 发现的秘密 -->
+        <div id="secrets-panel" class="secrets-panel hidden">
+            <h3>发现的秘密</h3>
+            <ul id="secrets-list"></ul>
+            <button id="close-secrets" class="close-btn">关闭</button>
+        </div>
+
+        <!-- 菜单按钮 -->
+        <div class="menu-buttons">
+            <button id="secrets-btn" class="menu-btn" title="查看秘密">📜</button>
+            <button id="restart-btn" class="menu-btn" title="重新开始">🔄</button>
+        </div>
+    </div>
+
+    <!-- 结局画面 -->
+    <div id="ending-screen" class="screen">
+        <div class="ending-content">
+            <h2 id="ending-title" class="ending-title"></h2>
+            <div id="ending-text" class="ending-text"></div>
+            <div class="ending-stats">
+                <p>理智值: <span id="final-sanity">0</span></p>
+                <p>发现秘密: <span id="final-secrets">0</span></p>
+                <p>死亡次数: <span id="final-deaths">0</span></p>
+            </div>
+            <button id="replay-btn" class="horror-btn">再来一次</button>
+        </div>
+    </div>
+
+    <!-- 跳吓效果 -->
+    <div id="jumpscare" class="jumpscare hidden">
+        <img id="jumpscare-img" src="" alt="">
+    </div>
+    
+    <!-- 全屏恐怖提示 -->
+    <div id="horror-message" class="horror-message hidden">
+        <p id="horror-message-text"></p>
+    </div>
+    
+    <!-- 倒计时警告 -->
+    <div id="countdown-warning" class="countdown-warning hidden">
+        <p>子时将至...</p>
+        <span id="countdown-timer"></span>
+    </div>
+
+    <!-- 音频 -->
+    <audio id="bgm" loop></audio>
+    <audio id="sfx"></audio>
+    
+    <script>
+        // 添加跳吓动画样式
+        const jumpscareStyle = document.createElement('style');
+        jumpscareStyle.textContent = `
+            @keyframes jumpscareFlash {
+                0% { background: #000; }
+                10% { background: #8B0000; }
+                20% { background: #000; }
+                30% { background: #8B0000; }
+                100% { background: #000; }
+            }
+            
+            @keyframes jumpscareZoom {
+                0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+                50% { transform: scale(1.3) rotate(5deg); opacity: 1; }
+                100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            }
+            
+            .horror-message {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.9);
+                border: 2px solid #8B0000;
+                padding: 30px 50px;
+                z-index: 800;
+                text-align: center;
+                animation: messageAppear 0.5s ease;
+            }
+            
+            .horror-message p {
+                color: #8B0000;
+                font-size: 1.5rem;
+                font-family: 'Ma Shan Zheng', cursive;
+                text-shadow: 0 0 10px #8B0000;
+            }
+            
+            @keyframes messageAppear {
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            }
+            
+            .countdown-warning {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(139, 0, 0, 0.8);
+                padding: 15px 25px;
+                border: 1px solid #ff0000;
+                z-index: 100;
+                animation: countdownPulse 1s ease infinite;
+            }
+            
+            .countdown-warning p {
+                color: #fff;
+                margin: 0;
+                font-size: 0.9rem;
+            }
+            
+            .countdown-warning span {
+                color: #ff0000;
+                font-size: 1.5rem;
+                font-weight: bold;
+            }
+            
+            @keyframes countdownPulse {
+                0%, 100% { box-shadow: 0 0 10px #8B0000; }
+                50% { box-shadow: 0 0 30px #ff0000; }
+            }
+            
+            .scan-line {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.1);
+                animation: scanLine 8s linear infinite;
+                pointer-events: none;
+            }
+            
+            @keyframes scanLine {
+                0% { top: 0; }
+                100% { top: 100%; }
+            }
+            
+            .flicker-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: transparent;
+                animation: flicker 0.15s infinite;
+                pointer-events: none;
+                opacity: 0.03;
+            }
+            
+            @keyframes flicker {
+                0% { background: transparent; }
+                50% { background: rgba(139, 0, 0, 0.1); }
+                100% { background: transparent; }
+            }
+            
+            .ghost-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 300;
+            }
+            
+            .ambience-indicator {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                font-size: 0.8rem;
+                color: rgba(139, 0, 0, 0.5);
+                z-index: 50;
+            }
+        `;
+        document.head.appendChild(jumpscareStyle);
+    </script>
+
+    <script src="/static/js/game.js"></script>
+</body>
+</html>

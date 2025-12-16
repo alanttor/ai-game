@@ -1,0 +1,25 @@
+/**
+ * Game Engine Module Exports
+ */
+
+export { GameEngine } from './GameEngine'
+export { GameController, GameControllerEvent, DEFAULT_GAME_CONFIG } from './GameController'
+export type { GameConfig } from './GameController'
+export { InputManager, InputKey, InputEvent, MouseButton } from './InputManager'
+export type { MouseMovement, MouseWheelData } from './InputManager'
+export { SceneManager, SceneEvent, LightingPresets } from './SceneManager'
+export type { LightingPreset } from './SceneManager'
+export { Player, PlayerConfig, PlayerEvent } from './Player'
+export { FirstPersonCamera, CameraConfig, CameraEvent } from './FirstPersonCamera'
+export { PlayerPhysics, PhysicsConfig, PhysicsEvent } from './PlayerPhysics'
+export type { CollisionResult } from './PlayerPhysics'
+export { PlayerController } from './PlayerController'
+export type { PlayerInput } from './PlayerController'
+export * from './types'
+export * from './serialization'
+export * from './weapons'
+export * from './zombies'
+export * from './waves'
+export * from './scene'
+export * from './audio'
+export * from './performance'
