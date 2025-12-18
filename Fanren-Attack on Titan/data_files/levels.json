@@ -1,0 +1,659 @@
+{
+  "levels": {
+    "shiganshina_fall": {
+      "id": "shiganshina_fall",
+      "name": "希干希纳陷落",
+      "name_en": "Fall of Shiganshina",
+      "environment": "shiganshina_district",
+      "description": "845年，超大型巨人突然出现，希干希纳区的城墙被打破。保护平民撤离！",
+      "chapter_id": "s1_c1",
+      "difficulty": 1,
+      "spawn_points": [
+        {"position": [50, 0, 30], "titan_type": "normal_3m", "delay": 0},
+        {"position": [80, 0, 50], "titan_type": "normal_3m", "delay": 5},
+        {"position": [120, 0, 40], "titan_type": "normal_5m", "delay": 10},
+        {"position": [60, 0, 80], "titan_type": "normal_3m", "delay": 15},
+        {"position": [100, 0, 100], "titan_type": "normal_5m", "delay": 20}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 5, "description": "击杀5只巨人"},
+        {"id": "obj_2", "type": "survive", "time": 180, "description": "生存3分钟"}
+      ],
+      "time_limit": 300,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "trost_defense_1": {
+      "id": "trost_defense_1",
+      "name": "托洛斯特区防卫战 - 前线",
+      "name_en": "Battle of Trost - Front Line",
+      "environment": "trost_city",
+      "description": "850年，超大型巨人再次出现。新兵们迎来第一场真正的战斗，守护托洛斯特区！",
+      "chapter_id": "s1_c2",
+      "difficulty": 2,
+      "spawn_points": [
+        {"position": [100, 0, 50], "titan_type": "normal_3m", "delay": 0},
+        {"position": [150, 0, 80], "titan_type": "normal_5m", "delay": 5},
+        {"position": [80, 0, 120], "titan_type": "normal_3m", "delay": 8},
+        {"position": [200, 0, 60], "titan_type": "normal_7m", "delay": 15},
+        {"position": [120, 0, 150], "titan_type": "normal_5m", "delay": 20},
+        {"position": [180, 0, 100], "titan_type": "abnormal_5m", "delay": 30}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 10, "description": "击杀10只巨人"},
+        {"id": "obj_2", "type": "survive", "time": 300, "description": "生存5分钟"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "morning"
+      }
+    },
+    "trost_defense_2": {
+      "id": "trost_defense_2",
+      "name": "托洛斯特区防卫战 - 补给作战",
+      "name_en": "Battle of Trost - Supply Operation",
+      "environment": "trost_city",
+      "description": "补给站被巨人占领，必须夺回补给站以继续战斗！",
+      "chapter_id": "s1_c2",
+      "difficulty": 3,
+      "spawn_points": [
+        {"position": [50, 0, 50], "titan_type": "normal_5m", "delay": 0},
+        {"position": [80, 0, 80], "titan_type": "normal_7m", "delay": 0},
+        {"position": [100, 0, 30], "titan_type": "normal_3m", "delay": 5},
+        {"position": [120, 0, 100], "titan_type": "abnormal_5m", "delay": 10},
+        {"position": [60, 0, 120], "titan_type": "normal_5m", "delay": 15}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 8, "description": "清除补给站周围的巨人"},
+        {"id": "obj_2", "type": "reach", "position": [100, 0, 80], "radius": 10, "description": "到达补给站"}
+      ],
+      "time_limit": 480,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "cloudy",
+        "time_of_day": "morning"
+      }
+    },
+    "trost_boulder": {
+      "id": "trost_boulder",
+      "name": "托洛斯特区防卫战 - 封堵作战",
+      "name_en": "Battle of Trost - Boulder Operation",
+      "environment": "trost_city",
+      "description": "护送艾伦将巨石搬运到城门处，封堵被打破的城墙！",
+      "chapter_id": "s1_c2",
+      "difficulty": 4,
+      "spawn_points": [
+        {"position": [80, 0, 40], "titan_type": "normal_5m", "delay": 0},
+        {"position": [120, 0, 60], "titan_type": "normal_7m", "delay": 5},
+        {"position": [60, 0, 100], "titan_type": "abnormal_5m", "delay": 10},
+        {"position": [150, 0, 80], "titan_type": "normal_10m", "delay": 20},
+        {"position": [100, 0, 120], "titan_type": "abnormal_7m", "delay": 30},
+        {"position": [180, 0, 50], "titan_type": "normal_7m", "delay": 40},
+        {"position": [70, 0, 150], "titan_type": "normal_5m", "delay": 50}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "protect", "target": "eren_titan", "min_health": 30, "description": "保护艾伦巨人形态"},
+        {"id": "obj_2", "type": "survive", "time": 360, "description": "坚持到封堵完成"}
+      ],
+      "time_limit": 480,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "expedition_57": {
+      "id": "expedition_57",
+      "name": "第57次墙外调查",
+      "name_en": "57th Expedition",
+      "environment": "open_field",
+      "description": "调查兵团展开第57次墙外调查，在开阔地带与巨人战斗。",
+      "chapter_id": "s1_c3",
+      "difficulty": 3,
+      "spawn_points": [
+        {"position": [200, 0, 100], "titan_type": "normal_7m", "delay": 0},
+        {"position": [150, 0, 200], "titan_type": "normal_10m", "delay": 10},
+        {"position": [300, 0, 150], "titan_type": "abnormal_7m", "delay": 20},
+        {"position": [100, 0, 300], "titan_type": "normal_5m", "delay": 30},
+        {"position": [250, 0, 250], "titan_type": "normal_15m", "delay": 45}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 8, "description": "击杀8只巨人"},
+        {"id": "obj_2", "type": "reach", "position": [400, 0, 400], "radius": 20, "description": "到达巨树森林入口"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": false,
+        "walls": false,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "morning"
+      }
+    },
+    "forest_chase": {
+      "id": "forest_chase",
+      "name": "巨树森林 - 追击战",
+      "name_en": "Forest of Giant Trees - Chase",
+      "environment": "giant_forest",
+      "description": "在巨树森林中与女巨人周旋，利用树木进行立体机动！",
+      "chapter_id": "s1_c3",
+      "difficulty": 4,
+      "spawn_points": [
+        {"position": [100, 0, 100], "titan_type": "normal_7m", "delay": 0},
+        {"position": [200, 0, 150], "titan_type": "abnormal_5m", "delay": 15},
+        {"position": [150, 0, 250], "titan_type": "normal_10m", "delay": 30}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "survive", "time": 300, "description": "在森林中生存5分钟"},
+        {"id": "obj_2", "type": "reach", "position": [300, 0, 300], "radius": 15, "description": "到达陷阱区域"}
+      ],
+      "time_limit": 420,
+      "environment_config": {
+        "buildings": false,
+        "walls": false,
+        "trees": true,
+        "tree_density": "high",
+        "weather": "foggy",
+        "time_of_day": "afternoon"
+      }
+    },
+    "female_titan_capture": {
+      "id": "female_titan_capture",
+      "name": "巨树森林 - 捕获女巨人",
+      "name_en": "Forest of Giant Trees - Female Titan Capture",
+      "environment": "giant_forest",
+      "description": "执行捕获女巨人的作战计划！",
+      "chapter_id": "s1_c3",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [150, 0, 150], "titan_type": "female_titan", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "damage", "target": "female_titan", "damage_threshold": 500, "description": "对女巨人造成足够伤害"},
+        {"id": "obj_2", "type": "survive", "time": 240, "description": "坚持到增援到达"}
+      ],
+      "time_limit": 360,
+      "environment_config": {
+        "buildings": false,
+        "walls": false,
+        "trees": true,
+        "tree_density": "high",
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "stohess_battle": {
+      "id": "stohess_battle",
+      "name": "斯托黑斯区决战",
+      "name_en": "Battle of Stohess",
+      "environment": "stohess_city",
+      "description": "在斯托黑斯区与女巨人展开最终决战！",
+      "chapter_id": "s1_c4",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [100, 0, 100], "titan_type": "female_titan", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "defeat", "target": "female_titan", "description": "击败女巨人"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "wall_rose_breach": {
+      "id": "wall_rose_breach",
+      "name": "罗塞之墙危机",
+      "name_en": "Wall Rose Crisis",
+      "environment": "wall_rose_area",
+      "description": "城墙内出现了巨人！调查原因并消灭入侵的巨人。",
+      "chapter_id": "s2_c1",
+      "difficulty": 3,
+      "spawn_points": [
+        {"position": [80, 0, 60], "titan_type": "normal_5m", "delay": 0},
+        {"position": [150, 0, 100], "titan_type": "normal_7m", "delay": 10},
+        {"position": [100, 0, 180], "titan_type": "abnormal_5m", "delay": 20},
+        {"position": [200, 0, 80], "titan_type": "normal_10m", "delay": 35}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 6, "description": "击杀6只巨人"},
+        {"id": "obj_2", "type": "investigate", "position": [250, 0, 150], "radius": 15, "description": "调查巨人出现的原因"}
+      ],
+      "time_limit": 540,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": true,
+        "weather": "cloudy",
+        "time_of_day": "evening"
+      }
+    },
+    "beast_titan_encounter": {
+      "id": "beast_titan_encounter",
+      "name": "兽之巨人遭遇战",
+      "name_en": "Beast Titan Encounter",
+      "environment": "wall_rose_area",
+      "description": "遭遇神秘的兽之巨人，在远程攻击下生存！",
+      "chapter_id": "s2_c1",
+      "difficulty": 4,
+      "spawn_points": [
+        {"position": [300, 0, 300], "titan_type": "beast_titan", "delay": 0},
+        {"position": [100, 0, 100], "titan_type": "normal_7m", "delay": 10},
+        {"position": [150, 0, 200], "titan_type": "abnormal_7m", "delay": 25}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "survive", "time": 240, "description": "在兽之巨人的攻击下生存4分钟"},
+        {"id": "obj_2", "type": "escape", "position": [0, 0, 0], "radius": 30, "description": "撤退到安全区域"}
+      ],
+      "time_limit": 360,
+      "environment_config": {
+        "buildings": false,
+        "walls": true,
+        "trees": true,
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "utgard_defense": {
+      "id": "utgard_defense",
+      "name": "乌特加尔德城防卫战",
+      "name_en": "Utgard Castle Defense",
+      "environment": "utgard_castle",
+      "description": "被巨人包围的乌特加尔德城，在没有完整装备的情况下生存！",
+      "chapter_id": "s2_c2",
+      "difficulty": 4,
+      "spawn_points": [
+        {"position": [50, 0, 50], "titan_type": "normal_5m", "delay": 0},
+        {"position": [80, 0, 30], "titan_type": "normal_7m", "delay": 10},
+        {"position": [30, 0, 80], "titan_type": "normal_3m", "delay": 15},
+        {"position": [100, 0, 60], "titan_type": "abnormal_5m", "delay": 30},
+        {"position": [60, 0, 100], "titan_type": "normal_10m", "delay": 45}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "survive", "time": 360, "description": "坚守城堡6分钟"},
+        {"id": "obj_2", "type": "protect", "target": "castle_gate", "min_health": 20, "description": "保护城门不被破坏"}
+      ],
+      "time_limit": 480,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "night",
+        "time_of_day": "night"
+      }
+    },
+    "warrior_reveal_battle": {
+      "id": "warrior_reveal_battle",
+      "name": "战士之战",
+      "name_en": "Battle of Warriors",
+      "environment": "wall_rose_top",
+      "description": "莱纳和贝尔托特露出真面目！在城墙上与铠之巨人和超大型巨人战斗！",
+      "chapter_id": "s2_c3",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [100, 50, 100], "titan_type": "armored_titan", "delay": 0},
+        {"position": [150, 50, 100], "titan_type": "colossal_titan", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "damage", "target": "armored_titan", "damage_threshold": 800, "description": "对铠之巨人造成伤害"},
+        {"id": "obj_2", "type": "survive", "time": 300, "description": "坚持到增援到达"}
+      ],
+      "time_limit": 420,
+      "environment_config": {
+        "buildings": false,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "afternoon"
+      }
+    },
+    "rescue_eren": {
+      "id": "rescue_eren",
+      "name": "救出艾伦",
+      "name_en": "Rescue Eren",
+      "environment": "giant_forest",
+      "description": "追击带走艾伦的莱纳和贝尔托特，在巨树森林中展开救援作战！",
+      "chapter_id": "s2_c3",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [200, 0, 200], "titan_type": "armored_titan", "delay": 0},
+        {"position": [100, 0, 150], "titan_type": "abnormal_7m", "delay": 20},
+        {"position": [150, 0, 100], "titan_type": "normal_10m", "delay": 40}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "reach", "position": [200, 0, 200], "radius": 20, "description": "接近铠之巨人"},
+        {"id": "obj_2", "type": "rescue", "target": "eren", "description": "救出艾伦"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": false,
+        "walls": false,
+        "trees": true,
+        "tree_density": "high",
+        "weather": "clear",
+        "time_of_day": "evening"
+      }
+    },
+    "kenny_chase": {
+      "id": "kenny_chase",
+      "name": "对人立体机动装置",
+      "name_en": "Anti-Personnel ODM Gear",
+      "environment": "underground_city",
+      "description": "在地下街与肯尼小队展开追逐战！",
+      "chapter_id": "s3_c1",
+      "difficulty": 4,
+      "spawn_points": [
+        {"position": [50, 0, 50], "titan_type": "normal_3m", "delay": 60},
+        {"position": [100, 0, 80], "titan_type": "normal_5m", "delay": 90}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "survive", "time": 180, "description": "躲避肯尼小队的追击"},
+        {"id": "obj_2", "type": "escape", "position": [200, 0, 200], "radius": 15, "description": "逃离地下街"}
+      ],
+      "time_limit": 300,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "indoor",
+        "time_of_day": "night"
+      }
+    },
+    "reiss_chapel": {
+      "id": "reiss_chapel",
+      "name": "雷伊斯家地下礼拜堂",
+      "name_en": "Reiss Chapel Underground",
+      "environment": "underground_chapel",
+      "description": "在雷伊斯家的地下礼拜堂与罗德·雷伊斯巨人战斗！",
+      "chapter_id": "s3_c1",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [100, 0, 100], "titan_type": "normal_15m", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "escape", "position": [0, 0, 0], "radius": 20, "description": "逃离崩塌的地下空间"},
+        {"id": "obj_2", "type": "survive", "time": 180, "description": "在崩塌中生存"}
+      ],
+      "time_limit": 300,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "indoor",
+        "time_of_day": "night"
+      }
+    },
+    "shiganshina_return": {
+      "id": "shiganshina_return",
+      "name": "玛利亚之墙夺还战 - 开战",
+      "name_en": "Return to Shiganshina - Battle Start",
+      "environment": "shiganshina_district",
+      "description": "时隔五年，调查兵团终于发起夺回玛利亚之墙的作战！",
+      "chapter_id": "s3_c2",
+      "difficulty": 5,
+      "spawn_points": [
+        {"position": [100, 0, 80], "titan_type": "normal_7m", "delay": 0},
+        {"position": [150, 0, 120], "titan_type": "normal_10m", "delay": 10},
+        {"position": [80, 0, 150], "titan_type": "abnormal_7m", "delay": 20},
+        {"position": [200, 0, 100], "titan_type": "normal_15m", "delay": 35},
+        {"position": [120, 0, 200], "titan_type": "abnormal_10m", "delay": 50}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "kill", "target": "titan", "count": 12, "description": "清除希干希纳区的巨人"},
+        {"id": "obj_2", "type": "reach", "position": [250, 0, 250], "radius": 20, "description": "到达内门"}
+      ],
+      "time_limit": 720,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "dawn"
+      }
+    },
+    "beast_titan_battle": {
+      "id": "beast_titan_battle",
+      "name": "玛利亚之墙夺还战 - 兽之巨人",
+      "name_en": "Return to Shiganshina - Beast Titan",
+      "environment": "shiganshina_outside",
+      "description": "埃尔文团长率领调查兵团向兽之巨人发起冲锋！",
+      "chapter_id": "s3_c2",
+      "difficulty": 6,
+      "spawn_points": [
+        {"position": [400, 0, 200], "titan_type": "beast_titan", "delay": 0},
+        {"position": [200, 0, 100], "titan_type": "normal_10m", "delay": 0},
+        {"position": [250, 0, 150], "titan_type": "normal_7m", "delay": 0},
+        {"position": [300, 0, 100], "titan_type": "abnormal_7m", "delay": 0},
+        {"position": [350, 0, 150], "titan_type": "normal_15m", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "defeat", "target": "beast_titan", "description": "击败兽之巨人"},
+        {"id": "obj_2", "type": "survive", "time": 180, "description": "在投石攻击下生存"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": false,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "dawn"
+      }
+    },
+    "colossal_battle": {
+      "id": "colossal_battle",
+      "name": "玛利亚之墙夺还战 - 超大型巨人",
+      "name_en": "Return to Shiganshina - Colossal Titan",
+      "environment": "shiganshina_district",
+      "description": "阿尔敏与艾伦联手对抗超大型巨人！",
+      "chapter_id": "s3_c2",
+      "difficulty": 6,
+      "spawn_points": [
+        {"position": [150, 0, 150], "titan_type": "colossal_titan", "delay": 0}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "defeat", "target": "colossal_titan", "description": "击败超大型巨人"},
+        {"id": "obj_2", "type": "survive", "time": 300, "description": "在高温蒸汽中生存"}
+      ],
+      "time_limit": 600,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "steam",
+        "time_of_day": "dawn"
+      }
+    },
+    "basement_mission": {
+      "id": "basement_mission",
+      "name": "地下室",
+      "name_en": "The Basement",
+      "environment": "shiganshina_district",
+      "description": "战斗结束后，终于可以前往艾伦家的地下室了。",
+      "chapter_id": "s3_c2",
+      "difficulty": 2,
+      "spawn_points": [
+        {"position": [80, 0, 60], "titan_type": "normal_3m", "delay": 30},
+        {"position": [120, 0, 100], "titan_type": "normal_5m", "delay": 60}
+      ],
+      "objectives": [
+        {"id": "obj_1", "type": "reach", "position": [100, 0, 100], "radius": 10, "description": "到达艾伦家的地下室"},
+        {"id": "obj_2", "type": "investigate", "position": [100, 0, 100], "radius": 5, "description": "调查地下室"}
+      ],
+      "time_limit": 300,
+      "environment_config": {
+        "buildings": true,
+        "walls": true,
+        "trees": false,
+        "weather": "clear",
+        "time_of_day": "morning"
+      }
+    }
+  },
+  "environments": {
+    "shiganshina_district": {
+      "id": "shiganshina_district",
+      "name": "希干希纳区",
+      "name_en": "Shiganshina District",
+      "description": "玛利亚之墙最南端的突出区域，艾伦的故乡",
+      "model_path": "assets/models/environments/shiganshina.glb",
+      "size": [500, 100, 500],
+      "features": ["buildings", "walls", "streets"],
+      "odm_anchor_density": "high"
+    },
+    "trost_city": {
+      "id": "trost_city",
+      "name": "托洛斯特区",
+      "name_en": "Trost District",
+      "description": "罗塞之墙南端的城市，训练兵团毕业后的第一战场",
+      "model_path": "assets/models/environments/trost.glb",
+      "size": [600, 100, 600],
+      "features": ["buildings", "walls", "supply_stations"],
+      "odm_anchor_density": "high"
+    },
+    "giant_forest": {
+      "id": "giant_forest",
+      "name": "巨树森林",
+      "name_en": "Forest of Giant Trees",
+      "description": "墙外的巨大树木森林，是立体机动装置的理想战场",
+      "model_path": "assets/models/environments/giant_forest.glb",
+      "size": [800, 200, 800],
+      "features": ["giant_trees", "fog"],
+      "odm_anchor_density": "very_high"
+    },
+    "open_field": {
+      "id": "open_field",
+      "name": "开阔地带",
+      "name_en": "Open Field",
+      "description": "墙外的平原地带，缺乏立体机动的支点",
+      "model_path": "assets/models/environments/open_field.glb",
+      "size": [1000, 50, 1000],
+      "features": ["sparse_trees", "rocks"],
+      "odm_anchor_density": "low"
+    },
+    "wall_rose_area": {
+      "id": "wall_rose_area",
+      "name": "罗塞之墙区域",
+      "name_en": "Wall Rose Area",
+      "description": "罗塞之墙内的村庄和农田区域",
+      "model_path": "assets/models/environments/wall_rose.glb",
+      "size": [700, 80, 700],
+      "features": ["villages", "farms", "walls"],
+      "odm_anchor_density": "medium"
+    },
+    "utgard_castle": {
+      "id": "utgard_castle",
+      "name": "乌特加尔德城",
+      "name_en": "Utgard Castle",
+      "description": "罗塞之墙内的古老城堡遗迹",
+      "model_path": "assets/models/environments/utgard.glb",
+      "size": [200, 150, 200],
+      "features": ["castle", "tower", "ruins"],
+      "odm_anchor_density": "medium"
+    },
+    "stohess_city": {
+      "id": "stohess_city",
+      "name": "斯托黑斯区",
+      "name_en": "Stohess District",
+      "description": "希娜之墙内的城市，宪兵团驻地",
+      "model_path": "assets/models/environments/stohess.glb",
+      "size": [500, 100, 500],
+      "features": ["buildings", "walls", "underground"],
+      "odm_anchor_density": "high"
+    },
+    "underground_city": {
+      "id": "underground_city",
+      "name": "地下街",
+      "name_en": "Underground City",
+      "description": "希娜之墙下方的地下城市",
+      "model_path": "assets/models/environments/underground.glb",
+      "size": [400, 50, 400],
+      "features": ["buildings", "tunnels", "low_ceiling"],
+      "odm_anchor_density": "medium"
+    },
+    "underground_chapel": {
+      "id": "underground_chapel",
+      "name": "地下礼拜堂",
+      "name_en": "Underground Chapel",
+      "description": "雷伊斯家的秘密地下礼拜堂",
+      "model_path": "assets/models/environments/chapel.glb",
+      "size": [150, 80, 150],
+      "features": ["pillars", "altar", "crystals"],
+      "odm_anchor_density": "low"
+    },
+    "wall_rose_top": {
+      "id": "wall_rose_top",
+      "name": "罗塞之墙顶部",
+      "name_en": "Wall Rose Top",
+      "description": "罗塞之墙的顶部，50米高的战场",
+      "model_path": "assets/models/environments/wall_top.glb",
+      "size": [100, 50, 1000],
+      "features": ["wall_surface", "cannons"],
+      "odm_anchor_density": "low"
+    },
+    "shiganshina_outside": {
+      "id": "shiganshina_outside",
+      "name": "希干希纳区外",
+      "name_en": "Outside Shiganshina",
+      "description": "希干希纳区城墙外的平原",
+      "model_path": "assets/models/environments/shiganshina_outside.glb",
+      "size": [800, 50, 800],
+      "features": ["plains", "wall_exterior"],
+      "odm_anchor_density": "very_low"
+    }
+  },
+  "objective_types": {
+    "kill": {
+      "description": "击杀指定数量的巨人",
+      "parameters": ["target", "count"]
+    },
+    "survive": {
+      "description": "在指定时间内生存",
+      "parameters": ["time"]
+    },
+    "reach": {
+      "description": "到达指定位置",
+      "parameters": ["position", "radius"]
+    },
+    "protect": {
+      "description": "保护目标不被摧毁",
+      "parameters": ["target", "min_health"]
+    },
+    "defeat": {
+      "description": "击败特定敌人",
+      "parameters": ["target"]
+    },
+    "damage": {
+      "description": "对目标造成指定伤害",
+      "parameters": ["target", "damage_threshold"]
+    },
+    "escape": {
+      "description": "逃离到指定区域",
+      "parameters": ["position", "radius"]
+    },
+    "investigate": {
+      "description": "调查指定位置",
+      "parameters": ["position", "radius"]
+    },
+    "rescue": {
+      "description": "救出目标",
+      "parameters": ["target"]
+    }
+  }
+}

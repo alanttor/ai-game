@@ -1,0 +1,258 @@
+{
+  "eren": {
+    "id": "eren",
+    "name": "艾伦·耶格尔",
+    "name_en": "Eren Yeager",
+    "portrait": "assets/textures/portraits/eren.png",
+    "model": "assets/models/eren.glb",
+    "stats": {
+      "speed": 1.0,
+      "attack_power": 1.2,
+      "stamina": 100,
+      "gas_efficiency": 1.0
+    },
+    "background": "希干希纳区出身，目睹母亲被巨人吞噬后立志消灭所有巨人。性格热血冲动，拥有强烈的战斗意志。",
+    "personality": ["热血", "执着", "冲动", "勇敢"],
+    "relationships": {
+      "mikasa": "青梅竹马，被她守护",
+      "armin": "挚友，智囊",
+      "jean": "竞争对手",
+      "reiner": "同期战友",
+      "annie": "训练搭档"
+    }
+  },
+  "mikasa": {
+    "id": "mikasa",
+    "name": "三笠·阿克曼",
+    "name_en": "Mikasa Ackerman",
+    "portrait": "assets/textures/portraits/mikasa.png",
+    "model": "assets/models/mikasa.glb",
+    "stats": {
+      "speed": 1.3,
+      "attack_power": 1.4,
+      "stamina": 110,
+      "gas_efficiency": 1.2
+    },
+    "background": "阿克曼家族后裔，父母被杀后被艾伦一家收养。104期首席毕业，被誉为百年一遇的天才。",
+    "personality": ["冷静", "坚强", "守护", "寡言"],
+    "relationships": {
+      "eren": "最重要的人，誓死守护",
+      "armin": "重要的朋友",
+      "sasha": "同期好友",
+      "jean": "同期战友",
+      "levi": "同族"
+    }
+  },
+  "armin": {
+    "id": "armin",
+    "name": "阿尔敏·阿诺德",
+    "name_en": "Armin Arlert",
+    "portrait": "assets/textures/portraits/armin.png",
+    "model": "assets/models/armin.glb",
+    "stats": {
+      "speed": 0.9,
+      "attack_power": 0.8,
+      "stamina": 80,
+      "gas_efficiency": 1.1
+    },
+    "background": "希干希纳区出身，艾伦和三笠的挚友。虽然体能较弱，但拥有出色的战略头脑和分析能力。",
+    "personality": ["聪明", "胆小", "善良", "战略家"],
+    "relationships": {
+      "eren": "挚友，精神支柱",
+      "mikasa": "重要的朋友",
+      "jean": "战术搭档",
+      "annie": "复杂的情感"
+    }
+  },
+  "jean": {
+    "id": "jean",
+    "name": "让·基尔希斯坦",
+    "name_en": "Jean Kirstein",
+    "portrait": "assets/textures/portraits/jean.png",
+    "model": "assets/models/jean.glb",
+    "stats": {
+      "speed": 1.1,
+      "attack_power": 1.0,
+      "stamina": 95,
+      "gas_efficiency": 1.0
+    },
+    "background": "托洛斯特区出身，原本想加入宪兵团过安稳生活，但在马尔科死后决心加入调查兵团。",
+    "personality": ["现实", "领导力", "正直", "成长型"],
+    "relationships": {
+      "eren": "竞争对手，后成为战友",
+      "marco": "挚友，精神导师",
+      "mikasa": "暗恋对象",
+      "connie": "好友",
+      "sasha": "损友"
+    }
+  },
+  "connie": {
+    "id": "connie",
+    "name": "康尼·斯普林格",
+    "name_en": "Connie Springer",
+    "portrait": "assets/textures/portraits/connie.png",
+    "model": "assets/models/connie.glb",
+    "stats": {
+      "speed": 1.2,
+      "attack_power": 0.9,
+      "stamina": 90,
+      "gas_efficiency": 1.0
+    },
+    "background": "拉加科村出身，性格开朗乐观。虽然头脑简单，但身体灵活，立体机动装置操作能力出色。",
+    "personality": ["乐观", "单纯", "忠诚", "幽默"],
+    "relationships": {
+      "sasha": "最好的朋友",
+      "jean": "好友",
+      "eren": "同期战友",
+      "reiner": "尊敬的前辈"
+    }
+  },
+  "sasha": {
+    "id": "sasha",
+    "name": "萨沙·布劳斯",
+    "name_en": "Sasha Blouse",
+    "portrait": "assets/textures/portraits/sasha.png",
+    "model": "assets/models/sasha.glb",
+    "stats": {
+      "speed": 1.15,
+      "attack_power": 0.95,
+      "stamina": 95,
+      "gas_efficiency": 0.95
+    },
+    "background": "多派村出身的猎人之女，拥有出色的直觉和射击能力。因为总是偷吃食物被称为'薯女'。",
+    "personality": ["贪吃", "直觉敏锐", "善良", "天然"],
+    "relationships": {
+      "connie": "最好的朋友",
+      "mikasa": "同期好友",
+      "jean": "损友",
+      "historia": "好友"
+    }
+  },
+  "reiner": {
+    "id": "reiner",
+    "name": "莱纳·布朗",
+    "name_en": "Reiner Braun",
+    "portrait": "assets/textures/portraits/reiner.png",
+    "model": "assets/models/reiner.glb",
+    "stats": {
+      "speed": 0.95,
+      "attack_power": 1.3,
+      "stamina": 120,
+      "gas_efficiency": 0.9
+    },
+    "background": "104期训练兵团第二名毕业，被同期视为可靠的大哥。实际上隐藏着重大秘密。",
+    "personality": ["可靠", "坚强", "矛盾", "责任感"],
+    "relationships": {
+      "bertholdt": "同乡挚友",
+      "annie": "同乡战友",
+      "eren": "复杂的情感",
+      "connie": "照顾的后辈",
+      "historia": "关心的对象"
+    }
+  },
+  "bertholdt": {
+    "id": "bertholdt",
+    "name": "贝尔托特·胡佛",
+    "name_en": "Bertholdt Hoover",
+    "portrait": "assets/textures/portraits/bertholdt.png",
+    "model": "assets/models/bertholdt.glb",
+    "stats": {
+      "speed": 1.0,
+      "attack_power": 1.1,
+      "stamina": 100,
+      "gas_efficiency": 1.0
+    },
+    "background": "104期训练兵团第三名毕业，性格内向寡言，但实力出众。与莱纳关系密切。",
+    "personality": ["内向", "寡言", "优柔寡断", "隐忍"],
+    "relationships": {
+      "reiner": "同乡挚友",
+      "annie": "暗恋对象",
+      "eren": "复杂的情感",
+      "armin": "同期战友"
+    }
+  },
+  "ymir": {
+    "id": "ymir",
+    "name": "尤弥尔",
+    "name_en": "Ymir",
+    "portrait": "assets/textures/portraits/ymir.png",
+    "model": "assets/models/ymir.glb",
+    "stats": {
+      "speed": 1.1,
+      "attack_power": 1.0,
+      "stamina": 105,
+      "gas_efficiency": 1.0
+    },
+    "background": "神秘的训练兵，过去不明。性格尖锐但内心善良，对克里斯塔有着特殊的感情。",
+    "personality": ["尖锐", "自私", "深情", "神秘"],
+    "relationships": {
+      "historia": "最重要的人",
+      "reiner": "知道秘密",
+      "bertholdt": "知道秘密",
+      "sasha": "同期战友"
+    }
+  },
+  "historia": {
+    "id": "historia",
+    "name": "克里斯塔·连兹",
+    "name_en": "Historia Reiss",
+    "portrait": "assets/textures/portraits/historia.png",
+    "model": "assets/models/historia.glb",
+    "stats": {
+      "speed": 1.0,
+      "attack_power": 0.85,
+      "stamina": 85,
+      "gas_efficiency": 1.1
+    },
+    "background": "被称为'女神'的金发少女，温柔善良。实际上隐藏着王族血统的秘密身份。",
+    "personality": ["温柔", "善良", "坚强", "隐藏真我"],
+    "relationships": {
+      "ymir": "最重要的人",
+      "eren": "同期战友",
+      "sasha": "好友",
+      "reiner": "被关心的对象"
+    }
+  },
+  "marco": {
+    "id": "marco",
+    "name": "马尔科·博特",
+    "name_en": "Marco Bott",
+    "portrait": "assets/textures/portraits/marco.png",
+    "model": "assets/models/marco.glb",
+    "stats": {
+      "speed": 1.0,
+      "attack_power": 0.95,
+      "stamina": 95,
+      "gas_efficiency": 1.0
+    },
+    "background": "104期训练兵团第七名毕业，性格温和善良，具有出色的领导才能和协调能力。",
+    "personality": ["温和", "善良", "领导力", "理想主义"],
+    "relationships": {
+      "jean": "挚友",
+      "eren": "同期战友",
+      "armin": "同期战友",
+      "reiner": "尊敬的同期"
+    }
+  },
+  "annie": {
+    "id": "annie",
+    "name": "阿尼·利昂纳德",
+    "name_en": "Annie Leonhart",
+    "portrait": "assets/textures/portraits/annie.png",
+    "model": "assets/models/annie.glb",
+    "stats": {
+      "speed": 1.2,
+      "attack_power": 1.25,
+      "stamina": 95,
+      "gas_efficiency": 1.1
+    },
+    "background": "104期训练兵团第四名毕业，格斗术出众。性格冷漠孤僻，很少与人交流。",
+    "personality": ["冷漠", "孤僻", "强大", "矛盾"],
+    "relationships": {
+      "reiner": "同乡战友",
+      "bertholdt": "同乡战友",
+      "eren": "训练搭档",
+      "armin": "复杂的情感"
+    }
+  }
+}

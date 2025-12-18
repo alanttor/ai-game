@@ -1,0 +1,4 @@
+ursina>=5.0.0
+hypothesis>=6.0.0
+pytest>=7.0.0
+pyinstaller>=5.0.0
