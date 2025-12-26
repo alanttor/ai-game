@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动画天气卡片</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 0 0 30px rgba(100, 150, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 12px 25px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: transparent;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .weather-card {
+            border-radius: 20px;
+            padding: 25px;
+            height: 280px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            transition: all 0.4s ease;
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .weather-card.hidden {
+            transform: scale(0.8);
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+            visibility: hidden;
+        }
+
+        .weather-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+
+        .card-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: rgba(255,255,255,0.95);
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .animation-container {
+            position: relative;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Sunny Card */
+        .sunny {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        }
+
+        .sun {
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, #fff 0%, #ffeb3b 40%, #ff9800 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 60px #ffeb3b, 0 0 100px #ff9800;
+            animation: sunPulse 2s ease-in-out infinite;
+        }
+
+        .sun-rays {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            animation: sunRotate 20s linear infinite;
+        }
+
+        .sun-ray {
+            position: absolute;
+            width: 4px;
+            height: 25px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 2px;
+            left: 50%;
+            top: 50%;
+            transform-origin: center 75px;
+        }
+
+        @keyframes sunPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 60px #ffeb3b, 0 0 100px #ff9800; }
+            50% { transform: scale(1.1); box-shadow: 0 0 80px #ffeb3b, 0 0 120px #ff9800; }
+        }
+
+        @keyframes sunRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Rainy Card */
+        .rainy {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .cloud {
+            position: relative;
+            width: 100px;
+            height: 40px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 40px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+        }
+
+        .cloud::before {
+            width: 50px;
+            height: 50px;
+            top: -25px;
+            left: 15px;
+        }
+
+        .cloud::after {
+            width: 35px;
+            height: 35px;
+            top: -15px;
+            left: 55px;
+        }
+
+        .rain-container {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 100px;
+            overflow: hidden;
+        }
+
+        .raindrop {
+            position: absolute;
+            width: 3px;
+            height: 15px;
+            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.8));
+            border-radius: 0 0 3px 3px;
+            animation: rainFall 0.8s linear infinite;
+        }
+
+        @keyframes rainFall {
+            0% { transform: translateY(-20px); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translateY(100px); opacity: 0; }
+        }
+
+        /* Snowy Card */
+        .snowy {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        }
+
+        .snowy .cloud {
+            background: rgba(200,210,230,0.9);
+        }
+
+        .snowy .cloud::before, .snowy .cloud::after {
+            background: rgba(200,210,230,0.9);
+        }
+
+        .snow-container {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            overflow: hidden;
+        }
+
+        .snowflake {
+            position: absolute;
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            animation: snowFall 3s linear infinite;
+            text-shadow: 0 0 5px rgba(100,150,255,0.5);
+        }
+
+        @keyframes snowFall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translateY(120px) rotate(360deg); opacity: 0; }
+        }
+
+        /* Windy Card */
+        .windy {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .wind-lines {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .wind-line {
+            position: absolute;
+            height: 3px;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.7), transparent);
+            border-radius: 3px;
+            animation: windBlow 2s ease-in-out infinite;
+        }
+
+        @keyframes windBlow {
+            0% { transform: translateX(-100px); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(150px); opacity: 0; }
+        }
+
+        .windy .cloud {
+            animation: cloudFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes cloudFloat {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(10px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .cards-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .cards-container {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .filter-btn {
+                padding: 10px 18px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🌤️ 动画天气卡片</h1>
+    <div class="filters">
+        <button class="filter-btn active" data-filter="all">全部显示</button>
+        <button class="filter-btn" data-filter="sunny">晴天</button>
+        <button class="filter-btn" data-filter="rainy">雨天</button>
+        <button class="filter-btn" data-filter="snowy">雪天</button>
+        <button class="filter-btn" data-filter="windy">大风</button>
+    </div>
+    <div class="cards-container" id="cardsContainer"></div>
+
+    <script>
+        const weatherData = [
+            { type: 'sunny', name: '晴天' },
+            { type: 'rainy', name: '雨天' },
+            { type: 'snowy', name: '雪天' },
+            { type: 'windy', name: '大风' }
+        ];
+
+        const container = document.getElementById('cardsContainer');
+
+        // Create weather cards
+        weatherData.forEach(weather => {
+            const card = document.createElement('div');
+            card.className = `weather-card ${weather.type}`;
+            card.dataset.type = weather.type;
+
+            card.innerHTML = `
+                <div class="card-title">${weather.name}</div>
+                <div class="animation-container" id="${weather.type}-animation"></div>
+            `;
+
+            container.appendChild(card);
+        });
+
+        // Create Sunny animation
+        function createSunnyAnimation() {
+            const container = document.getElementById('sunny-animation');
+            
+            // Sun rays
+            const raysDiv = document.createElement('div');
+            raysDiv.className = 'sun-rays';
+            for (let i = 0; i < 12; i++) {
+                const ray = document.createElement('div');
+                ray.className = 'sun-ray';
+                ray.style.transform = `rotate(${i * 30}deg)`;
+                raysDiv.appendChild(ray);
+            }
+            container.appendChild(raysDiv);
+
+            // Sun
+            const sun = document.createElement('div');
+            sun.className = 'sun';
+            container.appendChild(sun);
+        }
+
+        // Create Rainy animation
+        function createRainyAnimation() {
+            const container = document.getElementById('rainy-animation');
+            
+            // Cloud
+            const cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            container.appendChild(cloud);
+
+            // Rain container
+            const rainContainer = document.createElement('div');
+            rainContainer.className = 'rain-container';
+            
+            for (let i = 0; i < 15; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'raindrop';
+                drop.style.left = `${Math.random() * 100}%`;
+                drop.style.animationDelay = `${Math.random() * 0.8}s`;
+                drop.style.animationDuration = `${0.6 + Math.random() * 0.4}s`;
+                rainContainer.appendChild(drop);
+            }
+            container.appendChild(rainContainer);
+        }
+
+        // Create Snowy animation
+        function createSnowyAnimation() {
+            const container = document.getElementById('snowy-animation');
+            
+            // Cloud
+            const cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            container.appendChild(cloud);
+
+            // Snow container
+            const snowContainer = document.createElement('div');
+            snowContainer.className = 'snow-container';
+            
+            for (let i = 0; i < 20; i++) {
+                const flake = document.createElement('div');
+                flake.className = 'snowflake';
+                flake.textContent = '❄';
+                flake.style.left = `${Math.random() * 100}%`;
+                flake.style.animationDelay = `${Math.random() * 3}s`;
+                flake.style.animationDuration = `${2 + Math.random() * 2}s`;
+                flake.style.fontSize = `${8 + Math.random() * 10}px`;
+                snowContainer.appendChild(flake);
+            }
+            container.appendChild(snowContainer);
+        }
+
+        // Create Windy animation
+        function createWindyAnimation() {
+            const container = document.getElementById('windy-animation');
+            
+            // Cloud
+            const cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            container.appendChild(cloud);
+
+            // Wind lines
+            const windLines = document.createElement('div');
+            windLines.className = 'wind-lines';
+            
+            for (let i = 0; i < 6; i++) {
+                const line = document.createElement('div');
+                line.className = 'wind-line';
+                line.style.top = `${30 + i * 25}px`;
+                line.style.width = `${40 + Math.random() * 60}px`;
+                line.style.animationDelay = `${i * 0.3}s`;
+                line.style.animationDuration = `${1.5 + Math.random() * 1}s`;
+                windLines.appendChild(line);
+            }
+            container.appendChild(windLines);
+        }
+
+        // Initialize animations
+        createSunnyAnimation();
+        createRainyAnimation();
+        createSnowyAnimation();
+        createWindyAnimation();
+
+        // Filter functionality
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const cards = document.querySelectorAll('.weather-card');
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active button
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.dataset.filter;
+
+                cards.forEach(card => {
+                    if (filter === 'all' || card.dataset.type === filter) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

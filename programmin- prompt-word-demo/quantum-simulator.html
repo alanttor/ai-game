@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子波函数模拟器</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a1a2a 100%);
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .simulation-area {
+            flex: 0 0 70%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title {
+            text-align: center;
+            padding: 15px;
+            font-size: 1.4em;
+            color: #0ff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            letter-spacing: 3px;
+        }
+
+        canvas {
+            flex: 1;
+            background: transparent;
+        }
+
+        .control-panel {
+            flex: 0 0 30%;
+            background: rgba(10, 20, 40, 0.95);
+            border-left: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: -5px 0 30px rgba(0, 255, 255, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 1.1em;
+            color: #0ff;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+            color: #8af;
+        }
+
+        .control-group .value {
+            color: #0ff;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: linear-gradient(90deg, #1a3a5a, #2a5a8a);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #0ff, #08f);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 10px 15px;
+            background: rgba(0, 100, 150, 0.3);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            color: #0ff;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            background: rgba(0, 150, 200, 0.5);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+
+        .btn.active {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .info-panel {
+            background: rgba(0, 50, 80, 0.3);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            color: #0ff;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 0.85em;
+        }
+
+        .info-row .label {
+            color: #8af;
+        }
+
+        .info-row .value {
+            color: #0ff;
+            font-weight: bold;
+        }
+
+        .section-title {
+            color: #8af;
+            font-size: 0.9em;
+            margin: 15px 0 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .eigenstate-btns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+        }
+
+        .eigenstate-btns .btn {
+            min-width: auto;
+            padding: 8px;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .simulation-area {
+                flex: 0 0 60%;
+            }
+            .control-panel {
+                flex: 0 0 40%;
+                border-left: none;
+                border-top: 2px solid rgba(0, 255, 255, 0.3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="simulation-area">
+            <div class="title">⚛️ 量子波函数模拟器</div>
+            <canvas id="canvas"></canvas>
+        </div>
+        <div class="control-panel" id="controlPanel"></div>
+    </div>
+
+    <script>
+        // ==================== Quantum Engine ====================
+        class QuantumEngine {
+            constructor() {
+                this.wellWidth = 300;
+                this.wellHeight = 150;
+                this.particleEnergy = 80;
+                this.hbar = 1.0;
+                this.mass = 1.0;
+                this.timeSpeed = 1.0;
+                this.quantumNumber = 1;
+                this.time = 0;
+                this.barriers = [];
+                this.gridPoints = 500;
+                this.waveFunction = [];
+                this.probability = [];
+                this.calculateWaveFunction();
+            }
+
+            calculateWaveFunction() {
+                const L = this.wellWidth;
+                const n = this.quantumNumber;
+                const k = (n * Math.PI) / L;
+                
+                this.waveFunction = [];
+                this.probability = [];
+                
+                for (let i = 0; i <= this.gridPoints; i++) {
+                    const x = (i / this.gridPoints) * L;
+                    
+                    // Check if inside barrier
+                    let inBarrier = false;
+                    for (const barrier of this.barriers) {
+                        if (x >= barrier.x && x <= barrier.x + barrier.width) {
+                            inBarrier = true;
+                            break;
+                        }
+                    }
+                    
+                    if (inBarrier) {
+                        // Exponential decay in barrier
+                        this.waveFunction.push(0.1 * Math.sin(k * x));
+                    } else {
+                        // Standard infinite well solution
+                        const psi = Math.sqrt(2 / L) * Math.sin(k * x);
+                        this.waveFunction.push(psi);
+                    }
+                    
+                    this.probability.push(this.waveFunction[i] ** 2);
+                }
+            }
+
+            getEigenEnergy() {
+                const n = this.quantumNumber;
+                const L = this.wellWidth;
+                return (n * n * Math.PI * Math.PI * this.hbar * this.hbar) / (2 * this.mass * L * L) * 1000;
+            }
+
+            update(dt) {
+                this.time += dt * this.timeSpeed;
+            }
+
+            getTimeEvolution(index) {
+                const E = this.getEigenEnergy();
+                const omega = E / this.hbar;
+                const phase = omega * this.time * 0.001;
+                return {
+                    real: this.waveFunction[index] * Math.cos(phase),
+                    imag: this.waveFunction[index] * Math.sin(phase)
+                };
+            }
+        }
+
+        // ==================== Renderer ====================
+        class Renderer {
+            constructor(canvas, engine) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.engine = engine;
+                this.viewMode = 'both'; // 'wave', 'probability', 'both'
+                this.gridOffset = 0;
+                this.stars = this.generateStars(100);
+                this.resize();
+            }
+
+            generateStars(count) {
+                const stars = [];
+                for (let i = 0; i < count; i++) {
+                    stars.push({
+                        x: Math.random(),
+                        y: Math.random(),
+                        size: Math.random() * 2,
+                        alpha: 0.3 + Math.random() * 0.7
+                    });
+                }
+                return stars;
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height - 50;
+                this.centerX = this.canvas.width / 2;
+                this.centerY = this.canvas.height / 2;
+            }
+
+            drawBackground() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                // Gradient background
+                const gradient = ctx.createLinearGradient(0, 0, w, h);
+                gradient.addColorStop(0, '#0a0a1a');
+                gradient.addColorStop(0.5, '#1a1a3a');
+                gradient.addColorStop(1, '#0a1a2a');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, w, h);
+
+                // Stars
+                this.stars.forEach(star => {
+                    ctx.beginPath();
+                    ctx.arc(star.x * w, star.y * h, star.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha * (0.5 + 0.5 * Math.sin(this.engine.time * 0.002 + star.x * 10))})`;
+                    ctx.fill();
+                });
+
+                // Grid with parallax
+                ctx.strokeStyle = 'rgba(0, 100, 150, 0.15)';
+                ctx.lineWidth = 1;
+                const gridSize = 40;
+                const offset = (this.gridOffset % gridSize);
+
+                for (let x = offset; x < w; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                }
+
+                for (let y = 0; y < h; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+
+                this.gridOffset += 0.2;
+            }
+
+            drawPotentialWell() {
+                const ctx = this.ctx;
+                const wellWidth = this.engine.wellWidth;
+                const wellHeight = this.engine.wellHeight;
+                const startX = this.centerX - wellWidth / 2;
+                const baseY = this.centerY + 100;
+
+                // Well walls
+                ctx.strokeStyle = '#0ff';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#0ff';
+                ctx.shadowBlur = 20;
+
+                // Left wall
+                ctx.beginPath();
+                ctx.moveTo(startX, baseY);
+                ctx.lineTo(startX, baseY - wellHeight * 1.5);
+                ctx.stroke();
+
+                // Right wall
+                ctx.beginPath();
+                ctx.moveTo(startX + wellWidth, baseY);
+                ctx.lineTo(startX + wellWidth, baseY - wellHeight * 1.5);
+                ctx.stroke();
+
+                // Bottom
+                ctx.beginPath();
+                ctx.moveTo(startX, baseY);
+                ctx.lineTo(startX + wellWidth, baseY);
+                ctx.stroke();
+
+                // Draw barriers
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+                ctx.strokeStyle = '#f80';
+                ctx.lineWidth = 2;
+                this.engine.barriers.forEach(barrier => {
+                    const bx = startX + barrier.x;
+                    const bh = barrier.height;
+                    ctx.fillRect(bx, baseY - bh, barrier.width, bh);
+                    ctx.strokeRect(bx, baseY - bh, barrier.width, bh);
+                });
+
+                ctx.shadowBlur = 0;
+            }
+
+            drawWaveFunction() {
+                const ctx = this.ctx;
+                const wellWidth = this.engine.wellWidth;
+                const startX = this.centerX - wellWidth / 2;
+                const baseY = this.centerY + 100;
+                const amplitude = 80;
+
+                const wf = this.engine.waveFunction;
+                const prob = this.engine.probability;
+
+                // Probability density (red area)
+                if (this.viewMode === 'probability' || this.viewMode === 'both') {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, baseY);
+                    
+                    for (let i = 0; i <= this.engine.gridPoints; i++) {
+                        const x = startX + (i / this.engine.gridPoints) * wellWidth;
+                        const y = baseY - prob[i] * amplitude * 3 * (1 + 0.1 * Math.sin(this.engine.time * 0.005));
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.lineTo(startX + wellWidth, baseY);
+                    ctx.closePath();
+                    
+                    const probGradient = ctx.createLinearGradient(0, baseY - amplitude * 2, 0, baseY);
+                    probGradient.addColorStop(0, 'rgba(255, 50, 100, 0.5)');
+                    probGradient.addColorStop(1, 'rgba(255, 50, 100, 0.1)');
+                    ctx.fillStyle = probGradient;
+                    ctx.fill();
+                }
+
+                // Wave function (blue line)
+                if (this.viewMode === 'wave' || this.viewMode === 'both') {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#0ff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#0ff';
+                    ctx.shadowBlur = 15;
+
+                    for (let i = 0; i <= this.engine.gridPoints; i++) {
+                        const x = startX + (i / this.engine.gridPoints) * wellWidth;
+                        const evolution = this.engine.getTimeEvolution(i);
+                        const y = baseY - evolution.real * amplitude * 2;
+                        
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    // Imaginary part (dashed)
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+
+                    for (let i = 0; i <= this.engine.gridPoints; i++) {
+                        const x = startX + (i / this.engine.gridPoints) * wellWidth;
+                        const evolution = this.engine.getTimeEvolution(i);
+                        const y = baseY - evolution.imag * amplitude * 2;
+                        
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+
+            drawParticle() {
+                const ctx = this.ctx;
+                const wellWidth = this.engine.wellWidth;
+                const startX = this.centerX - wellWidth / 2;
+                const baseY = this.centerY + 100;
+
+                // Find max probability position
+                let maxProb = 0;
+                let maxIndex = 0;
+                this.engine.probability.forEach((p, i) => {
+                    if (p > maxProb) {
+                        maxProb = p;
+                        maxIndex = i;
+                    }
+                });
+
+                // Oscillate around max probability
+                const oscillation = Math.sin(this.engine.time * 0.01) * 50;
+                const particleX = startX + (maxIndex / this.engine.gridPoints) * wellWidth + oscillation;
+                const particleY = baseY - 50;
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(particleX, particleY, 0, particleX, particleY, 20);
+                gradient.addColorStop(0, 'rgba(0, 255, 255, 1)');
+                gradient.addColorStop(0.5, 'rgba(0, 255, 255, 0.5)');
+                gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+
+                ctx.beginPath();
+                ctx.arc(particleX, particleY, 20, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(particleX, particleY, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+            }
+
+            render() {
+                this.drawBackground();
+                this.drawPotentialWell();
+                this.drawWaveFunction();
+                this.drawParticle();
+            }
+        }
+
+        // ==================== UI Controller ====================
+        class UIController {
+            constructor(engine, renderer) {
+                this.engine = engine;
+                this.renderer = renderer;
+                this.createControls();
+                this.setupCanvasInteraction();
+            }
+
+            createControls() {
+                const panel = document.getElementById('controlPanel');
+                panel.innerHTML = `
+                    <div class="panel-title">⚙️ 量子控制面板</div>
+                    
+                    <div class="section-title">参数设置</div>
+                    
+                    <div class="control-group">
+                        <label><span>势阱宽度</span><span class="value" id="wellWidthVal">${this.engine.wellWidth}px</span></label>
+                        <input type="range" id="wellWidth" min="100" max="500" value="${this.engine.wellWidth}">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><span>势阱高度</span><span class="value" id="wellHeightVal">${this.engine.wellHeight}</span></label>
+                        <input type="range" id="wellHeight" min="50" max="300" value="${this.engine.wellHeight}">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><span>粒子能量</span><span class="value" id="energyVal">${this.engine.particleEnergy}</span></label>
+                        <input type="range" id="energy" min="10" max="250" value="${this.engine.particleEnergy}">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><span>ℏ (普朗克常数)</span><span class="value" id="hbarVal">${this.engine.hbar.toFixed(2)}</span></label>
+                        <input type="range" id="hbar" min="50" max="200" value="${this.engine.hbar * 100}">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><span>质量</span><span class="value" id="massVal">${this.engine.mass.toFixed(2)}</span></label>
+                        <input type="range" id="mass" min="10" max="500" value="${this.engine.mass * 100}">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label><span>时间速度</span><span class="value" id="timeVal">${this.engine.timeSpeed.toFixed(1)}x</span></label>
+                        <input type="range" id="timeSpeed" min="0" max="30" value="${this.engine.timeSpeed * 10}">
+                    </div>
+                    
+                    <div class="section-title">视图模式</div>
+                    <div class="btn-group">
+                        <button class="btn ${this.renderer.viewMode === 'wave' ? 'active' : ''}" data-view="wave">波函数 ψ</button>
+                        <button class="btn ${this.renderer.viewMode === 'probability' ? 'active' : ''}" data-view="probability">概率 |ψ|²</button>
+                        <button class="btn ${this.renderer.viewMode === 'both' ? 'active' : ''}" data-view="both">两者</button>
+                    </div>
+                    
+                    <div class="section-title">本征态 (n)</div>
+                    <div class="eigenstate-btns">
+                        ${[1,2,3,4,5,6,7,8].map(n => 
+                            `<button class="btn ${this.engine.quantumNumber === n ? 'active' : ''}" data-n="${n}">n=${n}</button>`
+                        ).join('')}
+                    </div>
+                    
+                    <div class="section-title">操作</div>
+                    <div class="btn-group">
+                        <button class="btn" id="addBarrier">添加势垒</button>
+                        <button class="btn" id="clearBarriers">清除</button>
+                    </div>
+                    
+                    <div class="info-panel">
+                        <h3>📊 状态信息</h3>
+                        <div class="info-row"><span class="label">量子数 n:</span><span class="value" id="infoN">${this.engine.quantumNumber}</span></div>
+                        <div class="info-row"><span class="label">能量 Eₙ:</span><span class="value" id="infoE">${this.engine.getEigenEnergy().toFixed(2)}</span></div>
+                        <div class="info-row"><span class="label">波长 λ:</span><span class="value" id="infoL">${(2 * this.engine.wellWidth / this.engine.quantumNumber).toFixed(1)}px</span></div>
+                        <div class="info-row"><span class="label">节点数:</span><span class="value" id="infoNodes">${this.engine.quantumNumber - 1}</span></div>
+                    </div>
+                `;
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Sliders
+                document.getElementById('wellWidth').addEventListener('input', (e) => {
+                    this.engine.wellWidth = parseInt(e.target.value);
+                    document.getElementById('wellWidthVal').textContent = e.target.value + 'px';
+                    this.engine.calculateWaveFunction();
+                    this.updateInfo();
+                });
+
+                document.getElementById('wellHeight').addEventListener('input', (e) => {
+                    this.engine.wellHeight = parseInt(e.target.value);
+                    document.getElementById('wellHeightVal').textContent = e.target.value;
+                });
+
+                document.getElementById('energy').addEventListener('input', (e) => {
+                    this.engine.particleEnergy = parseInt(e.target.value);
+                    document.getElementById('energyVal').textContent = e.target.value;
+                });
+
+                document.getElementById('hbar').addEventListener('input', (e) => {
+                    this.engine.hbar = parseInt(e.target.value) / 100;
+                    document.getElementById('hbarVal').textContent = this.engine.hbar.toFixed(2);
+                    this.engine.calculateWaveFunction();
+                    this.updateInfo();
+                });
+
+                document.getElementById('mass').addEventListener('input', (e) => {
+                    this.engine.mass = parseInt(e.target.value) / 100;
+                    document.getElementById('massVal').textContent = this.engine.mass.toFixed(2);
+                    this.engine.calculateWaveFunction();
+                    this.updateInfo();
+                });
+
+                document.getElementById('timeSpeed').addEventListener('input', (e) => {
+                    this.engine.timeSpeed = parseInt(e.target.value) / 10;
+                    document.getElementById('timeVal').textContent = this.engine.timeSpeed.toFixed(1) + 'x';
+                });
+
+                // View mode buttons
+                document.querySelectorAll('[data-view]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.renderer.viewMode = e.target.dataset.view;
+                    });
+                });
+
+                // Eigenstate buttons
+                document.querySelectorAll('[data-n]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('[data-n]').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.engine.quantumNumber = parseInt(e.target.dataset.n);
+                        this.engine.calculateWaveFunction();
+                        this.updateInfo();
+                    });
+                });
+
+                // Barrier buttons
+                document.getElementById('addBarrier').addEventListener('click', () => {
+                    const x = Math.random() * (this.engine.wellWidth - 30);
+                    this.engine.barriers.push({ x, width: 30, height: 80 + Math.random() * 70 });
+                    this.engine.calculateWaveFunction();
+                });
+
+                document.getElementById('clearBarriers').addEventListener('click', () => {
+                    this.engine.barriers = [];
+                    this.engine.calculateWaveFunction();
+                });
+            }
+
+            setupCanvasInteraction() {
+                const canvas = document.getElementById('canvas');
+                canvas.addEventListener('click', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const wellStart = this.renderer.centerX - this.engine.wellWidth / 2;
+                    const wellEnd = wellStart + this.engine.wellWidth;
+                    
+                    if (x >= wellStart && x <= wellEnd) {
+                        const relX = x - wellStart;
+                        this.engine.barriers.push({ x: relX - 15, width: 30, height: 80 + Math.random() * 70 });
+                        this.engine.calculateWaveFunction();
+                    }
+                });
+            }
+
+            updateInfo() {
+                document.getElementById('infoN').textContent = this.engine.quantumNumber;
+                document.getElementById('infoE').textContent = this.engine.getEigenEnergy().toFixed(2);
+                document.getElementById('infoL').textContent = (2 * this.engine.wellWidth / this.engine.quantumNumber).toFixed(1) + 'px';
+                document.getElementById('infoNodes').textContent = this.engine.quantumNumber - 1;
+            }
+        }
+
+        // ==================== Main ====================
+        const canvas = document.getElementById('canvas');
+        const engine = new QuantumEngine();
+        const renderer = new Renderer(canvas, engine);
+        const ui = new UIController(engine, renderer);
+
+        window.addEventListener('resize', () => renderer.resize());
+
+        let lastTime = 0;
+        function animate(time) {
+            const dt = time - lastTime;
+            lastTime = time;
+
+            engine.update(dt);
+            renderer.render();
+            requestAnimationFrame(animate);
+        }
+
+        animate(0);
+    </script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太阳系模拟器</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000010;
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+            font-size: 2em;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            letter-spacing: 3px;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            background: radial-gradient(ellipse at center, #0a0a20 0%, #000005 100%);
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(100, 150, 255, 0.2);
+        }
+
+        .control-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px 30px;
+            margin-top: 20px;
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 15px;
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            min-width: 100px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #44cc44, #228822);
+            color: white;
+            box-shadow: 0 4px 15px rgba(68, 204, 68, 0.4);
+        }
+
+        .btn-start:hover {
+            background: linear-gradient(135deg, #55dd55, #339933);
+            transform: translateY(-2px);
+        }
+
+        .btn-pause {
+            background: linear-gradient(135deg, #ffaa44, #cc7722);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 170, 68, 0.4);
+        }
+
+        .btn-pause:hover {
+            background: linear-gradient(135deg, #ffbb55, #dd8833);
+            transform: translateY(-2px);
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #4488ff, #2255cc);
+            color: white;
+            box-shadow: 0 4px 15px rgba(68, 136, 255, 0.4);
+        }
+
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #5599ff, #3366dd);
+            transform: translateY(-2px);
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .speed-control label {
+            color: #aaa;
+            font-size: 0.95em;
+        }
+
+        .speed-control input[type="range"] {
+            width: 150px;
+            height: 6px;
+            -webkit-appearance: none;
+            background: linear-gradient(90deg, #2a2a4a, #4a4a8a);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+            cursor: pointer;
+        }
+
+        .speed-value {
+            color: #ffd700;
+            font-weight: bold;
+            min-width: 50px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(20, 20, 40, 0.7);
+            border-radius: 10px;
+            max-width: 900px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌌 太阳系模拟器</h1>
+    
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="control-panel">
+        <button class="btn btn-start" id="btnStart">▶ 开始</button>
+        <button class="btn btn-pause" id="btnPause">⏸ 暂停</button>
+        <button class="btn btn-reset" id="btnReset">↺ 重置</button>
+        <div class="speed-control">
+            <label>速度:</label>
+            <input type="range" id="speedSlider" min="1" max="50" value="10">
+            <span class="speed-value" id="speedValue">1.0x</span>
+        </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布大小
+        const size = Math.min(window.innerWidth - 40, 900);
+        canvas.width = size;
+        canvas.height = size;
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // 模拟状态
+        let isRunning = false;
+        let speedMultiplier = 1;
+
+        // 行星数据 [名称, 颜色, 轨道半径, 大小, 公转速度, 初始角度, 是否有环]
+        const planetsData = [
+            { name: '水星', color: '#b5b5b5', orbit: 50, size: 4, speed: 4.15, angle: 0 },
+            { name: '金星', color: '#e6c87a', orbit: 75, size: 6, speed: 1.62, angle: Math.PI/4 },
+            { name: '地球', color: '#6b93d6', orbit: 105, size: 6.5, speed: 1, angle: Math.PI/2 },
+            { name: '火星', color: '#c1440e', orbit: 140, size: 5, speed: 0.53, angle: Math.PI },
+            { name: '木星', color: '#d8ca9d', orbit: 200, size: 18, speed: 0.084, angle: Math.PI*1.2 },
+            { name: '土星', color: '#f4d59e', orbit: 260, size: 15, speed: 0.034, angle: Math.PI*1.5, hasRing: true },
+            { name: '天王星', color: '#d1e7e7', orbit: 310, size: 10, speed: 0.012, angle: Math.PI*0.3 },
+            { name: '海王星', color: '#5b5ddf', orbit: 360, size: 9.5, speed: 0.006, angle: Math.PI*0.8 }
+        ];
+
+        // 初始化行星
+        let planets = [];
+
+        function initPlanets() {
+            planets = planetsData.map(p => ({
+                ...p,
+                currentAngle: p.angle
+            }));
+        }
+
+        // 绘制星空背景
+        function drawStars() {
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 200; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 1.5;
+                const alpha = 0.3 + Math.random() * 0.7;
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // 绘制太阳
+        function drawSun() {
+            // 外发光
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 60);
+            gradient.addColorStop(0, 'rgba(255, 255, 200, 1)');
+            gradient.addColorStop(0.3, 'rgba(255, 200, 50, 0.8)');
+            gradient.addColorStop(0.6, 'rgba(255, 150, 0, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 60, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // 太阳本体
+            const sunGradient = ctx.createRadialGradient(centerX - 5, centerY - 5, 0, centerX, centerY, 25);
+            sunGradient.addColorStop(0, '#fff5d0');
+            sunGradient.addColorStop(0.5, '#ffd700');
+            sunGradient.addColorStop(1, '#ff8c00');
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 25, 0, Math.PI * 2);
+            ctx.fillStyle = sunGradient;
+            ctx.fill();
+        }
+
+        // 绘制轨道
+        function drawOrbits() {
+            ctx.strokeStyle = 'rgba(100, 150, 255, 0.2)';
+            ctx.lineWidth = 1;
+            
+            planets.forEach(planet => {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, planet.orbit, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+        }
+
+        // 绘制行星
+        function drawPlanet(planet) {
+            const x = centerX + Math.cos(planet.currentAngle) * planet.orbit;
+            const y = centerY + Math.sin(planet.currentAngle) * planet.orbit;
+
+            // 土星环
+            if (planet.hasRing) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(0.4);
+                ctx.beginPath();
+                ctx.ellipse(0, 0, planet.size * 2, planet.size * 0.5, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(210, 180, 140, 0.7)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 行星发光
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, planet.size * 2);
+            glow.addColorStop(0, planet.color);
+            glow.addColorStop(0.5, planet.color + '40');
+            glow.addColorStop(1, 'transparent');
+            
+            ctx.beginPath();
+            ctx.arc(x, y, planet.size * 2, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.fill();
+
+            // 行星本体
+            const gradient = ctx.createRadialGradient(x - planet.size/3, y - planet.size/3, 0, x, y, planet.size);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.3, planet.color);
+            gradient.addColorStop(1, shadeColor(planet.color, -30));
+            
+            ctx.beginPath();
+            ctx.arc(x, y, planet.size, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+
+        // 颜色加深
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+            const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+            const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+
+        // 更新行星位置
+        function updatePlanets() {
+            if (!isRunning) return;
+            
+            planets.forEach(planet => {
+                planet.currentAngle += planet.speed * 0.01 * speedMultiplier;
+            });
+        }
+
+        // 主渲染循环
+        function render() {
+            // 清除画布
+            ctx.fillStyle = '#000010';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制星空（静态，只绘制一次会闪烁，所以每帧都画）
+            drawStars();
+
+            // 绘制轨道
+            drawOrbits();
+
+            // 绘制太阳
+            drawSun();
+
+            // 更新并绘制行星（按轨道从外到内绘制，确保内层行星在上面）
+            updatePlanets();
+            [...planets].reverse().forEach(drawPlanet);
+
+            requestAnimationFrame(render);
+        }
+
+        // 创建图例
+        function createLegend() {
+            const legend = document.getElementById('legend');
+            planetsData.forEach(planet => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `<span class="legend-dot" style="background: ${planet.color}"></span>${planet.name}`;
+                legend.appendChild(item);
+            });
+        }
+
+        // 事件处理
+        document.getElementById('btnStart').addEventListener('click', () => {
+            isRunning = true;
+        });
+
+        document.getElementById('btnPause').addEventListener('click', () => {
+            isRunning = false;
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            isRunning = false;
+            initPlanets();
+            document.getElementById('speedSlider').value = 10;
+            speedMultiplier = 1;
+            document.getElementById('speedValue').textContent = '1.0x';
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            speedMultiplier = this.value / 10;
+            document.getElementById('speedValue').textContent = speedMultiplier.toFixed(1) + 'x';
+        });
+
+        // 初始化
+        initPlanets();
+        createLegend();
+        render();
+    </script>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打字练习游戏</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 30px;
+        }
+
+        h1 span {
+            color: #667eea;
+        }
+
+        .text-display {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            font-size: 1.3em;
+            line-height: 2;
+            min-height: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 25px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .char {
+            position: relative;
+            transition: all 0.1s;
+        }
+
+        .char.correct {
+            color: #28a745;
+        }
+
+        .char.incorrect {
+            color: #fff;
+            background: #dc3545;
+            border-radius: 3px;
+        }
+
+        .char.current {
+            border-bottom: 3px solid #ffc107;
+            background: rgba(255, 193, 7, 0.2);
+        }
+
+        .char.pending {
+            color: #6c757d;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+        }
+
+        .stat {
+            text-align: center;
+            color: #fff;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .keyboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .key {
+            min-width: 45px;
+            height: 45px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #495057;
+            transition: all 0.1s;
+            text-transform: uppercase;
+        }
+
+        .key.space {
+            min-width: 300px;
+        }
+
+        .key.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: #fff;
+            transform: translateY(2px);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .controls {
+            text-align: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .game-complete {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border-radius: 12px;
+            color: #fff;
+            margin-bottom: 25px;
+            display: none;
+        }
+
+        .game-complete h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .game-complete.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 20px;
+            }
+
+            .text-display {
+                font-size: 1.1em;
+            }
+
+            .key {
+                min-width: 30px;
+                height: 35px;
+                font-size: 0.8em;
+            }
+
+            .key.space {
+                min-width: 150px;
+            }
+
+            .stats {
+                gap: 20px;
+            }
+
+            .stat-value {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>⌨️ <span>打字练习</span></h1>
+        <div class="text-display" id="textDisplay"></div>
+        <div class="stats">
+            <div class="stat"><span class="stat-value" id="wpm">0</span><span class="stat-label">每分钟字数</span></div>
+            <div class="stat"><span class="stat-value" id="time">0</span><span class="stat-label">时间 (秒)</span></div>
+            <div class="stat"><span class="stat-value" id="accuracy">100</span><span class="stat-label">准确率 %</span></div>
+        </div>
+        <div class="keyboard" id="keyboard"></div>
+        <div class="controls">
+            <button class="btn" id="restartBtn">🔄 重新开始</button>
+        </div>
+        <div class="game-complete" id="gameComplete">
+            <h2>🎉 恭喜完成！</h2>
+            <p>你已完成全部文本输入！</p>
+        </div>
+    </div>
+
+    <script>
+        const famousTexts = [
+            "The only way to do great work is to love what you do. If you have not found it yet, keep looking. Do not settle.",
+            "In the middle of difficulty lies opportunity. Life is what happens when you are busy making other plans.",
+            "Success is not final, failure is not fatal. It is the courage to continue that counts. Never give up.",
+            "The future belongs to those who believe in the beauty of their dreams. Dream big and dare to fail."
+        ];
+
+        let currentText = '';
+        let currentIndex = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let correctChars = 0;
+        let totalTyped = 0;
+        let isComplete = false;
+
+        const textDisplay = document.getElementById('textDisplay');
+        const wpmDisplay = document.getElementById('wpm');
+        const timeDisplay = document.getElementById('time');
+        const accuracyDisplay = document.getElementById('accuracy');
+        const keyboard = document.getElementById('keyboard');
+        const restartBtn = document.getElementById('restartBtn');
+        const gameComplete = document.getElementById('gameComplete');
+
+        // Keyboard layout
+        const keyboardLayout = [
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.'],
+            ['space']
+        ];
+
+        // Create virtual keyboard
+        function createKeyboard() {
+            keyboard.innerHTML = '';
+            keyboardLayout.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'keyboard-row';
+                row.forEach(key => {
+                    const keyDiv = document.createElement('div');
+                    keyDiv.className = 'key' + (key === 'space' ? ' space' : '');
+                    keyDiv.dataset.key = key === 'space' ? ' ' : key;
+                    keyDiv.textContent = key === 'space' ? 'Space' : key;
+                    rowDiv.appendChild(keyDiv);
+                });
+                keyboard.appendChild(rowDiv);
+            });
+        }
+
+        // Render text display
+        function renderText() {
+            textDisplay.innerHTML = '';
+            currentText.split('').forEach((char, index) => {
+                const span = document.createElement('span');
+                span.className = 'char';
+                span.textContent = char;
+                
+                if (index < currentIndex) {
+                    span.classList.add('correct');
+                } else if (index === currentIndex) {
+                    span.classList.add('current');
+                } else {
+                    span.classList.add('pending');
+                }
+                
+                textDisplay.appendChild(span);
+            });
+        }
+
+        // Start timer
+        function startTimer() {
+            if (startTime) return;
+            startTime = Date.now();
+            timerInterval = setInterval(updateStats, 100);
+        }
+
+        // Update statistics
+        function updateStats() {
+            if (!startTime) return;
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            timeDisplay.textContent = Math.floor(elapsed);
+            
+            // Calculate WPM (assuming average word length of 5 characters)
+            const minutes = elapsed / 60;
+            const words = correctChars / 5;
+            const wpm = minutes > 0 ? Math.round(words / minutes) : 0;
+            wpmDisplay.textContent = wpm;
+            
+            // Calculate accuracy
+            const accuracy = totalTyped > 0 ? Math.round((correctChars / totalTyped) * 100) : 100;
+            accuracyDisplay.textContent = accuracy;
+        }
+
+        // Handle key press
+        function handleKeyPress(key) {
+            if (isComplete) return;
+            
+            startTimer();
+            totalTyped++;
+            
+            const expectedChar = currentText[currentIndex];
+            
+            if (key === expectedChar) {
+                correctChars++;
+                currentIndex++;
+                
+                if (currentIndex >= currentText.length) {
+                    completeGame();
+                }
+            } else {
+                // Show error
+                const chars = textDisplay.querySelectorAll('.char');
+                if (chars[currentIndex]) {
+                    chars[currentIndex].classList.add('incorrect');
+                    setTimeout(() => {
+                        chars[currentIndex].classList.remove('incorrect');
+                    }, 200);
+                }
+            }
+            
+            renderText();
+            scrollToCurrentChar();
+            updateStats();
+        }
+
+        // Scroll to current character
+        function scrollToCurrentChar() {
+            const currentChar = textDisplay.querySelector('.char.current');
+            if (currentChar) {
+                currentChar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Complete game
+        function completeGame() {
+            isComplete = true;
+            clearInterval(timerInterval);
+            gameComplete.classList.add('show');
+        }
+
+        // Reset game
+        function resetGame() {
+            currentText = famousTexts[Math.floor(Math.random() * famousTexts.length)];
+            currentIndex = 0;
+            startTime = null;
+            correctChars = 0;
+            totalTyped = 0;
+            isComplete = false;
+            
+            clearInterval(timerInterval);
+            
+            wpmDisplay.textContent = '0';
+            timeDisplay.textContent = '0';
+            accuracyDisplay.textContent = '100';
+            gameComplete.classList.remove('show');
+            
+            renderText();
+        }
+
+        // Highlight virtual key
+        function highlightKey(key, active) {
+            const keyElement = document.querySelector(`.key[data-key="${key.toLowerCase()}"]`);
+            if (keyElement) {
+                if (active) {
+                    keyElement.classList.add('active');
+                } else {
+                    keyElement.classList.remove('active');
+                }
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' || e.key === 'Escape') return;
+            e.preventDefault();
+            
+            let key = e.key;
+            if (key === ' ') key = ' ';
+            
+            if (key.length === 1) {
+                handleKeyPress(key);
+                highlightKey(key, true);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            let key = e.key;
+            if (key === ' ') key = ' ';
+            highlightKey(key, false);
+        });
+
+        restartBtn.addEventListener('click', resetGame);
+
+        // Initialize
+        createKeyboard();
+        resetGame();
+    </script>
+</body>
+</html>
