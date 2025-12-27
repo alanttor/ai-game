@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中世纪封建社会模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Times New Roman', serif;
+            background: linear-gradient(135deg, #2a2018 0%, #1a1810 100%);
+            min-height: 100vh;
+            color: #d4c4a8;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .left-panel {
+            width: 350px;
+            background: rgba(20,18,12,0.95);
+            border-right: 2px solid #4a3a20;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .pyramid-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #pyramidCanvas { display: block; }
+        .right-panel {
+            width: 300px;
+            background: rgba(20,18,12,0.95);
+            border-left: 2px solid #4a3a20;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .panel-title {
+            font-size: 1em;
+            color: #c4a060;
+            border-bottom: 1px solid #4a3a20;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid #3a2a18;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="left-panel" id="leftPanel"></div>
+    <div class="main-area">
+        <div class="pyramid-area">
+            <canvas id="pyramidCanvas"></canvas>
+        </div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let year = 1100;
+let paused = false;
+let selectedClass = null;
+
+// 社会阶层
+const classes = {
+    king: { name: '国王', icon: '👑', color: '#ffd700', pop: 1, wealth: 10000, power: 100, y: 0.1 },
+    nobles: { name: '贵族', icon: '🏰', color: '#c0c0c0', pop: 50, wealth: 5000, power: 70, y: 0.25 },
+    clergy: { name: '教士', icon: '⛪', color: '#9370db', pop: 200, wealth: 3000, power: 60, y: 0.35 },
+    knights: { name: '骑士', icon: '⚔️', color: '#cd853f', pop: 500, wealth: 1000, power: 40, y: 0.45 },
+    merchants: { name: '商人', icon: '💰', color: '#daa520', pop: 1000, wealth: 800, power: 20, y: 0.55 },
+    craftsmen: { name: '工匠', icon: '🔨', color: '#8b4513', pop: 3000, wealth: 200, power: 10, y: 0.65 },
+    peasants: { name: '农民', icon: '🌾', color: '#6b8e23', pop: 50000, wealth: 10, power: 5, y: 0.8 },
+    serfs: { name: '农奴', icon: '⛓️', color: '#696969', pop: 100000, wealth: 1, power: 1, y: 0.92 }
+};
+
+// 关系矩阵
+const relations = {
+    'king-nobles': { type: '封地授予', strength: 0.8 },
+    'nobles-knights': { type: '军事效忠', strength: 0.7 },
+    'nobles-peasants': { type: '保护与租税', strength: 0.5 },
+    'clergy-all': { type: '精神权威', strength: 0.6 },
+    'merchants-craftsmen': { type: '贸易合作', strength: 0.4 }
+};
+
+// 历史事件
+const events = [
+    { year: 1096, name: '第一次十字军东征', effect: { knights: { pop: -0.1, wealth: 0.2 }, clergy: { power: 0.1 } } },
+    { year: 1215, name: '大宪章签署', effect: { king: { power: -0.2 }, nobles: { power: 0.2 } } },
+    { year: 1347, name: '黑死病爆发', effect: { peasants: { pop: -0.4 }, serfs: { pop: -0.5 }, merchants: { wealth: -0.3 } } }
+];
+
+// 统计
+let stats = {
+    stability: 70,
+    economy: 50,
+    faith: 80
+};
+
+function init() {
+    canvas = document.getElementById('pyramidCanvas');
+    ctx = canvas.getContext('2d');
+    
+    canvas.width = 600;
+    canvas.height = 500;
+    
+    renderLeftPanel();
+    renderRightPanel();
+    
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('mousemove', handleMove);
+    
+    setInterval(simulate, 2000);
+    animate();
+}
+
+function renderLeftPanel() {
+    const panel = document.getElementById('leftPanel');
+    
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 10px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #a09080; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #3a2a18; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #c4a060; cursor: pointer; }
+            .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin: 3px; font-family: inherit; }
+            .btn-primary { background: linear-gradient(135deg, #5a4a30, #3a3020); color: #d4c4a8; border: 1px solid #6a5a40; }
+            .btn-secondary { background: rgba(255,255,255,0.05); color: #a09080; }
+            .btn:hover { transform: scale(1.02); }
+            .stat-bar { height: 10px; background: #2a2018; border-radius: 5px; margin-top: 4px; overflow: hidden; }
+            .stat-fill { height: 100%; border-radius: 5px; transition: width 0.5s; }
+            .event-item { padding: 8px; margin: 5px 0; background: rgba(196,160,96,0.1); border-radius: 4px; border-left: 3px solid #c4a060; font-size: 0.8em; }
+            .class-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; margin: 4px 0; text-align: left; }
+            .class-btn.active { background: rgba(196,160,96,0.2); border-color: #c4a060; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#c4a060;font-size:1.3em;">⚔️ 封建社会模拟器</h2>
+            <p style="color:#6a5a40;font-size:0.8em;">中世纪欧洲社会结构</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📅 时间: ${year} 年</div>
+            <div style="display:flex;gap:5px;margin-bottom:10px;">
+                <button class="btn ${paused ? 'btn-primary' : 'btn-secondary'}" onclick="togglePause()">
+                    ${paused ? '▶️ 继续' : '⏸️ 暂停'}
+                </button>
+                <button class="btn btn-secondary" onclick="resetSim()">🔄 重置</button>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>跳转年份</span><span>${year}</span></div>
+                <input type="range" min="800" max="1500" value="${year}" 
+                       oninput="year = parseInt(this.value); renderLeftPanel(); renderRightPanel();">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 社会指标</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>⚖️ 社会稳定</span><span>${stats.stability.toFixed(0)}%</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${stats.stability}%;background:${stats.stability > 50 ? '#6b8e23' : '#cd5c5c'};"></div></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>💰 经济繁荣</span><span>${stats.economy.toFixed(0)}%</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${stats.economy}%;background:#daa520;"></div></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>⛪ 宗教信仰</span><span>${stats.faith.toFixed(0)}%</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${stats.faith}%;background:#9370db;"></div></div>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">👥 社会阶层</div>
+            ${Object.entries(classes).map(([k, c]) => `
+                <button class="btn class-btn ${selectedClass === k ? 'active btn-primary' : 'btn-secondary'}" 
+                        onclick="selectClass('${k}')">
+                    <span style="font-size:1.5em;">${c.icon}</span>
+                    <div>
+                        <div style="font-weight:bold;">${c.name}</div>
+                        <div style="font-size:0.75em;color:#888;">人口: ${formatPop(c.pop)}</div>
+                    </div>
+                </button>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    const cls = selectedClass ? classes[selectedClass] : null;
+    
+    panel.innerHTML = `
+        <div class="panel-section">
+            <div class="panel-title">📜 历史事件</div>
+            ${events.filter(e => Math.abs(e.year - year) < 50).map(e => `
+                <div class="event-item" style="opacity:${e.year <= year ? 1 : 0.5}">
+                    <div style="color:#c4a060;">${e.year}年</div>
+                    <div>${e.name}</div>
+                </div>
+            `).join('') || '<div style="color:#6a5a40;font-size:0.8em;">暂无重大事件</div>'}
+        </div>
+        
+        ${cls ? `
+        <div class="panel-section">
+            <div class="panel-title">${cls.icon} ${cls.name}详情</div>
+            <div style="font-size:0.85em;line-height:1.8;">
+                <div>👥 人口: <span style="color:#c4a060;">${formatPop(cls.pop)}</span></div>
+                <div>💰 财富: <span style="color:#daa520;">${cls.wealth.toLocaleString()} 金币</span></div>
+                <div>⚔️ 权力: <span style="color:#cd853f;">${cls.power}%</span></div>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px solid #3a2a18;">
+                    ${getClassDescription(selectedClass)}
+                </div>
+            </div>
+        </div>
+        ` : `
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.8em;color:#6a5a40;line-height:1.5;">
+                点击左侧阶层或金字塔查看详情。<br><br>
+                <b>封建制度</b>：土地换取效忠和服务的社会契约。<br><br>
+                <b>三等级</b>：祈祷者（教士）、战斗者（贵族）、劳动者（农民）。
+            </div>
+        </div>
+        `}
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 政策调整</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>税收水平</span><span>中等</span></div>
+                <input type="range" min="0" max="100" value="50" 
+                       oninput="adjustPolicy('tax', this.value)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>军事投入</span><span>中等</span></div>
+                <input type="range" min="0" max="100" value="50" 
+                       oninput="adjustPolicy('military', this.value)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>教会支持</span><span>中等</span></div>
+                <input type="range" min="0" max="100" value="50" 
+                       oninput="adjustPolicy('church', this.value)">
+            </div>
+        </div>
+    `;
+}
+
+function formatPop(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function getClassDescription(cls) {
+    const descs = {
+        king: '最高统治者，拥有神授王权，统治整个王国。',
+        nobles: '大领主，从国王处获得封地，管理领地并提供军事服务。',
+        clergy: '教会人员，负责宗教事务，拥有独立的司法权。',
+        knights: '武装骑士，效忠于领主，提供军事服务换取土地。',
+        merchants: '城镇商人，从事贸易活动，逐渐积累财富和影响力。',
+        craftsmen: '手工业者，在城镇中从事各种手工生产。',
+        peasants: '自由农民，耕种土地，向领主缴纳租税。',
+        serfs: '农奴，被束缚在土地上，没有人身自由。'
+    };
+    return descs[cls] || '';
+}
+
+function selectClass(cls) {
+    selectedClass = selectedClass === cls ? null : cls;
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function togglePause() {
+    paused = !paused;
+    renderLeftPanel();
+}
+
+function resetSim() {
+    year = 1100;
+    stats = { stability: 70, economy: 50, faith: 80 };
+    Object.values(classes).forEach(c => {
+        c.pop = c.pop; // 重置人口
+    });
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function adjustPolicy(type, value) {
+    // 政策调整影响
+    const v = value / 100;
+    if (type === 'tax') {
+        stats.economy += (0.5 - v) * 2;
+        stats.stability += (0.5 - v) * 3;
+    }
+}
+
+
+function simulate() {
+    if (paused) return;
+    
+    year += 1;
+    
+    // 检查历史事件
+    events.forEach(e => {
+        if (e.year === year && e.effect) {
+            Object.entries(e.effect).forEach(([cls, changes]) => {
+                if (classes[cls]) {
+                    Object.entries(changes).forEach(([prop, delta]) => {
+                        if (prop === 'pop') {
+                            classes[cls].pop = Math.max(1, Math.floor(classes[cls].pop * (1 + delta)));
+                        } else {
+                            classes[cls][prop] = Math.max(0, classes[cls][prop] * (1 + delta));
+                        }
+                    });
+                }
+            });
+        }
+    });
+    
+    // 自然人口增长
+    Object.values(classes).forEach(c => {
+        const growth = 0.002 + Math.random() * 0.003;
+        c.pop = Math.floor(c.pop * (1 + growth));
+    });
+    
+    // 经济波动
+    stats.economy += (Math.random() - 0.5) * 2;
+    stats.stability += (Math.random() - 0.5) * 1;
+    
+    // 限制范围
+    stats.stability = Math.max(0, Math.min(100, stats.stability));
+    stats.economy = Math.max(0, Math.min(100, stats.economy));
+    stats.faith = Math.max(0, Math.min(100, stats.faith));
+    
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // 检测点击了哪个阶层
+    Object.entries(classes).forEach(([k, c]) => {
+        const cy = c.y * canvas.height;
+        const layerHeight = canvas.height * 0.08;
+        if (y > cy - layerHeight/2 && y < cy + layerHeight/2) {
+            selectClass(k);
+        }
+    });
+}
+
+function handleMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    
+    let hovering = false;
+    Object.values(classes).forEach(c => {
+        const cy = c.y * canvas.height;
+        const layerHeight = canvas.height * 0.08;
+        if (y > cy - layerHeight/2 && y < cy + layerHeight/2) {
+            hovering = true;
+        }
+    });
+    canvas.style.cursor = hovering ? 'pointer' : 'default';
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制背景
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bgGrad.addColorStop(0, '#2a2018');
+    bgGrad.addColorStop(1, '#1a1810');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制金字塔
+    const cx = canvas.width / 2;
+    const topY = 30;
+    const bottomY = canvas.height - 20;
+    const topWidth = 60;
+    const bottomWidth = canvas.width - 40;
+    
+    // 金字塔轮廓
+    ctx.beginPath();
+    ctx.moveTo(cx, topY);
+    ctx.lineTo(cx + bottomWidth/2, bottomY);
+    ctx.lineTo(cx - bottomWidth/2, bottomY);
+    ctx.closePath();
+    
+    const pyramidGrad = ctx.createLinearGradient(0, topY, 0, bottomY);
+    pyramidGrad.addColorStop(0, 'rgba(196,160,96,0.3)');
+    pyramidGrad.addColorStop(1, 'rgba(60,50,30,0.3)');
+    ctx.fillStyle = pyramidGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#4a3a20';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 绘制各阶层
+    Object.entries(classes).forEach(([k, c]) => {
+        const y = c.y * canvas.height;
+        const progress = (y - topY) / (bottomY - topY);
+        const layerWidth = topWidth + (bottomWidth - topWidth) * progress;
+        const layerHeight = canvas.height * 0.06;
+        
+        // 阶层条带
+        const isSelected = selectedClass === k;
+        ctx.fillStyle = isSelected ? c.color : `${c.color}88`;
+        ctx.beginPath();
+        ctx.roundRect(cx - layerWidth/2 + 10, y - layerHeight/2, layerWidth - 20, layerHeight, 4);
+        ctx.fill();
+        
+        if (isSelected) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        // 图标和名称
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(c.icon, cx - layerWidth/3, y);
+        
+        ctx.font = 'bold 12px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(c.name, cx, y - 2);
+        
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#ccc';
+        ctx.fillText(formatPop(c.pop), cx, y + 12);
+        
+        // 权力指示器
+        const powerWidth = 40;
+        const powerX = cx + layerWidth/3 - powerWidth/2;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(powerX, y - 4, powerWidth, 8);
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(powerX, y - 4, powerWidth * (c.power / 100), 8);
+    });
+    
+    // 绘制关系线
+    ctx.strokeStyle = 'rgba(196,160,96,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    
+    // 国王到贵族
+    ctx.beginPath();
+    ctx.moveTo(cx, classes.king.y * canvas.height + 20);
+    ctx.lineTo(cx, classes.nobles.y * canvas.height - 20);
+    ctx.stroke();
+    
+    // 贵族到骑士
+    ctx.beginPath();
+    ctx.moveTo(cx, classes.nobles.y * canvas.height + 20);
+    ctx.lineTo(cx, classes.knights.y * canvas.height - 20);
+    ctx.stroke();
+    
+    ctx.setLineDash([]);
+    
+    // 年份标题
+    ctx.font = 'bold 16px Times New Roman';
+    ctx.fillStyle = '#c4a060';
+    ctx.textAlign = 'center';
+    ctx.fillText(`公元 ${year} 年`, cx, 18);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

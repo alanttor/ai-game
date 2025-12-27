@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极端环境生存挑战</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0a15;
+            min-height: 100vh;
+            color: #c0c0c0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .env-area { flex: 1; position: relative; overflow: hidden; }
+        .env-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; transition: all 1s; }
+        .hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 10px; }
+        .hud-bottom { position: absolute; bottom: 10px; left: 10px; right: 320px; display: flex; gap: 10px; }
+        .right-panel {
+            width: 320px;
+            background: rgba(10,10,20,0.95);
+            border-left: 2px solid #3a3a5a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .vital-bar {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        .vital-label { font-size: 0.7em; color: #808090; margin-bottom: 3px; }
+        .vital-value { font-size: 1.1em; font-weight: bold; }
+        .vital-meter { height: 6px; background: #1a1a2a; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+        .vital-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="env-area" id="envArea">
+        <div class="env-bg" id="envBg"></div>
+        <canvas id="envCanvas"></canvas>
+        <div class="hud-top" id="hudTop"></div>
+        <div class="hud-bottom" id="hudBottom"></div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('envCanvas');
+const ctx = canvas.getContext('2d');
+
+// 环境类型
+const environments = {
+    everest: {
+        name: '珠穆朗玛峰',
+        icon: '🏔️',
+        altitude: 8848,
+        bgGradient: ['#1a2a4a', '#4a6a8a', '#8aaaca'],
+        challenges: ['缺氧', '低温', '暴风雪'],
+        oxygenRate: -2,
+        hydrationRate: -0.2,
+        baseTemp: -30
+    },
+    mariana: {
+        name: '马里亚纳海沟',
+        icon: '🌊',
+        altitude: -10994,
+        bgGradient: ['#001020', '#002040', '#003060'],
+        challenges: ['高压', '黑暗', '氮醉'],
+        oxygenRate: -1.5,
+        hydrationRate: -0.1,
+        baseTemp: 4
+    },
+    sahara: {
+        name: '撒哈拉沙漠',
+        icon: '🏜️',
+        altitude: 500,
+        bgGradient: ['#4a3020', '#8a6040', '#caaa80'],
+        challenges: ['高温', '脱水', '沙暴'],
+        oxygenRate: -0.3,
+        hydrationRate: -0.8,
+        baseTemp: 45
+    },
+    space: {
+        name: '国际空间站',
+        icon: '🚀',
+        altitude: 408000,
+        bgGradient: ['#000010', '#000020', '#000030'],
+        challenges: ['微重力', '辐射', '隔离'],
+        oxygenRate: -1,
+        hydrationRate: -0.3,
+        baseTemp: 20
+    }
+};
+
+let currentEnv = 'everest';
+let gameRunning = false;
+let gameTime = 0;
+let survived = 0;
+
+// 生理状态
+let vitals = {
+    oxygen: 100,
+    temperature: 37,
+    hydration: 100,
+    energy: 100,
+    health: 100
+};
+
+// 装备
+let equipment = {
+    oxygenTank: 3,
+    waterBottle: 3,
+    foodRation: 3,
+    heatPack: 2,
+    medicine: 1
+};
+
+// 适应度
+let adaptation = 0;
+
+// 事件
+let currentEvent = null;
+const events = {
+    everest: [
+        { name: '暴风雪来袭', effect: { temperature: -10 }, duration: 30 },
+        { name: '发现避难所', effect: { temperature: 5, energy: 10 }, duration: 20 },
+        { name: '氧气泄漏', effect: { oxygen: -20 }, duration: 0 }
+    ],
+    mariana: [
+        { name: '压力舱故障', effect: { health: -15 }, duration: 0 },
+        { name: '发现热泉', effect: { temperature: 5 }, duration: 30 },
+        { name: '氮醉症状', effect: { health: -10, energy: -20 }, duration: 0 }
+    ],
+    sahara: [
+        { name: '沙尘暴', effect: { health: -10, hydration: -10 }, duration: 40 },
+        { name: '发现绿洲', effect: { hydration: 30, energy: 20 }, duration: 0 },
+        { name: '中暑警告', effect: { health: -20 }, duration: 0 }
+    ],
+    space: [
+        { name: '太阳耀斑', effect: { health: -15 }, duration: 20 },
+        { name: '补给舱到达', effect: { energy: 30, hydration: 20 }, duration: 0 },
+        { name: '空间眩晕', effect: { health: -10 }, duration: 30 }
+    ]
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    renderHUD();
+    renderRightPanel();
+    updateBackground();
+    
+    setInterval(simulate, 100);
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function startGame() {
+    gameRunning = true;
+    gameTime = 0;
+    survived = 0;
+    adaptation = 0;
+    vitals = { oxygen: 100, temperature: 37, hydration: 100, energy: 100, health: 100 };
+    equipment = { oxygenTank: 3, waterBottle: 3, foodRation: 3, heatPack: 2, medicine: 1 };
+    currentEvent = null;
+    renderRightPanel();
+}
+
+function simulate() {
+    if (!gameRunning) return;
+    
+    gameTime += 0.1;
+    survived += 0.1;
+    
+    const env = environments[currentEnv];
+    
+    // 环境影响 - 氧气消耗
+    vitals.oxygen += env.oxygenRate * 0.1 * (1 - adaptation * 0.3);
+    
+    // 体温调节 - 环境温度影响体温
+    const targetTemp = env.baseTemp;
+    const tempDiff = targetTemp - vitals.temperature;
+    // 体温调节速度：极端温度影响更快
+    const tempChangeRate = Math.abs(tempDiff) > 20 ? 0.02 : 0.01;
+    vitals.temperature += tempDiff * tempChangeRate;
+    
+    // 体温过高或过低影响健康
+    if (vitals.temperature < 35 || vitals.temperature > 39) {
+        vitals.health -= 0.5;
+    }
+    if (vitals.temperature < 32 || vitals.temperature > 40) {
+        vitals.health -= 1; // 极端体温更危险
+    }
+    
+    // 水分消耗 - 根据环境调整
+    vitals.hydration -= env.hydrationRate * 0.1;
+    
+    // 体力消耗
+    vitals.energy -= 0.2;
+    
+    // 适应
+    adaptation = Math.min(1, adaptation + 0.001);
+    
+    // 随机事件
+    if (Math.random() < 0.002 && !currentEvent) {
+        const envEvents = events[currentEnv];
+        currentEvent = { ...envEvents[Math.floor(Math.random() * envEvents.length)], timeLeft: 50 };
+        
+        // 立即效果
+        Object.entries(currentEvent.effect).forEach(([k, v]) => {
+            if (vitals[k] !== undefined) vitals[k] += v;
+        });
+    }
+    
+    // 事件持续
+    if (currentEvent) {
+        currentEvent.timeLeft -= 0.1;
+        if (currentEvent.timeLeft <= 0) {
+            currentEvent = null;
+        }
+    }
+    
+    // 限制范围
+    vitals.oxygen = Math.max(0, Math.min(100, vitals.oxygen));
+    vitals.hydration = Math.max(0, Math.min(100, vitals.hydration));
+    vitals.energy = Math.max(0, Math.min(100, vitals.energy));
+    vitals.health = Math.max(0, Math.min(100, vitals.health));
+    vitals.temperature = Math.max(30, Math.min(42, vitals.temperature));
+    
+    // 死亡检测
+    if (vitals.health <= 0 || vitals.oxygen <= 0) {
+        gameRunning = false;
+        alert(`生存失败！存活时间: ${survived.toFixed(1)} 秒`);
+    }
+    
+    renderHUD();
+    renderRightPanel();
+}
+
+function useItem(item) {
+    if (!gameRunning || equipment[item] <= 0) return;
+    
+    equipment[item]--;
+    
+    switch(item) {
+        case 'oxygenTank':
+            vitals.oxygen = Math.min(100, vitals.oxygen + 40);
+            break;
+        case 'waterBottle':
+            vitals.hydration = Math.min(100, vitals.hydration + 35);
+            break;
+        case 'foodRation':
+            vitals.energy = Math.min(100, vitals.energy + 30);
+            break;
+        case 'heatPack':
+            vitals.temperature = Math.min(38, vitals.temperature + 3);
+            break;
+        case 'medicine':
+            vitals.health = Math.min(100, vitals.health + 25);
+            break;
+    }
+    
+    renderRightPanel();
+}
+
+function changeEnvironment(env) {
+    currentEnv = env;
+    adaptation = 0;
+    updateBackground();
+    renderRightPanel();
+}
+
+function updateBackground() {
+    const env = environments[currentEnv];
+    const bg = document.getElementById('envBg');
+    bg.style.background = `linear-gradient(to bottom, ${env.bgGradient.join(', ')})`;
+}
+
+function renderHUD() {
+    const hudTop = document.getElementById('hudTop');
+    const env = environments[currentEnv];
+    
+    const vitalConfigs = [
+        { key: 'oxygen', label: '氧气', color: '#4af', icon: '💨' },
+        { key: 'temperature', label: '体温', color: '#f84', icon: '🌡️', isTemp: true },
+        { key: 'hydration', label: '水分', color: '#48f', icon: '💧' },
+        { key: 'energy', label: '体力', color: '#fa4', icon: '⚡' },
+        { key: 'health', label: '健康', color: '#4f8', icon: '❤️' }
+    ];
+    
+    hudTop.innerHTML = vitalConfigs.map(v => {
+        const value = vitals[v.key];
+        const displayValue = v.isTemp ? `${value.toFixed(1)}°C` : `${value.toFixed(0)}%`;
+        const fillWidth = v.isTemp ? Math.max(0, Math.min(100, (value - 30) / 12 * 100)) : value;
+        const fillColor = v.isTemp ? (value < 35 || value > 39 ? '#f44' : v.color) : (value < 30 ? '#f44' : v.color);
+        
+        return `
+            <div class="vital-bar">
+                <div class="vital-label">${v.icon} ${v.label}</div>
+                <div class="vital-value" style="color:${fillColor}">${displayValue}</div>
+                <div class="vital-meter">
+                    <div class="vital-fill" style="width:${fillWidth}%;background:${fillColor}"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    const env = environments[currentEnv];
+    
+    const itemConfigs = {
+        oxygenTank: { name: '氧气瓶', icon: '🫁', effect: '+40% 氧气' },
+        waterBottle: { name: '水壶', icon: '🥤', effect: '+35% 水分' },
+        foodRation: { name: '口粮', icon: '🍫', effect: '+30% 体力' },
+        heatPack: { name: '暖宝宝', icon: '🔥', effect: '+3°C 体温' },
+        medicine: { name: '急救包', icon: '💊', effect: '+25% 健康' }
+    };
+    
+    panel.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <div style="font-size:1.5em;margin-bottom:5px;">${env.icon} ${env.name}</div>
+            <div style="color:#808090;font-size:0.85em;">海拔: ${env.altitude > 0 ? '+' : ''}${env.altitude}m</div>
+            <div style="color:#808090;font-size:0.85em;margin-top:5px;">挑战: ${env.challenges.join('、')}</div>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+            <div style="color:#808090;font-size:0.85em;margin-bottom:8px;">选择环境</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${Object.entries(environments).map(([key, e]) => `
+                    <button onclick="changeEnvironment('${key}')" style="
+                        padding:8px 12px;
+                        background:${key === currentEnv ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.05)'};
+                        border:1px solid ${key === currentEnv ? '#0af' : '#3a3a5a'};
+                        border-radius:6px;
+                        color:#fff;
+                        cursor:pointer;
+                        font-size:0.9em;
+                    ">${e.icon} ${e.name}</button>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+            <div style="color:#808090;font-size:0.85em;margin-bottom:8px;">生存时间</div>
+            <div style="font-size:1.8em;color:#0af;">${survived.toFixed(1)}s</div>
+            <div style="color:#808090;font-size:0.8em;">适应度: ${(adaptation * 100).toFixed(0)}%</div>
+        </div>
+        
+        ${currentEvent ? `
+            <div style="background:rgba(255,100,100,0.2);border:1px solid #f66;border-radius:8px;padding:12px;margin-bottom:20px;">
+                <div style="color:#f88;font-weight:bold;">⚠️ ${currentEvent.name}</div>
+                <div style="color:#808090;font-size:0.85em;margin-top:5px;">剩余: ${currentEvent.timeLeft.toFixed(1)}s</div>
+            </div>
+        ` : ''}
+        
+        <div style="margin-bottom:20px;">
+            <div style="color:#808090;font-size:0.85em;margin-bottom:10px;">装备物资</div>
+            ${Object.entries(equipment).map(([key, count]) => {
+                const item = itemConfigs[key];
+                return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:8px;">
+                        <div>
+                            <span style="font-size:1.2em;">${item.icon}</span>
+                            <span style="margin-left:8px;">${item.name}</span>
+                            <span style="color:#808090;font-size:0.8em;margin-left:5px;">(${item.effect})</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="color:#0af;">×${count}</span>
+                            <button onclick="useItem('${key}')" ${!gameRunning || count <= 0 ? 'disabled' : ''} style="
+                                padding:5px 12px;
+                                background:${count > 0 && gameRunning ? 'rgba(0,212,255,0.3)' : 'rgba(100,100,100,0.2)'};
+                                border:1px solid ${count > 0 && gameRunning ? '#0af' : '#555'};
+                                border-radius:4px;
+                                color:${count > 0 && gameRunning ? '#fff' : '#666'};
+                                cursor:${count > 0 && gameRunning ? 'pointer' : 'not-allowed'};
+                                font-size:0.85em;
+                            ">使用</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        
+        <button onclick="${gameRunning ? 'gameRunning=false' : 'startGame()'}" style="
+            width:100%;
+            padding:15px;
+            background:linear-gradient(135deg, ${gameRunning ? '#f44' : '#0af'}, ${gameRunning ? '#c33' : '#08c'});
+            border:none;
+            border-radius:8px;
+            color:#fff;
+            font-size:1.1em;
+            cursor:pointer;
+            font-weight:bold;
+        ">${gameRunning ? '⏹️ 停止挑战' : '▶️ 开始挑战'}</button>
+    `;
+}
+
+// 环境粒子
+let particles = [];
+
+function createParticles() {
+    particles = [];
+    const count = currentEnv === 'space' ? 100 : 50;
+    
+    for (let i = 0; i < count; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 3 + 1,
+            speedX: (Math.random() - 0.5) * 2,
+            speedY: currentEnv === 'everest' ? Math.random() * 3 + 1 : 
+                    currentEnv === 'mariana' ? Math.random() * 0.5 : 
+                    currentEnv === 'sahara' ? Math.random() * 4 + 2 :
+                    (Math.random() - 0.5) * 0.5,
+            alpha: Math.random() * 0.5 + 0.3
+        });
+    }
+}
+
+function updateParticles() {
+    particles.forEach(p => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+        
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+    });
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        
+        let color;
+        switch(currentEnv) {
+            case 'everest': color = `rgba(255,255,255,${p.alpha})`; break;
+            case 'mariana': color = `rgba(100,150,200,${p.alpha * 0.5})`; break;
+            case 'sahara': color = `rgba(200,180,150,${p.alpha})`; break;
+            case 'space': color = `rgba(255,255,255,${p.alpha})`; break;
+        }
+        
+        ctx.fillStyle = color;
+        ctx.fill();
+    });
+}
+
+function drawEnvironmentEffects() {
+    switch(currentEnv) {
+        case 'everest':
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width * 0.3, canvas.height * 0.4);
+            ctx.lineTo(canvas.width * 0.5, canvas.height * 0.6);
+            ctx.lineTo(canvas.width * 0.7, canvas.height * 0.3);
+            ctx.lineTo(canvas.width, canvas.height * 0.5);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.fill();
+            break;
+            
+        case 'mariana':
+            for (let i = 0; i < 5; i++) {
+                const x = canvas.width * (0.2 + i * 0.15);
+                ctx.strokeStyle = `rgba(100,150,200,${0.1 - i * 0.015})`;
+                ctx.lineWidth = 20 + i * 10;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x + 50, canvas.height);
+                ctx.stroke();
+            }
+            break;
+            
+        case 'sahara':
+            ctx.fillStyle = 'rgba(200,160,100,0.3)';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            for (let x = 0; x <= canvas.width; x += 100) {
+                ctx.quadraticCurveTo(
+                    x + 50, canvas.height - 50 - Math.sin(x * 0.01 + gameTime) * 30,
+                    x + 100, canvas.height
+                );
+            }
+            ctx.fill();
+            break;
+            
+        case 'space':
+            const earthX = canvas.width * 0.7;
+            const earthY = canvas.height * 0.8;
+            const earthR = 150;
+            
+            const gradient = ctx.createRadialGradient(earthX, earthY, 0, earthX, earthY, earthR);
+            gradient.addColorStop(0, 'rgba(50,100,200,0.8)');
+            gradient.addColorStop(0.7, 'rgba(30,80,150,0.6)');
+            gradient.addColorStop(1, 'rgba(20,60,100,0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    drawEnvironmentEffects();
+    updateParticles();
+    drawParticles();
+    
+    if (!gameRunning) {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('点击"开始挑战"进入生存模式', canvas.width / 2, canvas.height / 2);
+    }
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+createParticles();
+init();
+</script>
+</body>
+</html>

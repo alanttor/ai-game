@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流行病传播模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦠</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #a0b0c0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .main-area { flex: 1; display: flex; flex-direction: column; }
+        .network-area { flex: 1; position: relative; background: #0a0a15; }
+        #networkCanvas { display: block; }
+        .chart-area { height: 150px; background: rgba(10,10,20,0.95); border-top: 1px solid #2a3a5a; padding: 10px; }
+        .right-panel {
+            width: 320px;
+            background: rgba(20,20,35,0.95);
+            border-left: 2px solid #2a3a5a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="main-area">
+        <div class="network-area">
+            <canvas id="networkCanvas"></canvas>
+        </div>
+        <div class="chart-area">
+            <canvas id="chartCanvas"></canvas>
+        </div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('networkCanvas');
+const ctx = canvas.getContext('2d');
+const chartCanvas = document.getElementById('chartCanvas');
+const chartCtx = chartCanvas.getContext('2d');
+
+// 流行病参数
+let params = {
+    R0: 2.5,
+    incubation: 5,
+    infectious: 7,
+    mortality: 0.01,
+    asymptomatic: 0.3,
+    immunity: 365
+};
+
+// 网络参数
+let networkParams = {
+    population: 200,
+    avgConnections: 8,
+    type: 'smallworld'
+};
+
+// 干预措施
+let interventions = {
+    socialDistance: 0,
+    quarantine: 0,
+    testing: 0,
+    vaccination: 0
+};
+
+// 模拟状态
+let nodes = [];
+let edges = [];
+let simRunning = false;
+let simDay = 0;
+let simSpeed = 1;
+let history = [];
+
+// 状态颜色
+const stateColors = {
+    S: '#44ff88',  // 易感
+    E: '#ffff44',  // 潜伏
+    I: '#ff4444',  // 感染
+    R: '#4488ff',  // 康复
+    D: '#666666'   // 死亡
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    generateNetwork();
+    renderRightPanel();
+    
+    canvas.addEventListener('click', handleClick);
+    
+    setInterval(simulate, 100);
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+    
+    const chartArea = chartCanvas.parentElement;
+    chartCanvas.width = chartArea.clientWidth - 20;
+    chartCanvas.height = chartArea.clientHeight - 20;
+}
+
+function generateNetwork() {
+    nodes = [];
+    edges = [];
+    history = [];
+    simDay = 0;
+    
+    const n = networkParams.population;
+    const w = canvas.width || 800;
+    const h = canvas.height || 500;
+    
+    // 创建节点
+    for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2;
+        const radius = Math.min(w, h) * 0.35;
+        const jitter = Math.random() * 50;
+        
+        nodes.push({
+            id: i,
+            x: w/2 + Math.cos(angle) * (radius + jitter),
+            y: h/2 + Math.sin(angle) * (radius + jitter),
+            state: 'S',
+            dayInfected: -1,
+            connections: []
+        });
+    }
+    
+    // 创建边（小世界网络）
+    const k = networkParams.avgConnections;
+    for (let i = 0; i < n; i++) {
+        for (let j = 1; j <= k/2; j++) {
+            const neighbor = (i + j) % n;
+            if (!hasEdge(i, neighbor)) {
+                addEdge(i, neighbor);
+            }
+        }
+    }
+    
+    // 随机重连（小世界特性）
+    if (networkParams.type === 'smallworld') {
+        const rewireProb = 0.1;
+        edges.forEach(edge => {
+            if (Math.random() < rewireProb) {
+                const newTarget = Math.floor(Math.random() * n);
+                if (newTarget !== edge.from && !hasEdge(edge.from, newTarget)) {
+                    edge.to = newTarget;
+                }
+            }
+        });
+    }
+    
+    // 更新连接列表
+    nodes.forEach(node => node.connections = []);
+    edges.forEach(edge => {
+        nodes[edge.from].connections.push(edge.to);
+        nodes[edge.to].connections.push(edge.from);
+    });
+}
+
+function hasEdge(a, b) {
+    return edges.some(e => (e.from === a && e.to === b) || (e.from === b && e.to === a));
+}
+
+function addEdge(a, b) {
+    edges.push({ from: a, to: b });
+}
+
+function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // 找到点击的节点
+    for (const node of nodes) {
+        if (Math.hypot(x - node.x, y - node.y) < 10) {
+            if (node.state === 'S') {
+                node.state = 'E';
+                node.dayInfected = simDay;
+            }
+            break;
+        }
+    }
+}
+
+function simulate() {
+    if (!simRunning) return;
+    
+    for (let s = 0; s < simSpeed; s++) {
+        simDay += 0.1;
+        
+        // 计算有效传播率
+        const effectiveR0 = params.R0 * (1 - interventions.socialDistance * 0.8);
+        const transmissionProb = effectiveR0 / (params.infectious * networkParams.avgConnections);
+        
+        nodes.forEach(node => {
+            if (node.state === 'E') {
+                // 潜伏期结束
+                if (simDay - node.dayInfected >= params.incubation) {
+                    node.state = 'I';
+                }
+            } else if (node.state === 'I') {
+                // 传播给邻居
+                node.connections.forEach(neighborId => {
+                    const neighbor = nodes[neighborId];
+                    if (neighbor.state === 'S') {
+                        // 检测隔离效果
+                        const quarantineEffect = interventions.quarantine * 0.9;
+                        if (Math.random() < transmissionProb * (1 - quarantineEffect)) {
+                            neighbor.state = 'E';
+                            neighbor.dayInfected = simDay;
+                        }
+                    }
+                });
+                
+                // 康复或死亡
+                if (simDay - node.dayInfected >= params.incubation + params.infectious) {
+                    if (Math.random() < params.mortality) {
+                        node.state = 'D';
+                    } else {
+                        node.state = 'R';
+                    }
+                }
+            }
+        });
+        
+        // 疫苗接种
+        if (interventions.vaccination > 0) {
+            const vaccinePerDay = networkParams.population * interventions.vaccination * 0.01;
+            let vaccinated = 0;
+            nodes.forEach(node => {
+                if (node.state === 'S' && vaccinated < vaccinePerDay && Math.random() < 0.1) {
+                    node.state = 'R';
+                    vaccinated++;
+                }
+            });
+        }
+    }
+    
+    // 记录历史
+    const counts = countStates();
+    history.push({ day: simDay, ...counts });
+    if (history.length > 500) history.shift();
+    
+    renderRightPanel();
+}
+
+function countStates() {
+    const counts = { S: 0, E: 0, I: 0, R: 0, D: 0 };
+    nodes.forEach(n => counts[n.state]++);
+    return counts;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    const counts = countStates();
+    const total = networkParams.population;
+    
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 0.95em; color: #4a8ac0; border-bottom: 1px solid #2a3a5a; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #2a3a5a; }
+            .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 0.85em; }
+            .stat-bar { flex: 1; height: 8px; background: #1a1a2a; border-radius: 4px; margin: 0 10px; overflow: hidden; }
+            .stat-fill { height: 100%; border-radius: 4px; }
+            .slider-group { margin: 10px 0; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #6080a0; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #2a3a5a; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #4a8ac0; cursor: pointer; }
+            .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin: 3px; }
+            .btn-primary { background: linear-gradient(135deg, #2a5a8a, #1a3a5a); color: #a0c0e0; border: 1px solid #3a6a9a; }
+            .btn-danger { background: linear-gradient(135deg, #8a2a2a, #5a1a1a); color: #e0a0a0; border: 1px solid #9a3a3a; }
+            .legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 0.8em; }
+            .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#4a8ac0;font-size:1.1em;">🦠 流行病传播模拟</h2>
+            <p style="color:#4a5a6a;font-size:0.75em;">SEIR网络传播模型</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 当前状态 (第 ${simDay.toFixed(0)} 天)</div>
+            <div class="stat-row">
+                <span style="color:${stateColors.S}">● 易感</span>
+                <div class="stat-bar"><div class="stat-fill" style="width:${counts.S/total*100}%;background:${stateColors.S}"></div></div>
+                <span>${counts.S}</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:${stateColors.E}">● 潜伏</span>
+                <div class="stat-bar"><div class="stat-fill" style="width:${counts.E/total*100}%;background:${stateColors.E}"></div></div>
+                <span>${counts.E}</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:${stateColors.I}">● 感染</span>
+                <div class="stat-bar"><div class="stat-fill" style="width:${counts.I/total*100}%;background:${stateColors.I}"></div></div>
+                <span>${counts.I}</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:${stateColors.R}">● 康复</span>
+                <div class="stat-bar"><div class="stat-fill" style="width:${counts.R/total*100}%;background:${stateColors.R}"></div></div>
+                <span>${counts.R}</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:${stateColors.D}">● 死亡</span>
+                <div class="stat-bar"><div class="stat-fill" style="width:${counts.D/total*100}%;background:${stateColors.D}"></div></div>
+                <span>${counts.D}</span>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 模拟控制</div>
+            <div style="display:flex;gap:5px;margin-bottom:10px;">
+                <button class="btn btn-primary" onclick="simRunning=!simRunning;renderRightPanel()">
+                    ${simRunning ? '⏸ 暂停' : '▶ 开始'}
+                </button>
+                <button class="btn btn-primary" onclick="generateNetwork();renderRightPanel()">🔄 重置</button>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>模拟速度</span><span>${simSpeed}x</span></div>
+                <input type="range" min="1" max="10" value="${simSpeed}" oninput="simSpeed=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div style="font-size:0.75em;color:#6a7a8a;margin-top:10px;">💡 点击节点感染第一个病例</div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🦠 病原体参数</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>基本再生数 R₀</span><span>${params.R0.toFixed(1)}</span></div>
+                <input type="range" min="0.5" max="10" step="0.1" value="${params.R0}" oninput="params.R0=parseFloat(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>潜伏期 (天)</span><span>${params.incubation}</span></div>
+                <input type="range" min="1" max="21" value="${params.incubation}" oninput="params.incubation=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>传染期 (天)</span><span>${params.infectious}</span></div>
+                <input type="range" min="1" max="30" value="${params.infectious}" oninput="params.infectious=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>致死率</span><span>${(params.mortality*100).toFixed(1)}%</span></div>
+                <input type="range" min="0" max="20" step="0.1" value="${params.mortality*100}" oninput="params.mortality=parseFloat(this.value)/100;renderRightPanel()">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🛡️ 干预措施</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>社交距离</span><span>${(interventions.socialDistance*100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${interventions.socialDistance*100}" oninput="interventions.socialDistance=this.value/100;renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>隔离措施</span><span>${(interventions.quarantine*100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${interventions.quarantine*100}" oninput="interventions.quarantine=this.value/100;renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>疫苗接种</span><span>${(interventions.vaccination*100).toFixed(0)}%/天</span></div>
+                <input type="range" min="0" max="100" value="${interventions.vaccination*100}" oninput="interventions.vaccination=this.value/100;renderRightPanel()">
+            </div>
+        </div>
+    `;
+}
+
+function animate() {
+    drawNetwork();
+    drawChart();
+    requestAnimationFrame(animate);
+}
+
+function drawNetwork() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制边
+    ctx.strokeStyle = 'rgba(100,120,140,0.2)';
+    ctx.lineWidth = 1;
+    edges.forEach(edge => {
+        const from = nodes[edge.from];
+        const to = nodes[edge.to];
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+    });
+    
+    // 绘制节点
+    nodes.forEach(node => {
+        ctx.fillStyle = stateColors[node.state];
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.state === 'I' ? 8 : 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 感染者发光效果
+        if (node.state === 'I') {
+            ctx.strokeStyle = 'rgba(255,68,68,0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    });
+    
+    // 统计信息
+    const counts = countStates();
+    ctx.fillStyle = '#6080a0';
+    ctx.font = '12px Segoe UI';
+    ctx.fillText(`人口: ${networkParams.population} | 感染率: ${((counts.I + counts.E + counts.R + counts.D) / networkParams.population * 100).toFixed(1)}%`, 10, 20);
+}
+
+function drawChart() {
+    const w = chartCanvas.width;
+    const h = chartCanvas.height;
+    
+    chartCtx.clearRect(0, 0, w, h);
+    chartCtx.fillStyle = '#0a0a15';
+    chartCtx.fillRect(0, 0, w, h);
+    
+    if (history.length < 2) return;
+    
+    const maxDay = Math.max(history[history.length - 1].day, 30);
+    
+    // 绘制各状态曲线
+    ['S', 'E', 'I', 'R', 'D'].forEach(state => {
+        chartCtx.strokeStyle = stateColors[state];
+        chartCtx.lineWidth = state === 'I' ? 2 : 1;
+        chartCtx.beginPath();
+        
+        history.forEach((h, i) => {
+            const x = (h.day / maxDay) * w;
+            const y = h - (h[state] / networkParams.population) * (h - 10);
+            if (i === 0) chartCtx.moveTo(x, y);
+            else chartCtx.lineTo(x, y);
+        });
+        chartCtx.stroke();
+    });
+    
+    // 标签
+    chartCtx.fillStyle = '#6080a0';
+    chartCtx.font = '10px Segoe UI';
+    chartCtx.fillText('时间 (天)', w - 50, h - 5);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子计算门操作模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 50%, #1a0a2e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .top-area {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .panel {
+            background: rgba(30, 15, 50, 0.8);
+            border: 1px solid rgba(150, 100, 255, 0.3);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(150, 100, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(100, 150, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .panel-title {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-size: 0.85em;
+            color: rgba(200, 150, 255, 0.8);
+            z-index: 10;
+        }
+
+        .bloch-panel {
+            flex: 1;
+            min-width: 350px;
+        }
+
+        .circuit-panel {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .circuit-area {
+            flex: 1;
+            position: relative;
+        }
+
+        .probability-panel {
+            height: 120px;
+            margin-top: 10px;
+        }
+
+        canvas { display: block; }
+
+        .control-panel {
+            background: rgba(30, 15, 50, 0.95);
+            border: 1px solid rgba(150, 100, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .section-label {
+            font-size: 0.7em;
+            color: rgba(200, 150, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-row label {
+            font-size: 0.8em;
+            color: #a88;
+            min-width: 60px;
+        }
+
+        input[type="range"] {
+            width: 100px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(150, 100, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #a6f;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(170, 100, 255, 0.5);
+        }
+
+        select {
+            padding: 6px 10px;
+            background: rgba(50, 30, 80, 0.8);
+            border: 1px solid rgba(150, 100, 255, 0.4);
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .value {
+            font-size: 0.8em;
+            color: #a6f;
+            min-width: 45px;
+        }
+
+        .gate-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .gate-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(50, 30, 80, 0.8);
+            border: 1px solid rgba(150, 100, 255, 0.4);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gate-btn:hover {
+            background: rgba(150, 100, 255, 0.4);
+            border-color: #a6f;
+            box-shadow: 0 0 15px rgba(170, 100, 255, 0.4);
+        }
+
+        .gate-btn.selected {
+            background: #a6f;
+            color: #000;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: rgba(50, 30, 80, 0.8);
+            border: 1px solid rgba(150, 100, 255, 0.4);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: rgba(150, 100, 255, 0.4);
+            border-color: #a6f;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #a6f, #66f);
+            border: none;
+        }
+
+        .btn.primary:hover {
+            box-shadow: 0 0 20px rgba(170, 100, 255, 0.5);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .state-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.9em;
+            min-width: 200px;
+        }
+
+        .state-display .ket {
+            color: #a6f;
+        }
+
+        .state-display .amplitude {
+            color: #6af;
+        }
+
+        .examples-dropdown {
+            position: relative;
+        }
+
+        .examples-menu {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: rgba(30, 15, 50, 0.98);
+            border: 1px solid rgba(150, 100, 255, 0.4);
+            border-radius: 6px;
+            padding: 5px 0;
+            min-width: 180px;
+            z-index: 100;
+        }
+
+        .examples-menu.show {
+            display: block;
+        }
+
+        .examples-menu .item {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+
+        .examples-menu .item:hover {
+            background: rgba(150, 100, 255, 0.2);
+        }
+
+        .info-text {
+            font-size: 0.75em;
+            color: rgba(200, 150, 255, 0.5);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-area">
+            <div class="panel bloch-panel">
+                <div class="panel-title">🔮 布洛赫球体</div>
+                <canvas id="blochCanvas"></canvas>
+            </div>
+            <div class="circuit-panel">
+                <div class="panel circuit-area">
+                    <div class="panel-title">⚡ 量子电路 (点击添加门)</div>
+                    <canvas id="circuitCanvas"></canvas>
+                </div>
+                <div class="panel probability-panel">
+                    <div class="panel-title">📊 测量概率分布</div>
+                    <canvas id="probCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="control-panel">
+            <div class="control-section">
+                <div class="section-label">量子态设置</div>
+                <div class="control-row">
+                    <label>比特数</label>
+                    <select id="numQubits">
+                        <option value="1">1 量子比特</option>
+                        <option value="2" selected>2 量子比特</option>
+                        <option value="3">3 量子比特</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label>初始态</label>
+                    <select id="initialState">
+                        <option value="0">|0⟩</option>
+                        <option value="1">|1⟩</option>
+                        <option value="+">|+⟩</option>
+                        <option value="-">|-⟩</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">门参数</div>
+                <div class="control-row">
+                    <label>θ 角度</label>
+                    <input type="range" id="theta" min="0" max="628" value="157">
+                    <span class="value" id="thetaVal">π/2</span>
+                </div>
+                <div class="control-row">
+                    <label>φ 角度</label>
+                    <input type="range" id="phi" min="0" max="628" value="0">
+                    <span class="value" id="phiVal">0</span>
+                </div>
+                <div class="control-row">
+                    <label>动画速度</label>
+                    <input type="range" id="speed" min="0" max="300" value="100">
+                    <span class="value" id="speedVal">1.0</span>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">量子门 (选择后点击电路)</div>
+                <div class="gate-palette">
+                    <button class="gate-btn" data-gate="H" title="Hadamard门">H</button>
+                    <button class="gate-btn" data-gate="X" title="Pauli-X门">X</button>
+                    <button class="gate-btn" data-gate="Y" title="Pauli-Y门">Y</button>
+                    <button class="gate-btn" data-gate="Z" title="Pauli-Z门">Z</button>
+                    <button class="gate-btn" data-gate="S" title="S门(π/2相位)">S</button>
+                    <button class="gate-btn" data-gate="T" title="T门(π/4相位)">T</button>
+                    <button class="gate-btn" data-gate="Rx" title="X轴旋转">Rx</button>
+                    <button class="gate-btn" data-gate="Ry" title="Y轴旋转">Ry</button>
+                    <button class="gate-btn" data-gate="Rz" title="Z轴旋转">Rz</button>
+                    <button class="gate-btn" data-gate="CNOT" title="受控非门">⊕</button>
+                    <button class="gate-btn" data-gate="SWAP" title="交换门">⇄</button>
+                    <button class="gate-btn" data-gate="CZ" title="受控Z门">CZ</button>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">操作</div>
+                <div class="btn-group">
+                    <button class="btn primary" id="measureBtn">📏 测量</button>
+                    <button class="btn" id="resetBtn">↺ 重置</button>
+                    <button class="btn" id="clearBtn">🗑 清空电路</button>
+                    <button class="btn" id="undoBtn">↩ 撤销</button>
+                </div>
+                <div class="btn-group" style="margin-top:8px">
+                    <div class="examples-dropdown">
+                        <button class="btn" id="examplesBtn">📚 示例算法</button>
+                        <div class="examples-menu" id="examplesMenu">
+                            <div class="item" data-example="bell">贝尔态 (纠缠)</div>
+                            <div class="item" data-example="ghz">GHZ态 (3比特纠缠)</div>
+                            <div class="item" data-example="superposition">均匀叠加态</div>
+                            <div class="item" data-example="teleport">量子隐形传态</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">当前量子态</div>
+                <div class="state-display" id="stateDisplay">
+                    <span class="amplitude">1.00</span><span class="ket">|00⟩</span>
+                </div>
+                <div class="info-text">复数振幅表示，|振幅|² = 测量概率</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // ==================== 复数类 ====================
+        class Complex {
+            constructor(re = 0, im = 0) {
+                this.re = re;
+                this.im = im;
+            }
+            
+            static fromPolar(r, theta) {
+                return new Complex(r * Math.cos(theta), r * Math.sin(theta));
+            }
+            
+            add(c) { return new Complex(this.re + c.re, this.im + c.im); }
+            sub(c) { return new Complex(this.re - c.re, this.im - c.im); }
+            mul(c) { return new Complex(this.re * c.re - this.im * c.im, this.re * c.im + this.im * c.re); }
+            scale(s) { return new Complex(this.re * s, this.im * s); }
+            conj() { return new Complex(this.re, -this.im); }
+            abs() { return Math.sqrt(this.re * this.re + this.im * this.im); }
+            abs2() { return this.re * this.re + this.im * this.im; }
+            phase() { return Math.atan2(this.im, this.re); }
+            
+            toString() {
+                const r = this.abs().toFixed(2);
+                const p = (this.phase() / Math.PI).toFixed(2);
+                if (Math.abs(this.im) < 0.001) return this.re.toFixed(2);
+                if (Math.abs(this.re) < 0.001) return `${this.im.toFixed(2)}i`;
+                return `${this.re.toFixed(2)}${this.im >= 0 ? '+' : ''}${this.im.toFixed(2)}i`;
+            }
+        }
+
+        // ==================== 量子态类 ====================
+        class QuantumState {
+            constructor(numQubits) {
+                this.numQubits = numQubits;
+                this.dim = Math.pow(2, numQubits);
+                this.amplitudes = new Array(this.dim).fill(null).map(() => new Complex(0, 0));
+                this.amplitudes[0] = new Complex(1, 0); // |00...0⟩
+            }
+            
+            clone() {
+                const state = new QuantumState(this.numQubits);
+                state.amplitudes = this.amplitudes.map(a => new Complex(a.re, a.im));
+                return state;
+            }
+            
+            setInitialState(type) {
+                this.amplitudes = new Array(this.dim).fill(null).map(() => new Complex(0, 0));
+                
+                switch(type) {
+                    case '0':
+                        this.amplitudes[0] = new Complex(1, 0);
+                        break;
+                    case '1':
+                        this.amplitudes[this.dim - 1] = new Complex(1, 0);
+                        break;
+                    case '+':
+                        const sqrt2 = 1 / Math.sqrt(this.dim);
+                        for (let i = 0; i < this.dim; i++) {
+                            this.amplitudes[i] = new Complex(sqrt2, 0);
+                        }
+                        break;
+                    case '-':
+                        const s2 = 1 / Math.sqrt(this.dim);
+                        for (let i = 0; i < this.dim; i++) {
+                            this.amplitudes[i] = new Complex(s2 * (i % 2 === 0 ? 1 : -1), 0);
+                        }
+                        break;
+                }
+            }
+            
+            normalize() {
+                let norm = 0;
+                for (const a of this.amplitudes) norm += a.abs2();
+                norm = Math.sqrt(norm);
+                if (norm > 0.0001) {
+                    for (let i = 0; i < this.dim; i++) {
+                        this.amplitudes[i] = this.amplitudes[i].scale(1 / norm);
+                    }
+                }
+            }
+            
+            getProbabilities() {
+                return this.amplitudes.map(a => a.abs2());
+            }
+            
+            measure() {
+                const probs = this.getProbabilities();
+                let r = Math.random();
+                for (let i = 0; i < this.dim; i++) {
+                    r -= probs[i];
+                    if (r <= 0) {
+                        // 坍缩到测量结果
+                        this.amplitudes = new Array(this.dim).fill(null).map(() => new Complex(0, 0));
+                        this.amplitudes[i] = new Complex(1, 0);
+                        return i;
+                    }
+                }
+                return this.dim - 1;
+            }
+            
+            // 获取单量子比特的布洛赫球坐标
+            getBlochCoords(qubit = 0) {
+                if (this.numQubits === 1) {
+                    const a = this.amplitudes[0];
+                    const b = this.amplitudes[1];
+                    const theta = 2 * Math.acos(Math.min(1, a.abs()));
+                    const phi = b.phase() - a.phase();
+                    return {
+                        x: Math.sin(theta) * Math.cos(phi),
+                        y: Math.sin(theta) * Math.sin(phi),
+                        z: Math.cos(theta)
+                    };
+                }
+                // 对多量子比特，计算约化密度矩阵的布洛赫向量
+                // 简化：只看第一个量子比特
+                let p0 = 0, p1 = 0;
+                for (let i = 0; i < this.dim; i++) {
+                    if ((i >> (this.numQubits - 1 - qubit)) & 1) {
+                        p1 += this.amplitudes[i].abs2();
+                    } else {
+                        p0 += this.amplitudes[i].abs2();
+                    }
+                }
+                const theta = 2 * Math.acos(Math.sqrt(Math.max(0, Math.min(1, p0))));
+                return {
+                    x: Math.sin(theta),
+                    y: 0,
+                    z: Math.cos(theta)
+                };
+            }
+            
+            toString() {
+                let result = [];
+                for (let i = 0; i < this.dim; i++) {
+                    const amp = this.amplitudes[i];
+                    if (amp.abs() > 0.001) {
+                        const binary = i.toString(2).padStart(this.numQubits, '0');
+                        result.push({ amp: amp.toString(), ket: `|${binary}⟩`, prob: amp.abs2() });
+                    }
+                }
+                return result;
+            }
+        }
+
+        // ==================== 量子门类 ====================
+        class QuantumGates {
+            static I = [[new Complex(1), new Complex(0)], [new Complex(0), new Complex(1)]];
+            static X = [[new Complex(0), new Complex(1)], [new Complex(1), new Complex(0)]];
+            static Y = [[new Complex(0), new Complex(0, -1)], [new Complex(0, 1), new Complex(0)]];
+            static Z = [[new Complex(1), new Complex(0)], [new Complex(0), new Complex(-1)]];
+            static H = [[new Complex(1/Math.sqrt(2)), new Complex(1/Math.sqrt(2))], 
+                       [new Complex(1/Math.sqrt(2)), new Complex(-1/Math.sqrt(2))]];
+            static S = [[new Complex(1), new Complex(0)], [new Complex(0), new Complex(0, 1)]];
+            static T = [[new Complex(1), new Complex(0)], [new Complex(0), Complex.fromPolar(1, Math.PI/4)]];
+            
+            static Rx(theta) {
+                const c = Math.cos(theta / 2);
+                const s = Math.sin(theta / 2);
+                return [[new Complex(c), new Complex(0, -s)], [new Complex(0, -s), new Complex(c)]];
+            }
+            
+            static Ry(theta) {
+                const c = Math.cos(theta / 2);
+                const s = Math.sin(theta / 2);
+                return [[new Complex(c), new Complex(-s)], [new Complex(s), new Complex(c)]];
+            }
+            
+            static Rz(theta) {
+                return [[Complex.fromPolar(1, -theta/2), new Complex(0)], 
+                       [new Complex(0), Complex.fromPolar(1, theta/2)]];
+            }
+            
+            static applyGate(state, gate, target) {
+                const n = state.numQubits;
+                const newAmps = new Array(state.dim).fill(null).map(() => new Complex(0, 0));
+                
+                for (let i = 0; i < state.dim; i++) {
+                    const bit = (i >> (n - 1 - target)) & 1;
+                    for (let j = 0; j < 2; j++) {
+                        const newIdx = (i & ~(1 << (n - 1 - target))) | (j << (n - 1 - target));
+                        newAmps[newIdx] = newAmps[newIdx].add(gate[j][bit].mul(state.amplitudes[i]));
+                    }
+                }
+                
+                state.amplitudes = newAmps;
+                state.normalize();
+            }
+            
+            static applyCNOT(state, control, target) {
+                const n = state.numQubits;
+                const newAmps = state.amplitudes.map(a => new Complex(a.re, a.im));
+                
+                for (let i = 0; i < state.dim; i++) {
+                    const controlBit = (i >> (n - 1 - control)) & 1;
+                    if (controlBit === 1) {
+                        const targetBit = (i >> (n - 1 - target)) & 1;
+                        const flippedIdx = i ^ (1 << (n - 1 - target));
+                        const temp = newAmps[i];
+                        newAmps[i] = newAmps[flippedIdx];
+                        newAmps[flippedIdx] = temp;
+                    }
+                }
+                
+                state.amplitudes = newAmps;
+            }
+            
+            static applySWAP(state, q1, q2) {
+                const n = state.numQubits;
+                const newAmps = new Array(state.dim).fill(null).map(() => new Complex(0, 0));
+                
+                for (let i = 0; i < state.dim; i++) {
+                    const bit1 = (i >> (n - 1 - q1)) & 1;
+                    const bit2 = (i >> (n - 1 - q2)) & 1;
+                    let newIdx = i;
+                    newIdx = (newIdx & ~(1 << (n - 1 - q1))) | (bit2 << (n - 1 - q1));
+                    newIdx = (newIdx & ~(1 << (n - 1 - q2))) | (bit1 << (n - 1 - q2));
+                    newAmps[newIdx] = new Complex(state.amplitudes[i].re, state.amplitudes[i].im);
+                }
+                
+                state.amplitudes = newAmps;
+            }
+            
+            static applyCZ(state, control, target) {
+                const n = state.numQubits;
+                
+                for (let i = 0; i < state.dim; i++) {
+                    const controlBit = (i >> (n - 1 - control)) & 1;
+                    const targetBit = (i >> (n - 1 - target)) & 1;
+                    if (controlBit === 1 && targetBit === 1) {
+                        state.amplitudes[i] = state.amplitudes[i].scale(-1);
+                    }
+                }
+            }
+        }
+
+        // ==================== 可视化器 ====================
+        class Visualizer {
+            constructor() {
+                this.blochCanvas = document.getElementById('blochCanvas');
+                this.circuitCanvas = document.getElementById('circuitCanvas');
+                this.probCanvas = document.getElementById('probCanvas');
+                
+                this.blochCtx = this.blochCanvas.getContext('2d');
+                this.circuitCtx = this.circuitCanvas.getContext('2d');
+                this.probCtx = this.probCanvas.getContext('2d');
+                
+                this.rotation = 0;
+                this.targetBloch = { x: 0, y: 0, z: 1 };
+                this.currentBloch = { x: 0, y: 0, z: 1 };
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                const blochPanel = this.blochCanvas.parentElement;
+                this.blochCanvas.width = blochPanel.clientWidth;
+                this.blochCanvas.height = blochPanel.clientHeight;
+                
+                const circuitPanel = this.circuitCanvas.parentElement;
+                this.circuitCanvas.width = circuitPanel.clientWidth;
+                this.circuitCanvas.height = circuitPanel.clientHeight;
+                
+                const probPanel = this.probCanvas.parentElement;
+                this.probCanvas.width = probPanel.clientWidth;
+                this.probCanvas.height = probPanel.clientHeight;
+            }
+            
+            drawBlochSphere(state, animSpeed) {
+                const ctx = this.blochCtx;
+                const w = this.blochCanvas.width;
+                const h = this.blochCanvas.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const r = Math.min(w, h) * 0.35;
+                
+                ctx.fillStyle = 'rgba(26, 10, 46, 0.3)';
+                ctx.fillRect(0, 0, w, h);
+                
+                this.rotation += 0.005 * animSpeed;
+                
+                // 更新布洛赫向量（平滑动画）
+                this.targetBloch = state.getBlochCoords(0);
+                const lerp = 0.1 * animSpeed;
+                this.currentBloch.x += (this.targetBloch.x - this.currentBloch.x) * lerp;
+                this.currentBloch.y += (this.targetBloch.y - this.currentBloch.y) * lerp;
+                this.currentBloch.z += (this.targetBloch.z - this.currentBloch.z) * lerp;
+                
+                const cosR = Math.cos(this.rotation);
+                const sinR = Math.sin(this.rotation);
+                
+                // 绘制球体轮廓
+                ctx.strokeStyle = 'rgba(150, 100, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 绘制经纬线
+                ctx.strokeStyle = 'rgba(150, 100, 255, 0.15)';
+                
+                // 赤道
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, r, r * 0.3, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 子午线
+                for (let i = 0; i < 4; i++) {
+                    const angle = this.rotation + i * Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, r * Math.abs(Math.cos(angle)), r, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // 绘制坐标轴
+                const axes = [
+                    { label: '|0⟩', x: 0, y: 0, z: 1, color: '#6f6' },
+                    { label: '|1⟩', x: 0, y: 0, z: -1, color: '#f66' },
+                    { label: '|+⟩', x: 1, y: 0, z: 0, color: '#66f' },
+                    { label: '|-⟩', x: -1, y: 0, z: 0, color: '#ff6' }
+                ];
+                
+                axes.forEach(axis => {
+                    const px = axis.x * cosR - axis.y * sinR;
+                    const py = axis.y * cosR + axis.x * sinR;
+                    const screenX = cx + px * r;
+                    const screenY = cy - axis.z * r * 0.8 - py * r * 0.3;
+                    
+                    ctx.fillStyle = axis.color;
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(axis.label, screenX, screenY);
+                });
+                
+                // 绘制量子态向量
+                const bx = this.currentBloch.x * cosR - this.currentBloch.y * sinR;
+                const by = this.currentBloch.y * cosR + this.currentBloch.x * sinR;
+                const screenX = cx + bx * r;
+                const screenY = cy - this.currentBloch.z * r * 0.8 - by * r * 0.3;
+                
+                // 向量线
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(screenX, screenY);
+                ctx.strokeStyle = '#a6f';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 向量端点
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#a6f';
+                ctx.fill();
+                ctx.shadowColor = '#a6f';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // 标签
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px Arial';
+                ctx.fillText('|ψ⟩', screenX + 15, screenY - 10);
+            }
+            
+            drawCircuit(circuit, numQubits, selectedGate) {
+                const ctx = this.circuitCtx;
+                const w = this.circuitCanvas.width;
+                const h = this.circuitCanvas.height;
+                
+                ctx.fillStyle = 'rgba(26, 10, 46, 0.95)';
+                ctx.fillRect(0, 0, w, h);
+                
+                const padding = 60;
+                const lineSpacing = (h - padding * 2) / Math.max(numQubits, 1);
+                const gateWidth = 50;
+                const gateSpacing = 70;
+                
+                // 绘制量子比特线
+                ctx.strokeStyle = 'rgba(150, 100, 255, 0.5)';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < numQubits; i++) {
+                    const y = padding + i * lineSpacing + lineSpacing / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(w - padding, y);
+                    ctx.stroke();
+                    
+                    // 量子比特标签
+                    ctx.fillStyle = '#a6f';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`q${i}`, padding - 10, y + 5);
+                    
+                    // 初始态
+                    ctx.textAlign = 'left';
+                    ctx.fillText('|0⟩', padding + 5, y + 5);
+                }
+                
+                // 绘制门
+                circuit.forEach((gate, idx) => {
+                    const x = padding + 60 + idx * gateSpacing;
+                    this.drawGate(ctx, gate, x, padding, lineSpacing, gateWidth);
+                });
+                
+                // 绘制选中门的提示
+                if (selectedGate) {
+                    ctx.fillStyle = 'rgba(170, 102, 255, 0.3)';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`点击量子比特线添加 ${selectedGate} 门`, w / 2, h - 15);
+                }
+            }
+            
+            drawGate(ctx, gate, x, padding, lineSpacing, gateWidth) {
+                const y = padding + gate.target * lineSpacing + lineSpacing / 2;
+                
+                if (gate.type === 'CNOT' || gate.type === 'CZ') {
+                    const cy = padding + gate.control * lineSpacing + lineSpacing / 2;
+                    
+                    // 控制线
+                    ctx.strokeStyle = '#a6f';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, cy);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    
+                    // 控制点
+                    ctx.beginPath();
+                    ctx.arc(x, cy, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = '#a6f';
+                    ctx.fill();
+                    
+                    // 目标
+                    if (gate.type === 'CNOT') {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 15, 0, Math.PI * 2);
+                        ctx.strokeStyle = '#a6f';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x - 15, y);
+                        ctx.lineTo(x + 15, y);
+                        ctx.moveTo(x, y - 15);
+                        ctx.lineTo(x, y + 15);
+                        ctx.stroke();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (gate.type === 'SWAP') {
+                    const y2 = padding + gate.target2 * lineSpacing + lineSpacing / 2;
+                    
+                    ctx.strokeStyle = '#a6f';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x, y2);
+                    ctx.stroke();
+                    
+                    // X标记
+                    [y, y2].forEach(yy => {
+                        ctx.beginPath();
+                        ctx.moveTo(x - 8, yy - 8);
+                        ctx.lineTo(x + 8, yy + 8);
+                        ctx.moveTo(x + 8, yy - 8);
+                        ctx.lineTo(x - 8, yy + 8);
+                        ctx.stroke();
+                    });
+                } else {
+                    // 单量子比特门
+                    ctx.fillStyle = 'rgba(50, 30, 80, 0.9)';
+                    ctx.strokeStyle = '#a6f';
+                    ctx.lineWidth = 2;
+                    
+                    ctx.beginPath();
+                    ctx.roundRect(x - gateWidth/2, y - 20, gateWidth, 40, 5);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // 门标签
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(gate.type, x, y);
+                }
+            }
+            
+            drawProbabilities(probs, numQubits, animProbs) {
+                const ctx = this.probCtx;
+                const w = this.probCanvas.width;
+                const h = this.probCanvas.height;
+                
+                ctx.fillStyle = 'rgba(26, 10, 46, 0.95)';
+                ctx.fillRect(0, 0, w, h);
+                
+                const padding = 40;
+                const barWidth = Math.min(40, (w - padding * 2) / probs.length - 10);
+                const maxHeight = h - padding * 2;
+                
+                probs.forEach((prob, i) => {
+                    // 动画插值
+                    if (!animProbs[i]) animProbs[i] = 0;
+                    animProbs[i] += (prob - animProbs[i]) * 0.1;
+                    
+                    const x = padding + i * (barWidth + 10) + 5;
+                    const barHeight = animProbs[i] * maxHeight;
+                    
+                    // 渐变
+                    const gradient = ctx.createLinearGradient(x, h - padding, x, h - padding - barHeight);
+                    gradient.addColorStop(0, '#a6f');
+                    gradient.addColorStop(1, '#66f');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, h - padding - barHeight, barWidth, barHeight);
+                    
+                    // 标签
+                    ctx.fillStyle = '#888';
+                    ctx.font = '10px Consolas';
+                    ctx.textAlign = 'center';
+                    const binary = i.toString(2).padStart(numQubits, '0');
+                    ctx.fillText(`|${binary}⟩`, x + barWidth/2, h - padding + 15);
+                    
+                    // 概率值
+                    if (animProbs[i] > 0.01) {
+                        ctx.fillStyle = '#fff';
+                        ctx.fillText((animProbs[i] * 100).toFixed(1) + '%', x + barWidth/2, h - padding - barHeight - 5);
+                    }
+                });
+            }
+        }
+
+
+        // ==================== 主控制器 ====================
+        class QuantumSimulator {
+            constructor() {
+                this.numQubits = 2;
+                this.state = new QuantumState(this.numQubits);
+                this.circuit = [];
+                this.history = [];
+                this.selectedGate = null;
+                this.animProbs = [];
+                
+                this.params = {
+                    theta: Math.PI / 2,
+                    phi: 0,
+                    speed: 1.0
+                };
+                
+                this.viz = new Visualizer();
+                this.initControls();
+                this.animate();
+            }
+            
+            initControls() {
+                // 量子比特数
+                document.getElementById('numQubits').addEventListener('change', (e) => {
+                    this.numQubits = parseInt(e.target.value);
+                    this.reset();
+                });
+                
+                // 初始态
+                document.getElementById('initialState').addEventListener('change', (e) => {
+                    this.state.setInitialState(e.target.value);
+                    this.applyCircuit();
+                    this.updateStateDisplay();
+                });
+                
+                // 参数滑块
+                document.getElementById('theta').addEventListener('input', (e) => {
+                    this.params.theta = parseFloat(e.target.value) / 100;
+                    const piVal = this.params.theta / Math.PI;
+                    document.getElementById('thetaVal').textContent = 
+                        piVal === 0 ? '0' : piVal === 1 ? 'π' : piVal === 0.5 ? 'π/2' : (piVal).toFixed(2) + 'π';
+                });
+                
+                document.getElementById('phi').addEventListener('input', (e) => {
+                    this.params.phi = parseFloat(e.target.value) / 100;
+                    const piVal = this.params.phi / Math.PI;
+                    document.getElementById('phiVal').textContent = 
+                        piVal === 0 ? '0' : piVal === 1 ? 'π' : (piVal).toFixed(2) + 'π';
+                });
+                
+                document.getElementById('speed').addEventListener('input', (e) => {
+                    this.params.speed = parseFloat(e.target.value) / 100;
+                    document.getElementById('speedVal').textContent = this.params.speed.toFixed(1);
+                });
+                
+                // 门选择
+                document.querySelectorAll('.gate-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.gate-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        this.selectedGate = btn.dataset.gate;
+                    });
+                });
+                
+                // 电路点击
+                document.getElementById('circuitCanvas').addEventListener('click', (e) => {
+                    if (!this.selectedGate) return;
+                    
+                    const rect = this.viz.circuitCanvas.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const h = this.viz.circuitCanvas.height;
+                    const padding = 60;
+                    const lineSpacing = (h - padding * 2) / this.numQubits;
+                    
+                    const targetQubit = Math.floor((y - padding) / lineSpacing);
+                    if (targetQubit < 0 || targetQubit >= this.numQubits) return;
+                    
+                    this.addGate(this.selectedGate, targetQubit);
+                });
+                
+                // 按钮
+                document.getElementById('measureBtn').addEventListener('click', () => this.measure());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearCircuit());
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                
+                // 示例菜单
+                document.getElementById('examplesBtn').addEventListener('click', () => {
+                    document.getElementById('examplesMenu').classList.toggle('show');
+                });
+                
+                document.querySelectorAll('.examples-menu .item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this.loadExample(item.dataset.example);
+                        document.getElementById('examplesMenu').classList.remove('show');
+                    });
+                });
+                
+                // 点击其他地方关闭菜单
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.examples-dropdown')) {
+                        document.getElementById('examplesMenu').classList.remove('show');
+                    }
+                });
+            }
+            
+            addGate(type, target) {
+                this.history.push(this.circuit.map(g => ({...g})));
+                
+                const gate = { type, target };
+                
+                // 双量子比特门需要第二个量子比特
+                if (['CNOT', 'CZ'].includes(type)) {
+                    gate.control = target;
+                    gate.target = (target + 1) % this.numQubits;
+                } else if (type === 'SWAP') {
+                    gate.target2 = (target + 1) % this.numQubits;
+                }
+                
+                this.circuit.push(gate);
+                this.applyCircuit();
+                this.updateStateDisplay();
+            }
+            
+            applyCircuit() {
+                // 重置状态
+                this.state = new QuantumState(this.numQubits);
+                const initialState = document.getElementById('initialState').value;
+                this.state.setInitialState(initialState);
+                
+                // 应用所有门
+                this.circuit.forEach(gate => {
+                    this.applyGate(gate);
+                });
+            }
+            
+            applyGate(gate) {
+                const theta = this.params.theta;
+                
+                switch(gate.type) {
+                    case 'H':
+                        QuantumGates.applyGate(this.state, QuantumGates.H, gate.target);
+                        break;
+                    case 'X':
+                        QuantumGates.applyGate(this.state, QuantumGates.X, gate.target);
+                        break;
+                    case 'Y':
+                        QuantumGates.applyGate(this.state, QuantumGates.Y, gate.target);
+                        break;
+                    case 'Z':
+                        QuantumGates.applyGate(this.state, QuantumGates.Z, gate.target);
+                        break;
+                    case 'S':
+                        QuantumGates.applyGate(this.state, QuantumGates.S, gate.target);
+                        break;
+                    case 'T':
+                        QuantumGates.applyGate(this.state, QuantumGates.T, gate.target);
+                        break;
+                    case 'Rx':
+                        QuantumGates.applyGate(this.state, QuantumGates.Rx(theta), gate.target);
+                        break;
+                    case 'Ry':
+                        QuantumGates.applyGate(this.state, QuantumGates.Ry(theta), gate.target);
+                        break;
+                    case 'Rz':
+                        QuantumGates.applyGate(this.state, QuantumGates.Rz(theta), gate.target);
+                        break;
+                    case 'CNOT':
+                        QuantumGates.applyCNOT(this.state, gate.control, gate.target);
+                        break;
+                    case 'SWAP':
+                        QuantumGates.applySWAP(this.state, gate.target, gate.target2);
+                        break;
+                    case 'CZ':
+                        QuantumGates.applyCZ(this.state, gate.control, gate.target);
+                        break;
+                }
+            }
+            
+            measure() {
+                const result = this.state.measure();
+                const binary = result.toString(2).padStart(this.numQubits, '0');
+                this.updateStateDisplay();
+                
+                // 显示测量结果
+                const display = document.getElementById('stateDisplay');
+                display.innerHTML = `<span style="color:#ff6">测量结果: |${binary}⟩</span>`;
+                
+                setTimeout(() => this.updateStateDisplay(), 2000);
+            }
+            
+            reset() {
+                this.state = new QuantumState(this.numQubits);
+                this.circuit = [];
+                this.history = [];
+                this.animProbs = [];
+                this.updateStateDisplay();
+            }
+            
+            clearCircuit() {
+                this.history.push(this.circuit.map(g => ({...g})));
+                this.circuit = [];
+                this.applyCircuit();
+                this.updateStateDisplay();
+            }
+            
+            undo() {
+                if (this.history.length > 0) {
+                    this.circuit = this.history.pop();
+                    this.applyCircuit();
+                    this.updateStateDisplay();
+                }
+            }
+            
+            loadExample(name) {
+                this.circuit = [];
+                this.history = [];
+                
+                switch(name) {
+                    case 'bell':
+                        // 贝尔态: H|0⟩ ⊗ |0⟩ -> CNOT -> (|00⟩ + |11⟩)/√2
+                        if (this.numQubits < 2) {
+                            document.getElementById('numQubits').value = '2';
+                            this.numQubits = 2;
+                        }
+                        this.circuit = [
+                            { type: 'H', target: 0 },
+                            { type: 'CNOT', control: 0, target: 1 }
+                        ];
+                        break;
+                        
+                    case 'ghz':
+                        // GHZ态: (|000⟩ + |111⟩)/√2
+                        document.getElementById('numQubits').value = '3';
+                        this.numQubits = 3;
+                        this.circuit = [
+                            { type: 'H', target: 0 },
+                            { type: 'CNOT', control: 0, target: 1 },
+                            { type: 'CNOT', control: 0, target: 2 }
+                        ];
+                        break;
+                        
+                    case 'superposition':
+                        // 均匀叠加
+                        this.circuit = [];
+                        for (let i = 0; i < this.numQubits; i++) {
+                            this.circuit.push({ type: 'H', target: i });
+                        }
+                        break;
+                        
+                    case 'teleport':
+                        // 量子隐形传态电路（简化演示）
+                        if (this.numQubits < 3) {
+                            document.getElementById('numQubits').value = '3';
+                            this.numQubits = 3;
+                        }
+                        this.circuit = [
+                            { type: 'H', target: 0 },  // 准备要传送的态
+                            { type: 'H', target: 1 },  // 创建纠缠对
+                            { type: 'CNOT', control: 1, target: 2 },
+                            { type: 'CNOT', control: 0, target: 1 },  // Bell测量
+                            { type: 'H', target: 0 }
+                        ];
+                        break;
+                }
+                
+                this.state = new QuantumState(this.numQubits);
+                this.applyCircuit();
+                this.updateStateDisplay();
+            }
+            
+            updateStateDisplay() {
+                const display = document.getElementById('stateDisplay');
+                const stateStr = this.state.toString();
+                
+                if (stateStr.length === 0) {
+                    display.innerHTML = '<span class="amplitude">0</span>';
+                    return;
+                }
+                
+                let html = stateStr.map(s => 
+                    `<span class="amplitude">${s.amp}</span><span class="ket">${s.ket}</span>`
+                ).join(' + ');
+                
+                display.innerHTML = html;
+            }
+            
+            animate() {
+                // 绘制布洛赫球
+                this.viz.drawBlochSphere(this.state, this.params.speed);
+                
+                // 绘制电路
+                this.viz.drawCircuit(this.circuit, this.numQubits, this.selectedGate);
+                
+                // 绘制概率分布
+                const probs = this.state.getProbabilities();
+                this.viz.drawProbabilities(probs, this.numQubits, this.animProbs);
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 启动模拟器
+        new QuantumSimulator();
+    </script>
+</body>
+</html>

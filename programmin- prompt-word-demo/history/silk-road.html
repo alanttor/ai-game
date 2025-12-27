@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>丝绸之路贸易网络模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐫</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SimSun', serif;
+            background: #2a2318;
+            min-height: 100vh;
+            color: #d4c4a8;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .map-area {
+            flex: 75;
+            position: relative;
+            background: linear-gradient(135deg, #3a3020 0%, #2a2318 100%);
+        }
+        #mapCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23d4c4a8" width="100" height="100"/><rect fill="%23c4b498" x="0" y="0" width="50" height="50" opacity="0.1"/><rect fill="%23c4b498" x="50" y="50" width="50" height="50" opacity="0.1"/></svg>');
+        }
+        .control-panel {
+            flex: 25;
+            min-width: 260px;
+            background: rgba(30,25,18,0.95);
+            border-left: 2px solid #5a4a30;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.9em;
+            color: #c4a060;
+            border-bottom: 1px solid #5a4a30;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 10px;
+            border: 1px solid #3a3020;
+        }
+        .year-display {
+            text-align: center;
+            font-size: 1.5em;
+            color: #c4a060;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="map-area">
+        <canvas id="mapCanvas"></canvas>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let time = 0; // 年份偏移
+let baseYear = -200; // 公元前200年
+let speed = 1;
+let paused = false;
+let selectedCity = null;
+
+// 城市数据
+const cities = [
+    { id: 'changan', name: '长安', x: 0.78, y: 0.45, region: 'china', goods: ['silk', 'porcelain'], pop: 100 },
+    { id: 'dunhuang', name: '敦煌', x: 0.68, y: 0.38, region: 'china', goods: ['silk'], pop: 30 },
+    { id: 'kashgar', name: '喀什', x: 0.55, y: 0.40, region: 'central', goods: ['jade', 'horses'], pop: 40 },
+    { id: 'samarkand', name: '撒马尔罕', x: 0.45, y: 0.38, region: 'central', goods: ['cotton', 'paper'], pop: 60 },
+    { id: 'merv', name: '木鹿', x: 0.38, y: 0.42, region: 'persia', goods: ['carpets'], pop: 50 },
+    { id: 'ctesiphon', name: '泰西封', x: 0.28, y: 0.50, region: 'persia', goods: ['glass', 'textiles'], pop: 80 },
+    { id: 'palmyra', name: '帕尔米拉', x: 0.22, y: 0.48, region: 'levant', goods: ['spices', 'incense'], pop: 40 },
+    { id: 'antioch', name: '安条克', x: 0.18, y: 0.45, region: 'levant', goods: ['wine', 'olive'], pop: 70 },
+    { id: 'constantinople', name: '君士坦丁堡', x: 0.12, y: 0.38, region: 'byzantine', goods: ['gold', 'silk'], pop: 90 },
+    { id: 'rome', name: '罗马', x: 0.05, y: 0.42, region: 'rome', goods: ['gold', 'glass'], pop: 100 }
+];
+
+// 路线数据
+const routes = [
+    { from: 'changan', to: 'dunhuang', danger: 0.1 },
+    { from: 'dunhuang', to: 'kashgar', danger: 0.3 },
+    { from: 'kashgar', to: 'samarkand', danger: 0.2 },
+    { from: 'samarkand', to: 'merv', danger: 0.15 },
+    { from: 'merv', to: 'ctesiphon', danger: 0.2 },
+    { from: 'ctesiphon', to: 'palmyra', danger: 0.25 },
+    { from: 'palmyra', to: 'antioch', danger: 0.15 },
+    { from: 'antioch', to: 'constantinople', danger: 0.1 },
+    { from: 'constantinople', to: 'rome', danger: 0.1 }
+];
+
+// 商品数据
+const goods = {
+    silk: { name: '丝绸', color: '#e6b800', origin: 'china' },
+    porcelain: { name: '瓷器', color: '#87ceeb', origin: 'china' },
+    spices: { name: '香料', color: '#8b4513', origin: 'india' },
+    gold: { name: '黄金', color: '#ffd700', origin: 'rome' },
+    glass: { name: '玻璃', color: '#add8e6', origin: 'rome' },
+    horses: { name: '马匹', color: '#8b7355', origin: 'central' },
+    jade: { name: '玉石', color: '#00a86b', origin: 'central' }
+};
+
+// 商队
+let caravans = [];
+
+// 统计数据
+let stats = {
+    totalTrade: 0,
+    culturalExchange: 0
+};
+
+function init() {
+    canvas = document.getElementById('mapCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    renderControlPanel();
+    
+    // 初始化商队
+    for (let i = 0; i < 5; i++) {
+        spawnCaravan();
+    }
+    
+    canvas.addEventListener('click', handleMapClick);
+    canvas.addEventListener('mousemove', handleMapMove);
+    window.addEventListener('resize', resizeCanvas);
+    
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function renderControlPanel() {
+    const panel = document.getElementById('controlPanel');
+    const year = baseYear + Math.floor(time);
+    const yearStr = year < 0 ? `公元前${-year}年` : `公元${year}年`;
+    
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 8px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.75em; color: #a09080; margin-bottom: 3px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #3a3020; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #c4a060; cursor: pointer; }
+            .btn { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; transition: all 0.2s; margin: 2px; font-family: inherit; }
+            .btn-primary { background: linear-gradient(135deg, #5a4a30, #3a3020); color: #d4c4a8; border: 1px solid #6a5a40; }
+            .btn-secondary { background: rgba(255,255,255,0.05); color: #a09080; }
+            .btn:hover { transform: scale(1.02); }
+            .stat-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8em; border-bottom: 1px solid #3a3020; }
+            .goods-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+            .goods-tag { padding: 3px 8px; border-radius: 10px; font-size: 0.7em; }
+            .era-btn { display: block; width: 100%; text-align: left; padding: 8px; margin: 3px 0; }
+            .city-info { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; margin-top: 8px; }
+        </style>
+        
+        <div class="year-display">
+            <div style="font-size:0.6em;color:#888;">当前年份</div>
+            ${yearStr}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⏱️ 时间控制</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>时间流速</span><span>${speed}年/秒</span></div>
+                <input type="range" min="0" max="10" value="${speed}" 
+                       oninput="speed = parseInt(this.value); renderControlPanel();">
+            </div>
+            <div style="display:flex;gap:4px;">
+                <button class="btn ${paused ? 'btn-primary' : 'btn-secondary'}" onclick="togglePause()">
+                    ${paused ? '▶️ 继续' : '⏸️ 暂停'}
+                </button>
+                <button class="btn btn-secondary" onclick="resetTime()">🔄 重置</button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📜 历史时期</div>
+            <button class="btn btn-secondary era-btn" onclick="setEra(-200)">🏛️ 汉朝开通期 (前200年)</button>
+            <button class="btn btn-secondary era-btn" onclick="setEra(700)">🌸 唐朝鼎盛期 (700年)</button>
+            <button class="btn btn-secondary era-btn" onclick="setEra(1250)">🏇 蒙古帝国 (1250年)</button>
+            <button class="btn btn-secondary era-btn" onclick="setEra(1400)">📉 明朝衰落期 (1400年)</button>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 贸易统计</div>
+            <div class="stat-row"><span>总贸易额</span><span>${stats.totalTrade.toFixed(0)} 金币</span></div>
+            <div class="stat-row"><span>活跃商队</span><span>${caravans.length} 支</span></div>
+            <div class="stat-row"><span>文化交流度</span><span>${stats.culturalExchange.toFixed(1)}%</span></div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎁 主要商品</div>
+            <div class="goods-list">
+                ${Object.entries(goods).map(([k, g]) => `
+                    <span class="goods-tag" style="background:${g.color}33;color:${g.color};border:1px solid ${g.color}">${g.name}</span>
+                `).join('')}
+            </div>
+        </div>
+        
+        ${selectedCity ? `
+        <div class="panel-section">
+            <div class="panel-title">🏛️ ${selectedCity.name}</div>
+            <div class="city-info">
+                <div class="stat-row"><span>人口</span><span>${(selectedCity.pop * 1000).toLocaleString()}</span></div>
+                <div class="stat-row"><span>繁荣度</span><span>${(selectedCity.prosperity || 50).toFixed(0)}%</span></div>
+                <div style="margin-top:8px;font-size:0.75em;color:#888;">
+                    主要商品: ${selectedCity.goods.map(g => goods[g]?.name || g).join(', ')}
+                </div>
+            </div>
+        </div>
+        ` : ''}
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.7em;color:#6a5a40;line-height:1.4;">
+                模拟丝绸之路贸易网络。<br>
+                点击城市查看详情。<br>
+                商队在城市间运输商品，促进文化交流。
+            </div>
+        </div>
+    `;
+}
+
+function togglePause() {
+    paused = !paused;
+    renderControlPanel();
+}
+
+function resetTime() {
+    time = 0;
+    stats = { totalTrade: 0, culturalExchange: 0 };
+    renderControlPanel();
+}
+
+function setEra(year) {
+    time = year - baseYear;
+    renderControlPanel();
+}
+
+function handleMapClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / canvas.width;
+    const y = (e.clientY - rect.top) / canvas.height;
+    
+    // 检查是否点击了城市
+    for (const city of cities) {
+        const dx = x - city.x;
+        const dy = y - city.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 0.03) {
+            selectedCity = city;
+            renderControlPanel();
+            return;
+        }
+    }
+    selectedCity = null;
+    renderControlPanel();
+}
+
+function handleMapMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / canvas.width;
+    const y = (e.clientY - rect.top) / canvas.height;
+    
+    canvas.style.cursor = 'default';
+    for (const city of cities) {
+        const dx = x - city.x;
+        const dy = y - city.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 0.03) {
+            canvas.style.cursor = 'pointer';
+            break;
+        }
+    }
+}
+
+function spawnCaravan() {
+    const routeIdx = Math.floor(Math.random() * routes.length);
+    const route = routes[routeIdx];
+    const fromCity = cities.find(c => c.id === route.from);
+    const toCity = cities.find(c => c.id === route.to);
+    
+    if (!fromCity || !toCity) return;
+    
+    const goodType = fromCity.goods[Math.floor(Math.random() * fromCity.goods.length)];
+    
+    caravans.push({
+        x: fromCity.x,
+        y: fromCity.y,
+        targetX: toCity.x,
+        targetY: toCity.y,
+        from: fromCity,
+        to: toCity,
+        progress: 0,
+        speed: 0.0005 + Math.random() * 0.0003,
+        goods: goodType,
+        value: 10 + Math.random() * 20
+    });
+}
+
+function updateCaravans() {
+    caravans = caravans.filter(c => {
+        c.progress += c.speed * speed;
+        c.x = c.from.x + (c.to.x - c.from.x) * c.progress;
+        c.y = c.from.y + (c.to.y - c.from.y) * c.progress;
+        
+        if (c.progress >= 1) {
+            // 到达目的地
+            stats.totalTrade += c.value;
+            stats.culturalExchange = Math.min(100, stats.culturalExchange + 0.1);
+            
+            // 继续下一段路程
+            const nextRoutes = routes.filter(r => r.from === c.to.id);
+            if (nextRoutes.length > 0 && Math.random() > 0.3) {
+                const nextRoute = nextRoutes[Math.floor(Math.random() * nextRoutes.length)];
+                const nextCity = cities.find(city => city.id === nextRoute.to);
+                if (nextCity) {
+                    c.from = c.to;
+                    c.to = nextCity;
+                    c.targetX = nextCity.x;
+                    c.targetY = nextCity.y;
+                    c.progress = 0;
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    });
+    
+    // 生成新商队
+    if (caravans.length < 8 && Math.random() < 0.02 * speed) {
+        spawnCaravan();
+    }
+}
+
+function draw() {
+    // 清空画布
+    ctx.fillStyle = '#d4c4a8';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制羊皮纸纹理
+    drawParchmentTexture();
+    
+    // 绘制地形
+    drawTerrain();
+    
+    // 绘制路线
+    drawRoutes();
+    
+    // 绘制城市
+    drawCities();
+    
+    // 绘制商队
+    drawCaravans();
+    
+    // 绘制图例
+    drawLegend();
+}
+
+function drawParchmentTexture() {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    for (let i = 0; i < 50; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const r = Math.random() * 100 + 50;
+        ctx.fillStyle = Math.random() > 0.5 ? '#c4b498' : '#b4a488';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawTerrain() {
+    // 简化的地形绘制
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    
+    // 山脉
+    ctx.fillStyle = '#8b7355';
+    ctx.beginPath();
+    ctx.ellipse(canvas.width * 0.6, canvas.height * 0.35, canvas.width * 0.15, canvas.height * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 沙漠
+    ctx.fillStyle = '#c4a060';
+    ctx.beginPath();
+    ctx.ellipse(canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.2, canvas.height * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
+function drawRoutes() {
+    ctx.save();
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 5]);
+    ctx.globalAlpha = 0.6;
+    
+    for (const route of routes) {
+        const from = cities.find(c => c.id === route.from);
+        const to = cities.find(c => c.id === route.to);
+        if (!from || !to) continue;
+        
+        ctx.beginPath();
+        ctx.moveTo(from.x * canvas.width, from.y * canvas.height);
+        ctx.lineTo(to.x * canvas.width, to.y * canvas.height);
+        ctx.stroke();
+    }
+    
+    ctx.restore();
+}
+
+function drawCities() {
+    for (const city of cities) {
+        const x = city.x * canvas.width;
+        const y = city.y * canvas.height;
+        const size = 8 + city.pop / 20;
+        
+        // 繁荣度光晕
+        const prosperity = city.prosperity || 50;
+        ctx.save();
+        ctx.globalAlpha = 0.3 + prosperity / 200;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 2);
+        gradient.addColorStop(0, '#ffd700');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        
+        // 城市图标
+        ctx.fillStyle = selectedCity === city ? '#c41e3a' : '#8b4513';
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#5a3a10';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // 城市名称
+        ctx.fillStyle = '#3a2a10';
+        ctx.font = 'bold 12px SimSun';
+        ctx.textAlign = 'center';
+        ctx.fillText(city.name, x, y - size - 5);
+    }
+}
+
+function drawCaravans() {
+    for (const caravan of caravans) {
+        const x = caravan.x * canvas.width;
+        const y = caravan.y * canvas.height;
+        
+        // 商队图标（骆驼）
+        ctx.fillStyle = goods[caravan.goods]?.color || '#8b7355';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('🐪', x, y);
+        
+        // 商品指示
+        ctx.fillStyle = goods[caravan.goods]?.color || '#ffd700';
+        ctx.beginPath();
+        ctx.arc(x + 8, y - 8, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawLegend() {
+    const year = baseYear + Math.floor(time);
+    const yearStr = year < 0 ? `公元前${-year}年` : `公元${year}年`;
+    
+    ctx.fillStyle = 'rgba(42, 35, 24, 0.8)';
+    ctx.fillRect(10, 10, 150, 30);
+    
+    ctx.fillStyle = '#c4a060';
+    ctx.font = 'bold 14px SimSun';
+    ctx.textAlign = 'left';
+    ctx.fillText(`📅 ${yearStr}`, 20, 30);
+}
+
+function animate() {
+    if (!paused) {
+        time += speed / 60;
+        updateCaravans();
+        
+        // 更新城市繁荣度
+        for (const city of cities) {
+            city.prosperity = 50 + Math.sin(time / 100 + city.x * 10) * 30;
+        }
+    }
+    
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

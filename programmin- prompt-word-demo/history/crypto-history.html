@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>密码学历史冒险</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #1a1510 0%, #0a0805 100%);
+            min-height: 100vh;
+            color: #d4c4a8;
+            overflow: hidden;
+        }
+        .container { display: flex; flex-direction: column; height: 100vh; }
+        .timeline {
+            height: 60px;
+            background: rgba(20,15,10,0.95);
+            border-bottom: 2px solid #8b7355;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 10px;
+            overflow-x: auto;
+        }
+        .main-area { flex: 1; display: flex; }
+        .cipher-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .tools-panel {
+            width: 300px;
+            background: rgba(20,15,10,0.95);
+            border-left: 2px solid #8b7355;
+            padding: 15px;
+            overflow-y: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="timeline" id="timeline"></div>
+    <div class="main-area">
+        <div class="cipher-area" id="cipherArea"></div>
+        <div class="tools-panel" id="toolsPanel"></div>
+    </div>
+</div>
+<script>
+// 游戏状态
+let currentEra = 0;
+let currentLevel = 0;
+let score = 0;
+let decryptedCount = 0;
+
+const eras = [
+    { name: '古典时代', year: '前50年', color: '#c9a227', icon: '🏛️' },
+    { name: '文艺复兴', year: '1500年', color: '#8b4513', icon: '📜' },
+    { name: '机械时代', year: '1940年', color: '#4a5568', icon: '⚙️' },
+    { name: '计算机黎明', year: '1970年', color: '#2d3748', icon: '💾' },
+    { name: '现代密码学', year: '2000年', color: '#1a365d', icon: '🔐' }
+];
+
+const levels = [
+    // 古典时代
+    {
+        era: 0, title: '凯撒的秘密', cipher: 'caesar', shift: 3,
+        plaintext: 'ATTACK AT DAWN',
+        story: '公元前50年，凯撒大帝需要向他的将军传递秘密军令...',
+        hint: '每个字母向后移动固定位数'
+    },
+    {
+        era: 0, title: '替换密码', cipher: 'substitution',
+        plaintext: 'SECRET MESSAGE',
+        story: '古罗马间谍使用字母替换来隐藏信息...',
+        hint: '分析字母频率，E是英语中最常见的字母'
+    },
+    {
+        era: 0, title: 'Atbash密码', cipher: 'atbash',
+        plaintext: 'HELLO WORLD',
+        story: '希伯来人使用的古老密码，A变Z，B变Y...',
+        hint: '字母表反转：A↔Z, B↔Y, C↔X...'
+    },
+    // 文艺复兴
+    {
+        era: 1, title: '维吉尼亚密码', cipher: 'vigenere', key: 'KEY',
+        plaintext: 'CRYPTOGRAPHY',
+        story: '16世纪，维吉尼亚发明了多表替换密码...',
+        hint: '使用关键词循环加密，尝试找出密钥长度'
+    },
+    {
+        era: 1, title: '玛丽女王的信', cipher: 'vigenere', key: 'MARY',
+        plaintext: 'EXECUTE THE PLAN',
+        story: '1586年，玛丽女王的秘密通信被截获...',
+        hint: '密钥可能与人名有关'
+    },
+    // 机械时代
+    {
+        era: 2, title: '恩尼格玛初探', cipher: 'enigma',
+        plaintext: 'WEATHER REPORT',
+        story: '1940年，布莱切利园的密码破译员面对恩尼格玛机...',
+        hint: '恩尼格玛的特点：字母不会加密成自己'
+    },
+    // 计算机时代
+    {
+        era: 3, title: 'XOR加密', cipher: 'xor', key: 42,
+        plaintext: 'DIGITAL AGE',
+        story: '计算机时代，异或运算成为加密基础...',
+        hint: 'XOR的特性：A⊕K⊕K = A'
+    },
+    // 现代密码学
+    {
+        era: 4, title: 'RSA原理', cipher: 'rsa',
+        plaintext: 'PUBLIC KEY',
+        story: '1977年，RSA算法开创了公钥密码学时代...',
+        hint: '基于大数分解的困难性'
+    }
+];
+
+// 密码算法实现
+const ciphers = {
+    caesar: {
+        encrypt: (text, shift) => {
+            return text.split('').map(c => {
+                if (c >= 'A' && c <= 'Z') {
+                    return String.fromCharCode((c.charCodeAt(0) - 65 + shift) % 26 + 65);
+                }
+                return c;
+            }).join('');
+        },
+        decrypt: (text, shift) => {
+            return ciphers.caesar.encrypt(text, 26 - shift);
+        }
+    },
+    atbash: {
+        encrypt: (text) => {
+            return text.split('').map(c => {
+                if (c >= 'A' && c <= 'Z') {
+                    return String.fromCharCode(90 - (c.charCodeAt(0) - 65));
+                }
+                return c;
+            }).join('');
+        },
+        decrypt: (text) => ciphers.atbash.encrypt(text)
+    },
+    vigenere: {
+        encrypt: (text, key) => {
+            let result = '';
+            let j = 0;
+            for (let c of text) {
+                if (c >= 'A' && c <= 'Z') {
+                    const shift = key.charCodeAt(j % key.length) - 65;
+                    result += String.fromCharCode((c.charCodeAt(0) - 65 + shift) % 26 + 65);
+                    j++;
+                } else {
+                    result += c;
+                }
+            }
+            return result;
+        },
+        decrypt: (text, key) => {
+            let result = '';
+            let j = 0;
+            for (let c of text) {
+                if (c >= 'A' && c <= 'Z') {
+                    const shift = key.charCodeAt(j % key.length) - 65;
+                    result += String.fromCharCode((c.charCodeAt(0) - 65 - shift + 26) % 26 + 65);
+                    j++;
+                } else {
+                    result += c;
+                }
+            }
+            return result;
+        }
+    },
+    xor: {
+        encrypt: (text, key) => {
+            return text.split('').map(c => {
+                if (c >= 'A' && c <= 'Z') {
+                    return String.fromCharCode(((c.charCodeAt(0) - 65) ^ key) % 26 + 65);
+                }
+                return c;
+            }).join('');
+        },
+        decrypt: (text, key) => ciphers.xor.encrypt(text, key)
+    }
+};
+
+function init() {
+    renderTimeline();
+    loadLevel(currentLevel);
+    renderToolsPanel();
+}
+
+function renderTimeline() {
+    const timeline = document.getElementById('timeline');
+    timeline.innerHTML = `
+        <style>
+            .era-btn { padding: 8px 16px; background: rgba(139,115,85,0.3); border: 1px solid #8b7355; border-radius: 20px; color: #d4c4a8; cursor: pointer; font-size: 0.8em; white-space: nowrap; transition: all 0.3s; }
+            .era-btn:hover { background: rgba(139,115,85,0.5); }
+            .era-btn.active { background: #8b7355; color: #1a1510; }
+            .era-btn.locked { opacity: 0.5; cursor: not-allowed; }
+        </style>
+        <span style="color:#8b7355;margin-right:10px;">📅 时代:</span>
+        ${eras.map((era, i) => `
+            <button class="era-btn ${i === currentEra ? 'active' : ''} ${i > decryptedCount ? 'locked' : ''}" 
+                    onclick="${i <= decryptedCount ? `jumpToEra(${i})` : ''}">
+                ${era.icon} ${era.name} (${era.year})
+            </button>
+        `).join('')}
+        <div style="flex:1"></div>
+        <span style="color:#c9a227">🏆 得分: ${score}</span>
+    `;
+}
+
+function loadLevel(index) {
+    if (index >= levels.length) {
+        showVictory();
+        return;
+    }
+    
+    currentLevel = index;
+    const level = levels[index];
+    currentEra = level.era;
+    
+    // 生成密文
+    let ciphertext;
+    if (level.cipher === 'caesar') {
+        ciphertext = ciphers.caesar.encrypt(level.plaintext, level.shift);
+    } else if (level.cipher === 'atbash') {
+        ciphertext = ciphers.atbash.encrypt(level.plaintext);
+    } else if (level.cipher === 'vigenere') {
+        ciphertext = ciphers.vigenere.encrypt(level.plaintext, level.key);
+    } else if (level.cipher === 'xor') {
+        ciphertext = ciphers.xor.encrypt(level.plaintext, level.key);
+    } else {
+        ciphertext = level.plaintext; // 简化处理
+    }
+    
+    renderCipherArea(level, ciphertext);
+    renderTimeline();
+    renderToolsPanel();
+}
+
+function renderCipherArea(level, ciphertext) {
+    const area = document.getElementById('cipherArea');
+    const era = eras[level.era];
+    
+    area.innerHTML = `
+        <style>
+            .level-header { margin-bottom: 20px; }
+            .era-badge { display: inline-block; padding: 5px 15px; background: ${era.color}33; border: 1px solid ${era.color}; border-radius: 20px; color: ${era.color}; font-size: 0.85em; margin-bottom: 10px; }
+            .level-title { font-size: 1.8em; color: #d4c4a8; margin-bottom: 10px; }
+            .story-box { background: rgba(139,115,85,0.1); border-left: 3px solid #8b7355; padding: 15px; margin-bottom: 20px; font-style: italic; color: #a89878; line-height: 1.6; }
+            .cipher-box { background: rgba(0,0,0,0.3); border: 2px solid #8b7355; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+            .cipher-label { color: #8b7355; font-size: 0.85em; margin-bottom: 10px; }
+            .cipher-text { font-family: 'Courier New', monospace; font-size: 1.5em; color: #ff6b6b; letter-spacing: 3px; word-break: break-all; }
+            .decrypt-box { margin-top: 20px; }
+            .decrypt-input { width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 2px solid #4a3a28; border-radius: 8px; color: #00ff88; font-family: 'Courier New', monospace; font-size: 1.3em; letter-spacing: 2px; text-transform: uppercase; }
+            .decrypt-input:focus { outline: none; border-color: #8b7355; }
+            .submit-btn { margin-top: 15px; padding: 12px 30px; background: linear-gradient(135deg, #8b7355, #6b5335); border: none; border-radius: 8px; color: #fff; font-size: 1em; cursor: pointer; }
+            .submit-btn:hover { transform: scale(1.02); }
+            .hint-btn { margin-left: 10px; padding: 12px 20px; background: rgba(201,162,39,0.2); border: 1px solid #c9a227; border-radius: 8px; color: #c9a227; cursor: pointer; }
+            .result-box { margin-top: 15px; padding: 15px; border-radius: 8px; display: none; }
+            .result-success { background: rgba(0,255,136,0.1); border: 1px solid #00ff88; color: #00ff88; }
+            .result-error { background: rgba(255,107,107,0.1); border: 1px solid #ff6b6b; color: #ff6b6b; }
+            .freq-chart { display: flex; align-items: flex-end; height: 100px; gap: 2px; margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; }
+            .freq-bar { width: 12px; background: #8b7355; border-radius: 2px 2px 0 0; transition: height 0.3s; }
+        </style>
+        
+        <div class="level-header">
+            <div class="era-badge">${era.icon} ${era.name} - ${era.year}</div>
+            <div class="level-title">🔐 ${level.title}</div>
+        </div>
+        
+        <div class="story-box">
+            📖 ${level.story}
+        </div>
+        
+        <div class="cipher-box">
+            <div class="cipher-label">🔒 密文 (Ciphertext)</div>
+            <div class="cipher-text" id="cipherText">${ciphertext}</div>
+            
+            <div style="margin-top:15px;">
+                <div class="cipher-label">📊 字母频率分析</div>
+                <div class="freq-chart" id="freqChart"></div>
+            </div>
+        </div>
+        
+        <div class="decrypt-box">
+            <div class="cipher-label">🔓 输入明文 (Plaintext)</div>
+            <input type="text" class="decrypt-input" id="decryptInput" placeholder="输入你破译的明文..." autocomplete="off">
+            <div style="margin-top:15px;">
+                <button class="submit-btn" onclick="checkAnswer()">✓ 提交答案</button>
+                <button class="hint-btn" onclick="showHint()">💡 提示</button>
+            </div>
+            <div class="result-box" id="resultBox"></div>
+        </div>
+    `;
+    
+    // 计算频率
+    updateFrequencyChart(ciphertext);
+    
+    // 输入监听
+    document.getElementById('decryptInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') checkAnswer();
+    });
+}
+
+function updateFrequencyChart(text) {
+    const freq = {};
+    for (let c of text.toUpperCase()) {
+        if (c >= 'A' && c <= 'Z') {
+            freq[c] = (freq[c] || 0) + 1;
+        }
+    }
+    
+    const maxFreq = Math.max(...Object.values(freq), 1);
+    const chart = document.getElementById('freqChart');
+    if (!chart) return;
+    
+    chart.innerHTML = '';
+    for (let i = 0; i < 26; i++) {
+        const letter = String.fromCharCode(65 + i);
+        const count = freq[letter] || 0;
+        const height = (count / maxFreq) * 80;
+        
+        const bar = document.createElement('div');
+        bar.className = 'freq-bar';
+        bar.style.height = height + 'px';
+        bar.title = `${letter}: ${count}`;
+        chart.appendChild(bar);
+    }
+}
+
+function renderToolsPanel() {
+    const panel = document.getElementById('toolsPanel');
+    const level = levels[currentLevel];
+    
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 1em; color: #c9a227; border-bottom: 1px solid #8b7355; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #4a3a28; }
+            .tool-row { margin: 10px 0; }
+            .tool-label { font-size: 0.8em; color: #8b7355; margin-bottom: 5px; }
+            input[type="range"] { width: 100%; }
+            input[type="text"].tool-input { width: 100%; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid #4a3a28; border-radius: 4px; color: #d4c4a8; }
+            .tool-btn { width: 100%; padding: 8px; background: rgba(139,115,85,0.3); border: 1px solid #8b7355; border-radius: 4px; color: #d4c4a8; cursor: pointer; margin: 5px 0; }
+            .tool-btn:hover { background: rgba(139,115,85,0.5); }
+            .tool-output { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; font-family: monospace; color: #00ff88; font-size: 0.9em; word-break: break-all; margin-top: 10px; min-height: 40px; }
+        </style>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔧 解密工具</div>
+            
+            <div class="tool-row">
+                <div class="tool-label">凯撒位移 (0-25)</div>
+                <input type="range" min="0" max="25" value="0" id="caesarShift" oninput="tryCaesar()">
+                <div style="text-align:center;color:#c9a227" id="shiftValue">0</div>
+            </div>
+            
+            <div class="tool-row">
+                <div class="tool-label">维吉尼亚密钥</div>
+                <input type="text" class="tool-input" id="vigenereKey" placeholder="输入密钥..." oninput="tryVigenere()">
+            </div>
+            
+            <button class="tool-btn" onclick="tryAtbash()">尝试 Atbash</button>
+            
+            <div class="tool-output" id="toolOutput">解密结果将显示在这里...</div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📚 密码知识</div>
+            <div style="font-size:0.8em;color:#a89878;line-height:1.6;">
+                <b style="color:#c9a227">${level.cipher.toUpperCase()}</b><br>
+                ${getCipherInfo(level.cipher)}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 提示</div>
+            <div style="font-size:0.85em;color:#a89878;" id="hintText">
+                点击"提示"按钮获取帮助
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 进度</div>
+            <div style="font-size:0.85em;color:#a89878;">
+                关卡: ${currentLevel + 1} / ${levels.length}<br>
+                已破译: ${decryptedCount}<br>
+                得分: ${score}
+            </div>
+        </div>
+    `;
+}
+
+function getCipherInfo(cipher) {
+    const info = {
+        caesar: '凯撒密码是最简单的替换密码，每个字母按固定位数移动。例如位移3时，A→D, B→E。',
+        atbash: 'Atbash是希伯来密码，字母表反转：A↔Z, B↔Y, C↔X...',
+        substitution: '简单替换密码用一个字母替换另一个字母，可通过频率分析破解。',
+        vigenere: '维吉尼亚密码使用关键词循环加密，被称为"不可破译的密码"长达300年。',
+        enigma: '恩尼格玛机使用转子和插线板，每天更换设置，二战中被图灵团队破解。',
+        xor: 'XOR加密利用异或运算的特性：A⊕K⊕K=A，是现代流密码的基础。',
+        rsa: 'RSA是第一个实用的公钥密码系统，安全性基于大数分解的困难性。'
+    };
+    return info[cipher] || '探索这种密码的奥秘...';
+}
+
+function tryCaesar() {
+    const shift = parseInt(document.getElementById('caesarShift').value);
+    document.getElementById('shiftValue').textContent = shift;
+    
+    const ciphertext = document.getElementById('cipherText').textContent;
+    const result = ciphers.caesar.decrypt(ciphertext, shift);
+    document.getElementById('toolOutput').textContent = result;
+}
+
+function tryVigenere() {
+    const key = document.getElementById('vigenereKey').value.toUpperCase();
+    if (!key) return;
+    
+    const ciphertext = document.getElementById('cipherText').textContent;
+    const result = ciphers.vigenere.decrypt(ciphertext, key);
+    document.getElementById('toolOutput').textContent = result;
+}
+
+function tryAtbash() {
+    const ciphertext = document.getElementById('cipherText').textContent;
+    const result = ciphers.atbash.decrypt(ciphertext);
+    document.getElementById('toolOutput').textContent = result;
+}
+
+function showHint() {
+    const level = levels[currentLevel];
+    document.getElementById('hintText').innerHTML = `<span style="color:#c9a227">💡</span> ${level.hint}`;
+}
+
+function checkAnswer() {
+    const input = document.getElementById('decryptInput').value.toUpperCase().trim();
+    const level = levels[currentLevel];
+    const correct = level.plaintext.toUpperCase();
+    
+    const resultBox = document.getElementById('resultBox');
+    resultBox.style.display = 'block';
+    
+    if (input === correct) {
+        resultBox.className = 'result-box result-success';
+        resultBox.innerHTML = `
+            <div style="font-size:1.2em;margin-bottom:10px;">🎉 破译成功！</div>
+            <div>明文: ${correct}</div>
+            <div style="margin-top:10px;">+100 分</div>
+        `;
+        
+        score += 100;
+        decryptedCount = Math.max(decryptedCount, currentLevel + 1);
+        
+        setTimeout(() => {
+            loadLevel(currentLevel + 1);
+        }, 2000);
+    } else {
+        resultBox.className = 'result-box result-error';
+        resultBox.innerHTML = `
+            <div>❌ 答案不正确</div>
+            <div style="margin-top:5px;font-size:0.9em;">继续尝试，或使用工具分析密文</div>
+        `;
+    }
+}
+
+function jumpToEra(eraIndex) {
+    // 找到该时代的第一个关卡
+    const levelIndex = levels.findIndex(l => l.era === eraIndex);
+    if (levelIndex >= 0) {
+        loadLevel(levelIndex);
+    }
+}
+
+function showVictory() {
+    const area = document.getElementById('cipherArea');
+    area.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;">
+            <div style="font-size:4em;margin-bottom:20px;">🏆</div>
+            <div style="font-size:2em;color:#c9a227;margin-bottom:10px;">密码大师！</div>
+            <div style="color:#a89878;margin-bottom:20px;">你已穿越密码学的历史长河</div>
+            <div style="color:#00ff88;font-size:1.5em;">总得分: ${score}</div>
+            <div style="margin-top:30px;color:#8b7355;">
+                从凯撒的战场到现代互联网<br>
+                密码学守护着人类的秘密
+            </div>
+            <button onclick="restartGame()" style="margin-top:30px;padding:12px 30px;background:#8b7355;border:none;border-radius:8px;color:#fff;font-size:1em;cursor:pointer;">重新开始</button>
+        </div>
+    `;
+}
+
+function restartGame() {
+    currentLevel = 0;
+    currentEra = 0;
+    score = 0;
+    decryptedCount = 0;
+    loadLevel(0);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

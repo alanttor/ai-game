@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智联云 - 工业物联网平台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-body: #0a1628;
+            --bg-card: rgba(0, 212, 255, 0.05);
+            --bg-nav: rgba(10, 22, 40, 0.95);
+            --text-primary: #fff;
+            --text-secondary: #8892b0;
+            --accent: #00d4ff;
+            --border: rgba(0, 212, 255, 0.2);
+        }
+        
+        [data-theme="light"] {
+            --bg-body: #f0f4f8;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-nav: rgba(255, 255, 255, 0.95);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --border: rgba(0, 0, 0, 0.1);
+        }
+        
+        body { font-family: 'Microsoft YaHei', sans-serif; background: var(--bg-body); color: var(--text-primary); overflow-x: hidden; transition: background 0.3s; }
+        
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: var(--bg-nav); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 15px 50px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 1.5em; font-weight: bold; }
+        .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #00d4ff, #0066ff);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; transition: color 0.3s; }
+        .nav-links a:hover { color: var(--accent); }
+        .nav-btn { background: linear-gradient(135deg, #00d4ff, #0066ff); border: none;
+            padding: 10px 25px; border-radius: 25px; color: #fff; cursor: pointer; font-weight: bold; }
+        .theme-btn { background: var(--bg-card); border: 1px solid var(--border); width: 40px; height: 40px;
+            border-radius: 50%; cursor: pointer; font-size: 1.2em; margin-right: 15px; }
+        
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at center, rgba(13, 33, 55, 0.5) 0%, transparent 100%);
+            position: relative; overflow: hidden; padding-top: 80px;
+        }
+        .hero-content { text-align: center; z-index: 10; max-width: 800px; padding: 20px; }
+        .hero h1 { font-size: 3.5em; margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d4ff, #00ff88, #00d4ff);
+            background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; animation: shine 3s linear infinite; }
+        @keyframes shine { to { background-position: 200% center; } }
+        .hero p { font-size: 1.3em; color: var(--text-secondary); margin-bottom: 40px; line-height: 1.8; }
+        .hero-btns { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0066ff); border: none;
+            padding: 15px 40px; border-radius: 30px; color: #fff; font-size: 1.1em; cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4); }
+        .btn-outline { background: transparent; border: 2px solid var(--accent);
+            padding: 15px 40px; border-radius: 30px; color: var(--accent); font-size: 1.1em; cursor: pointer; }
+        
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .particle { position: absolute; background: var(--accent); border-radius: 50%; opacity: 0.6; }
+        
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px;
+            padding: 80px 50px; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 20px; padding: 40px; text-align: center; transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-10px); border-color: var(--accent); }
+        .stat-number { font-size: 3em; font-weight: bold; color: var(--accent); }
+        .stat-label { color: var(--text-secondary); margin-top: 10px; }
+        
+        .capabilities { padding: 100px 50px; }
+        .section-title { text-align: center; font-size: 2.5em; margin-bottom: 60px; }
+        .cap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; max-width: 1200px; margin: 0 auto; }
+        .cap-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 40px; transition: all 0.3s; }
+        .cap-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0, 212, 255, 0.1); }
+        .cap-icon { font-size: 3em; margin-bottom: 20px; }
+        .cap-card h3 { font-size: 1.4em; margin-bottom: 15px; color: var(--accent); }
+        .cap-card p { color: var(--text-secondary); line-height: 1.8; }
+        
+        .dashboard { padding: 100px 50px; }
+        .dashboard-preview { max-width: 1200px; margin: 0 auto; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 20px; padding: 30px; }
+        .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .dash-title { font-size: 1.2em; color: var(--accent); }
+        .dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .chart-area { background: rgba(0, 0, 0, 0.2); border-radius: 15px; padding: 20px; height: 300px; }
+        .chart-title { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px; }
+        .device-list { display: flex; flex-direction: column; gap: 15px; }
+        .device-item { background: rgba(0, 0, 0, 0.2); border-radius: 12px; padding: 15px;
+            display: flex; justify-content: space-between; align-items: center; }
+        .device-info { display: flex; align-items: center; gap: 12px; }
+        .device-icon { font-size: 1.5em; }
+        .device-name { font-size: 0.95em; }
+        .device-status { font-size: 0.8em; color: var(--text-secondary); }
+        .device-value { font-size: 1.2em; color: var(--accent); font-weight: bold; }
+        
+        footer { background: rgba(0,0,0,0.3); padding: 60px 50px 30px; border-top: 1px solid var(--border); }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+        .footer-brand h3 { font-size: 1.5em; margin-bottom: 15px; color: var(--accent); }
+        .footer-brand p { color: var(--text-secondary); line-height: 1.8; }
+        .footer-col h4 { margin-bottom: 20px; }
+        .footer-col a { display: block; color: var(--text-secondary); text-decoration: none; margin-bottom: 10px; }
+        .footer-col a:hover { color: var(--accent); }
+        .footer-bottom { text-align: center; padding-top: 30px; border-top: 1px solid var(--border); color: var(--text-secondary); }
+        
+        @media (max-width: 768px) {
+            .navbar { padding: 15px 20px; }
+            .nav-links { display: none; }
+            .hero h1 { font-size: 2em; }
+            .stats { grid-template-columns: repeat(2, 1fr); padding: 40px 20px; }
+            .cap-grid { grid-template-columns: 1fr; }
+            .dash-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo"><div class="logo-icon">📡</div><span>智联云</span></div>
+        <div class="nav-links">
+            <a href="#capabilities">核心能力</a>
+            <a href="#dashboard">实时监控</a>
+            <a href="#contact">联系我们</a>
+        </div>
+        <div>
+            <button class="theme-btn" id="themeBtn">🌙</button>
+            <button class="nav-btn">免费试用</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="particles" id="particles"></div>
+        <div class="hero-content">
+            <h1>工业物联网平台</h1>
+            <p>连接万物，智驱未来。一站式设备接入、数据采集、智能分析平台，<br>助力企业数字化转型升级</p>
+            <div class="hero-btns">
+                <button class="btn-primary">立即体验</button>
+                <button class="btn-outline">观看演示</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats">
+        <div class="stat-card"><div class="stat-number" id="s1">0</div><div class="stat-label">接入设备数</div></div>
+        <div class="stat-card"><div class="stat-number" id="s2">0</div><div class="stat-label">日处理数据量</div></div>
+        <div class="stat-card"><div class="stat-number" id="s3">0</div><div class="stat-label">服务企业</div></div>
+        <div class="stat-card"><div class="stat-number" id="s4">0</div><div class="stat-label">系统可用性</div></div>
+    </section>
+
+    <section class="capabilities" id="capabilities">
+        <h2 class="section-title">核心能力</h2>
+        <div class="cap-grid">
+            <div class="cap-card"><div class="cap-icon">🔌</div><h3>多协议设备接入</h3><p>支持MQTT、CoAP、HTTP、Modbus等主流协议，快速接入各类工业设备</p></div>
+            <div class="cap-card"><div class="cap-icon">📊</div><h3>实时数据处理</h3><p>毫秒级数据采集与处理，支持边缘计算，实现本地智能决策</p></div>
+            <div class="cap-card"><div class="cap-icon">🤖</div><h3>AI智能分析</h3><p>内置机器学习算法，支持设备故障预测、能耗优化</p></div>
+            <div class="cap-card"><div class="cap-icon">🔐</div><h3>安全可靠</h3><p>端到端加密传输，多层安全防护，符合工业信息安全标准</p></div>
+            <div class="cap-card"><div class="cap-icon">📱</div><h3>可视化大屏</h3><p>丰富的图表组件，拖拽式配置，快速搭建专属监控大屏</p></div>
+            <div class="cap-card"><div class="cap-icon">🔗</div><h3>开放API</h3><p>完善的REST API和SDK，轻松与ERP、MES等系统集成</p></div>
+        </div>
+    </section>
+
+    <section class="dashboard" id="dashboard">
+        <h2 class="section-title">实时监控面板</h2>
+        <div class="dashboard-preview">
+            <div class="dash-header"><div class="dash-title">📊 生产车间监控中心</div></div>
+            <div class="dash-grid">
+                <div class="chart-area"><div class="chart-title">📈 设备运行趋势</div><canvas id="chart"></canvas></div>
+                <div class="device-list">
+                    <div class="device-item"><div class="device-info"><span class="device-icon">🌡️</span><div><div class="device-name">温度传感器</div><div class="device-status">运行中</div></div></div><div class="device-value">26.5°C</div></div>
+                    <div class="device-item"><div class="device-info"><span class="device-icon">💧</span><div><div class="device-name">湿度传感器</div><div class="device-status">运行中</div></div></div><div class="device-value">65%</div></div>
+                    <div class="device-item"><div class="device-info"><span class="device-icon">⚡</span><div><div class="device-name">电力监测仪</div><div class="device-status">运行中</div></div></div><div class="device-value">380V</div></div>
+                    <div class="device-item"><div class="device-info"><span class="device-icon">🔧</span><div><div class="device-name">CNC机床</div><div class="device-status">运行中</div></div></div><div class="device-value">87%</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand"><h3>📡 智联云</h3><p>专注工业物联网领域，为制造业提供一站式数字化解决方案。</p></div>
+            <div class="footer-col"><h4>产品</h4><a href="#">设备接入</a><a href="#">数据平台</a><a href="#">边缘计算</a></div>
+            <div class="footer-col"><h4>解决方案</h4><a href="#">智慧工厂</a><a href="#">能源管理</a><a href="#">设备运维</a></div>
+            <div class="footer-col"><h4>支持</h4><a href="#">开发文档</a><a href="#">技术支持</a><a href="#">联系我们</a></div>
+        </div>
+        <div class="footer-bottom">© 2024 智联云科技 | 工业物联网平台模板</div>
+    </footer>
+
+    <script>
+        // 粒子
+        const pc = document.getElementById('particles');
+        for(let i=0;i<40;i++){
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;animation:float ${10+Math.random()*10}s infinite`;
+            pc.appendChild(p);
+        }
+        // 数字动画
+        function anim(el,t,s=''){let c=0;const st=t/50;const tm=setInterval(()=>{c+=st;if(c>=t){c=t;clearInterval(tm);}el.textContent=Math.floor(c).toLocaleString()+s;},30);}
+        setTimeout(()=>{anim(document.getElementById('s1'),128000,'+');anim(document.getElementById('s2'),50,'亿');anim(document.getElementById('s3'),2000,'+');anim(document.getElementById('s4'),99.99,'%');},500);
+        // 图表
+        const cv=document.getElementById('chart'),ctx=cv.getContext('2d');
+        cv.width=cv.offsetWidth*2;cv.height=cv.offsetHeight*2;ctx.scale(2,2);
+        const data=Array.from({length:12},()=>50+Math.random()*40);
+        function draw(){const w=cv.offsetWidth,h=cv.offsetHeight;ctx.clearRect(0,0,w,h);ctx.strokeStyle='#00d4ff';ctx.lineWidth=2;ctx.beginPath();data.forEach((v,i)=>{const x=i/(data.length-1)*w,y=h-(v/100)*h;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});ctx.stroke();const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'rgba(0,212,255,0.3)');g.addColorStop(1,'rgba(0,212,255,0)');ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.fillStyle=g;ctx.fill();}
+        draw();setInterval(()=>{data.shift();data.push(50+Math.random()*40);draw();},2000);
+        
+        // 主题切换
+        const urlParams = new URLSearchParams(window.location.search);
+        let theme = urlParams.get('theme') || localStorage.getItem('theme') || 'dark';
+        const themeBtn = document.getElementById('themeBtn');
+        
+        function applyTheme(t) {
+            if (t === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                themeBtn.textContent = '☀️';
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                themeBtn.textContent = '🌙';
+            }
+            localStorage.setItem('theme', t);
+            theme = t;
+        }
+        applyTheme(theme);
+        themeBtn.onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
+    </script>
+    <style>@keyframes float{0%,100%{transform:translateY(0);opacity:0.6}50%{transform:translateY(-80px);opacity:0.2}}</style>
+</body>
+</html>

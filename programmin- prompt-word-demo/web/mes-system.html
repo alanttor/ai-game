@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智造MES - 数字化制造执行系统</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏭</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: #0f172a; color: #e2e8f0; }
+        
+        /* 侧边栏 */
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 260px;
+            background: #1e293b; border-right: 1px solid #334155;
+            display: flex; flex-direction: column; z-index: 100;
+        }
+        .sidebar-header {
+            padding: 20px; border-bottom: 1px solid #334155;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .sidebar-logo { width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3em; }
+        .sidebar-title { font-size: 1.2em; font-weight: bold; }
+        .sidebar-nav { flex: 1; padding: 15px 0; overflow-y: auto; }
+        .nav-group { margin-bottom: 20px; }
+        .nav-group-title { padding: 10px 20px; font-size: 0.75em; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+            color: #94a3b8; cursor: pointer; transition: all 0.3s; border-left: 3px solid transparent;
+        }
+        .nav-item:hover { background: rgba(59, 130, 246, 0.1); color: #e2e8f0; }
+        .nav-item.active { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-left-color: #3b82f6; }
+        .nav-icon { font-size: 1.2em; width: 24px; text-align: center; }
+        .nav-badge { margin-left: auto; background: #ef4444; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; }
+        
+        /* 主内容区 */
+        .main { margin-left: 260px; min-height: 100vh; }
+        
+        /* 顶部栏 */
+        .topbar {
+            background: #1e293b; border-bottom: 1px solid #334155;
+            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 50;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 20px; }
+        .breadcrumb { display: flex; gap: 8px; color: #64748b; font-size: 0.9em; }
+        .breadcrumb span { color: #e2e8f0; }
+        .topbar-right { display: flex; align-items: center; gap: 20px; }
+        .topbar-btn { background: none; border: none; color: #94a3b8; font-size: 1.2em; cursor: pointer; position: relative; }
+        .topbar-btn .badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: #fff;
+            width: 18px; height: 18px; border-radius: 50%; font-size: 0.7em; display: flex; align-items: center; justify-content: center; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-avatar { width: 36px; height: 36px; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        
+        /* 内容区 */
+        .content { padding: 30px; }
+        
+        /* 统计卡片 */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card {
+            background: #1e293b; border-radius: 16px; padding: 25px;
+            border: 1px solid #334155; position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; right: 0; width: 100px; height: 100px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent);
+            border-radius: 0 16px 0 100px;
+        }
+        .stat-icon { font-size: 2em; margin-bottom: 15px; }
+        .stat-value { font-size: 2.2em; font-weight: bold; margin-bottom: 5px; }
+        .stat-label { color: #64748b; font-size: 0.9em; }
+        .stat-trend { display: flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 0.85em; }
+        .stat-trend.up { color: #22c55e; }
+        .stat-trend.down { color: #ef4444; }
+        
+        /* 图表区域 */
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .chart-card {
+            background: #1e293b; border-radius: 16px; padding: 25px;
+            border: 1px solid #334155;
+        }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .chart-title { font-size: 1.1em; font-weight: bold; }
+        .chart-actions { display: flex; gap: 10px; }
+        .chart-btn { background: #334155; border: none; color: #94a3b8; padding: 6px 12px;
+            border-radius: 6px; font-size: 0.8em; cursor: pointer; }
+        .chart-btn.active { background: #3b82f6; color: #fff; }
+        .chart-area { height: 250px; position: relative; }
+        
+        /* 生产看板 */
+        .production-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+        .board-card {
+            background: #1e293b; border-radius: 16px; padding: 25px;
+            border: 1px solid #334155;
+        }
+        .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .board-title { font-weight: bold; }
+        .board-status { padding: 4px 12px; border-radius: 20px; font-size: 0.8em; }
+        .board-status.running { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .board-status.warning { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+        .board-status.stopped { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .board-content { display: flex; flex-direction: column; gap: 15px; }
+        .board-item { display: flex; justify-content: space-between; align-items: center; }
+        .board-item-label { color: #64748b; font-size: 0.9em; }
+        .board-item-value { font-weight: bold; }
+        .progress-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-top: 15px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: 4px; transition: width 0.5s; }
+        
+        /* 工单列表 */
+        .orders-section { background: #1e293b; border-radius: 16px; padding: 25px; border: 1px solid #334155; }
+        .orders-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .orders-title { font-size: 1.1em; font-weight: bold; }
+        .orders-filter { display: flex; gap: 10px; }
+        .filter-btn { background: #334155; border: none; color: #94a3b8; padding: 8px 16px;
+            border-radius: 8px; cursor: pointer; font-size: 0.85em; }
+        .filter-btn.active { background: #3b82f6; color: #fff; }
+        .orders-table { width: 100%; border-collapse: collapse; }
+        .orders-table th { text-align: left; padding: 12px; color: #64748b; font-size: 0.85em;
+            border-bottom: 1px solid #334155; font-weight: normal; }
+        .orders-table td { padding: 15px 12px; border-bottom: 1px solid #334155; }
+        .orders-table tr:hover { background: rgba(59, 130, 246, 0.05); }
+        .order-id { color: #3b82f6; font-weight: bold; }
+        .order-status { padding: 4px 12px; border-radius: 20px; font-size: 0.8em; display: inline-block; }
+        .order-status.pending { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+        .order-status.processing { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .order-status.completed { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .order-progress { width: 100px; }
+        .order-progress-bar { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; }
+        .order-progress-fill { height: 100%; background: #3b82f6; }
+        
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .charts-row { grid-template-columns: 1fr; }
+            .production-board { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .main { margin-left: 0; }
+            .stats-row { grid-template-columns: 1fr; }
+            .orders-table { font-size: 0.85em; }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🏭</div>
+            <div class="sidebar-title">智造MES</div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-group">
+                <div class="nav-group-title">生产管理</div>
+                <div class="nav-item active"><span class="nav-icon">📊</span>生产看板</div>
+                <div class="nav-item"><span class="nav-icon">📋</span>工单管理<span class="nav-badge">12</span></div>
+                <div class="nav-item"><span class="nav-icon">📅</span>排程计划</div>
+                <div class="nav-item"><span class="nav-icon">⚙️</span>工艺路线</div>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title">质量管理</div>
+                <div class="nav-item"><span class="nav-icon">✅</span>质量检验</div>
+                <div class="nav-item"><span class="nav-icon">📈</span>SPC分析</div>
+                <div class="nav-item"><span class="nav-icon">⚠️</span>异常处理<span class="nav-badge">3</span></div>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title">设备管理</div>
+                <div class="nav-item"><span class="nav-icon">🔧</span>设备台账</div>
+                <div class="nav-item"><span class="nav-icon">🛠️</span>维护保养</div>
+                <div class="nav-item"><span class="nav-icon">📡</span>设备监控</div>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title">追溯管理</div>
+                <div class="nav-item"><span class="nav-icon">🏷️</span>批次追溯</div>
+                <div class="nav-item"><span class="nav-icon">📦</span>物料管理</div>
+            </div>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="breadcrumb">生产管理 / <span>生产看板</span></div>
+            </div>
+            <div class="topbar-right">
+                <button class="topbar-btn">🔔<span class="badge">5</span></button>
+                <button class="topbar-btn">⚙️</button>
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <span>管理员</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- 统计卡片 -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-value" id="orderCount">0</div>
+                    <div class="stat-label">今日工单</div>
+                    <div class="stat-trend up">↑ 12% 较昨日</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="completeRate">0%</div>
+                    <div class="stat-label">完成率</div>
+                    <div class="stat-trend up">↑ 5% 较昨日</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚙️</div>
+                    <div class="stat-value" id="oeeValue">0%</div>
+                    <div class="stat-label">设备OEE</div>
+                    <div class="stat-trend down">↓ 2% 较昨日</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-value" id="qualityRate">0%</div>
+                    <div class="stat-label">良品率</div>
+                    <div class="stat-trend up">↑ 0.5% 较昨日</div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">📈 产量趋势</div>
+                        <div class="chart-actions">
+                            <button class="chart-btn active">日</button>
+                            <button class="chart-btn">周</button>
+                            <button class="chart-btn">月</button>
+                        </div>
+                    </div>
+                    <div class="chart-area">
+                        <canvas id="productionChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">🎯 产线分布</div>
+                    </div>
+                    <div class="chart-area">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 生产看板 -->
+            <div class="production-board">
+                <div class="board-card">
+                    <div class="board-header">
+                        <div class="board-title">🏭 产线A</div>
+                        <span class="board-status running">运行中</span>
+                    </div>
+                    <div class="board-content">
+                        <div class="board-item"><span class="board-item-label">当前工单</span><span class="board-item-value">WO-2024-001</span></div>
+                        <div class="board-item"><span class="board-item-label">产品型号</span><span class="board-item-value">PCB-A100</span></div>
+                        <div class="board-item"><span class="board-item-label">计划/完成</span><span class="board-item-value">1000 / 856</span></div>
+                        <div class="board-item"><span class="board-item-label">节拍</span><span class="board-item-value">12s/件</span></div>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 85.6%"></div></div>
+                </div>
+                <div class="board-card">
+                    <div class="board-header">
+                        <div class="board-title">🏭 产线B</div>
+                        <span class="board-status warning">待料中</span>
+                    </div>
+                    <div class="board-content">
+                        <div class="board-item"><span class="board-item-label">当前工单</span><span class="board-item-value">WO-2024-002</span></div>
+                        <div class="board-item"><span class="board-item-label">产品型号</span><span class="board-item-value">PCB-B200</span></div>
+                        <div class="board-item"><span class="board-item-label">计划/完成</span><span class="board-item-value">800 / 320</span></div>
+                        <div class="board-item"><span class="board-item-label">节拍</span><span class="board-item-value">15s/件</span></div>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 40%; background: linear-gradient(90deg, #eab308, #f59e0b);"></div></div>
+                </div>
+                <div class="board-card">
+                    <div class="board-header">
+                        <div class="board-title">🏭 产线C</div>
+                        <span class="board-status stopped">已停机</span>
+                    </div>
+                    <div class="board-content">
+                        <div class="board-item"><span class="board-item-label">当前工单</span><span class="board-item-value">WO-2024-003</span></div>
+                        <div class="board-item"><span class="board-item-label">产品型号</span><span class="board-item-value">PCB-C300</span></div>
+                        <div class="board-item"><span class="board-item-label">计划/完成</span><span class="board-item-value">500 / 500</span></div>
+                        <div class="board-item"><span class="board-item-label">停机原因</span><span class="board-item-value">计划保养</span></div>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: 100%; background: linear-gradient(90deg, #22c55e, #16a34a);"></div></div>
+                </div>
+            </div>
+
+            <!-- 工单列表 -->
+            <div class="orders-section">
+                <div class="orders-header">
+                    <div class="orders-title">📋 工单列表</div>
+                    <div class="orders-filter">
+                        <button class="filter-btn active">全部</button>
+                        <button class="filter-btn">待生产</button>
+                        <button class="filter-btn">生产中</button>
+                        <button class="filter-btn">已完成</button>
+                    </div>
+                </div>
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>工单号</th>
+                            <th>产品</th>
+                            <th>计划数量</th>
+                            <th>完成数量</th>
+                            <th>进度</th>
+                            <th>状态</th>
+                            <th>计划完成</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="order-id">WO-2024-001</span></td>
+                            <td>PCB-A100</td>
+                            <td>1,000</td>
+                            <td>856</td>
+                            <td class="order-progress"><div class="order-progress-bar"><div class="order-progress-fill" style="width:85.6%"></div></div></td>
+                            <td><span class="order-status processing">生产中</span></td>
+                            <td>2024-12-27</td>
+                        </tr>
+                        <tr>
+                            <td><span class="order-id">WO-2024-002</span></td>
+                            <td>PCB-B200</td>
+                            <td>800</td>
+                            <td>320</td>
+                            <td class="order-progress"><div class="order-progress-bar"><div class="order-progress-fill" style="width:40%"></div></div></td>
+                            <td><span class="order-status pending">待料中</span></td>
+                            <td>2024-12-28</td>
+                        </tr>
+                        <tr>
+                            <td><span class="order-id">WO-2024-003</span></td>
+                            <td>PCB-C300</td>
+                            <td>500</td>
+                            <td>500</td>
+                            <td class="order-progress"><div class="order-progress-bar"><div class="order-progress-fill" style="width:100%"></div></div></td>
+                            <td><span class="order-status completed">已完成</span></td>
+                            <td>2024-12-26</td>
+                        </tr>
+                        <tr>
+                            <td><span class="order-id">WO-2024-004</span></td>
+                            <td>PCB-D400</td>
+                            <td>1,200</td>
+                            <td>0</td>
+                            <td class="order-progress"><div class="order-progress-bar"><div class="order-progress-fill" style="width:0%"></div></div></td>
+                            <td><span class="order-status pending">待生产</span></td>
+                            <td>2024-12-29</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 数字动画
+        function animateNumber(el, target, suffix = '') {
+            let current = 0;
+            const step = target / 50;
+            const timer = setInterval(() => {
+                current += step;
+                if (current >= target) { current = target; clearInterval(timer); }
+                el.textContent = Math.round(current) + suffix;
+            }, 30);
+        }
+        setTimeout(() => {
+            animateNumber(document.getElementById('orderCount'), 48);
+            animateNumber(document.getElementById('completeRate'), 87, '%');
+            animateNumber(document.getElementById('oeeValue'), 82, '%');
+            animateNumber(document.getElementById('qualityRate'), 98.5, '%');
+        }, 300);
+
+        // 产量趋势图
+        const prodCanvas = document.getElementById('productionChart');
+        const prodCtx = prodCanvas.getContext('2d');
+        prodCanvas.width = prodCanvas.offsetWidth * 2;
+        prodCanvas.height = prodCanvas.offsetHeight * 2;
+        prodCtx.scale(2, 2);
+        
+        const prodData = [120, 150, 180, 160, 200, 220, 190, 210, 240, 230, 250, 260];
+        const labels = ['8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+        
+        function drawProdChart() {
+            const w = prodCanvas.offsetWidth, h = prodCanvas.offsetHeight;
+            prodCtx.clearRect(0, 0, w, h);
+            
+            // 网格
+            prodCtx.strokeStyle = 'rgba(59, 130, 246, 0.1)';
+            prodCtx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                prodCtx.beginPath();
+                prodCtx.moveTo(40, h * i / 5);
+                prodCtx.lineTo(w, h * i / 5);
+                prodCtx.stroke();
+            }
+            
+            // 柱状图
+            const barWidth = (w - 60) / prodData.length * 0.6;
+            const gap = (w - 60) / prodData.length;
+            const maxVal = Math.max(...prodData);
+            
+            prodData.forEach((v, i) => {
+                const x = 50 + i * gap;
+                const barH = (v / maxVal) * (h - 40);
+                const gradient = prodCtx.createLinearGradient(x, h - barH, x, h - 20);
+                gradient.addColorStop(0, '#3b82f6');
+                gradient.addColorStop(1, '#8b5cf6');
+                prodCtx.fillStyle = gradient;
+                prodCtx.fillRect(x, h - barH - 20, barWidth, barH);
+                
+                // 标签
+                prodCtx.fillStyle = '#64748b';
+                prodCtx.font = '10px sans-serif';
+                prodCtx.textAlign = 'center';
+                prodCtx.fillText(labels[i], x + barWidth/2, h - 5);
+            });
+        }
+        drawProdChart();
+
+        // 产线分布图
+        const lineCanvas = document.getElementById('lineChart');
+        const lineCtx = lineCanvas.getContext('2d');
+        lineCanvas.width = lineCanvas.offsetWidth * 2;
+        lineCanvas.height = lineCanvas.offsetHeight * 2;
+        lineCtx.scale(2, 2);
+        
+        const lineData = [
+            { name: '产线A', value: 35, color: '#3b82f6' },
+            { name: '产线B', value: 28, color: '#8b5cf6' },
+            { name: '产线C', value: 22, color: '#22c55e' },
+            { name: '其他', value: 15, color: '#64748b' }
+        ];
+        
+        function drawLineChart() {
+            const w = lineCanvas.offsetWidth, h = lineCanvas.offsetHeight;
+            const cx = w / 2, cy = h / 2 - 20;
+            const radius = Math.min(w, h) / 2 - 40;
+            
+            let startAngle = -Math.PI / 2;
+            const total = lineData.reduce((s, d) => s + d.value, 0);
+            
+            lineData.forEach((d, i) => {
+                const sliceAngle = (d.value / total) * Math.PI * 2;
+                lineCtx.beginPath();
+                lineCtx.moveTo(cx, cy);
+                lineCtx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+                lineCtx.fillStyle = d.color;
+                lineCtx.fill();
+                startAngle += sliceAngle;
+            });
+            
+            // 中心圆
+            lineCtx.beginPath();
+            lineCtx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+            lineCtx.fillStyle = '#1e293b';
+            lineCtx.fill();
+            
+            // 图例
+            lineData.forEach((d, i) => {
+                const y = h - 60 + i * 18;
+                lineCtx.fillStyle = d.color;
+                lineCtx.fillRect(10, y, 12, 12);
+                lineCtx.fillStyle = '#94a3b8';
+                lineCtx.font = '11px sans-serif';
+                lineCtx.fillText(`${d.name} ${d.value}%`, 28, y + 10);
+            });
+        }
+        drawLineChart();
+
+        // 导航点击
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+
+        // 筛选按钮
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

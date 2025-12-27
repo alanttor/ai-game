@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字水墨物理模拟绘画</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖌️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SimSun', 'STSong', serif;
+            background: #2a2520;
+            min-height: 100vh;
+            color: #d4c4a8;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .canvas-area {
+            flex: 8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #3a3530 0%, #2a2520 100%);
+        }
+        .paper-frame {
+            background: #1a1510;
+            padding: 15px;
+            border-radius: 3px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        #inkCanvas {
+            display: block;
+            cursor: crosshair;
+            background: #f5f0e6;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.1);
+        }
+        .control-panel {
+            flex: 2;
+            min-width: 220px;
+            background: rgba(30,25,20,0.95);
+            border-left: 1px solid #4a4035;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.9em;
+            color: #c4a060;
+            border-bottom: 1px solid #4a4035;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 10px;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="canvas-area">
+        <div class="paper-frame">
+            <canvas id="inkCanvas"></canvas>
+        </div>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let painting = false;
+let lastX, lastY;
+let lastTime;
+
+// 墨水场（用于扩散模拟）
+const GRID_SIZE = 200;
+let inkField = new Float32Array(GRID_SIZE * GRID_SIZE);
+let wetField = new Float32Array(GRID_SIZE * GRID_SIZE);
+let tempField = new Float32Array(GRID_SIZE * GRID_SIZE);
+
+// 纸张纹理
+let paperTexture;
+
+const state = {
+    inkDensity: 0.8,
+    waterAmount: 0.5,
+    brushSize: 20,
+    brushSoftness: 0.7,
+    diffusionRate: 0.3,
+    dryingRate: 0.02,
+    paperWetness: 0.2,
+    textureStrength: 0.3,
+    brushType: 'round',
+    inkColor: { r: 20, g: 20, b: 25 }
+};
+
+const BRUSHES = {
+    round: { name: '圆笔', desc: '柔软圆润，适合渲染' },
+    flat: { name: '扁笔', desc: '方正有力，适合线条' },
+    scatter: { name: '散笔', desc: '飞白效果，适合皴擦' },
+    splash: { name: '泼墨', desc: '大面积泼洒效果' }
+};
+
+function init() {
+    canvas = document.getElementById('inkCanvas');
+    ctx = canvas.getContext('2d');
+    
+    const area = canvas.parentElement.parentElement;
+    const size = Math.min(area.clientWidth - 100, area.clientHeight - 60, 700);
+    canvas.width = size;
+    canvas.height = size * 0.75;
+    
+    generatePaperTexture();
+    clearCanvas();
+    renderControlPanel();
+    
+    canvas.addEventListener('mousedown', startPaint);
+    canvas.addEventListener('mousemove', paint);
+    canvas.addEventListener('mouseup', stopPaint);
+    canvas.addEventListener('mouseleave', stopPaint);
+    
+    // 触摸支持
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPaint(e.touches[0]); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); paint(e.touches[0]); });
+    canvas.addEventListener('touchend', stopPaint);
+    
+    // 持续扩散和干燥
+    setInterval(updateInkField, 50);
+}
+
+function generatePaperTexture() {
+    paperTexture = new Float32Array(canvas.width * canvas.height);
+    
+    // 生成宣纸纹理（多层噪声）
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            let noise = 0;
+            // 大尺度纤维
+            noise += Math.sin(x * 0.02 + Math.random() * 0.5) * 0.3;
+            noise += Math.sin(y * 0.03 + Math.random() * 0.5) * 0.3;
+            // 小尺度纹理
+            noise += (Math.random() - 0.5) * 0.4;
+            // 纤维方向
+            noise += Math.sin((x + y) * 0.1) * 0.2;
+            
+            paperTexture[y * canvas.width + x] = 0.5 + noise * 0.5;
+        }
+    }
+}
+
+function clearCanvas() {
+    // 绘制宣纸背景
+    const imageData = ctx.createImageData(canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    for (let i = 0; i < paperTexture.length; i++) {
+        const t = paperTexture[i];
+        const base = 240 + t * 15;
+        data[i * 4] = base;
+        data[i * 4 + 1] = base - 5;
+        data[i * 4 + 2] = base - 15;
+        data[i * 4 + 3] = 255;
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    
+    // 清空墨水场
+    inkField.fill(0);
+    wetField.fill(0);
+}
+
+function renderControlPanel() {
+    const panel = document.getElementById('controlPanel');
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 8px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.75em; color: #a09080; margin-bottom: 3px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #3a3530; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #c4a060; cursor: pointer; }
+            .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; transition: all 0.2s; margin: 2px; font-family: inherit; }
+            .btn-primary { background: linear-gradient(135deg, #5a4a30, #3a3020); color: #d4c4a8; border: 1px solid #6a5a40; }
+            .btn-secondary { background: rgba(255,255,255,0.05); color: #a09080; }
+            .btn.active { box-shadow: 0 0 8px #c4a060; border-color: #c4a060; }
+            .btn:hover { transform: scale(1.02); }
+            .brush-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+            .brush-btn { padding: 10px 5px; text-align: center; }
+            .ink-preview { width: 100%; height: 30px; border-radius: 4px; margin-top: 8px; }
+            .technique-btn { display: block; width: 100%; text-align: left; padding: 8px; margin: 3px 0; }
+        </style>
+        <div style="text-align:center;margin-bottom:8px;">
+            <h2 style="color:#c4a060;font-size:1.1em;">🖌️ 数字水墨</h2>
+            <p style="color:#6a5a40;font-size:0.7em;">物理模拟水墨扩散</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🖌️ 笔刷类型</div>
+            <div class="brush-grid">
+                ${Object.entries(BRUSHES).map(([key, b]) => `
+                    <button class="btn brush-btn ${state.brushType === key ? 'btn-primary active' : 'btn-secondary'}" 
+                            onclick="setBrush('${key}')" title="${b.desc}">${b.name}</button>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎨 墨水参数</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>墨水浓度</span><span>${(state.inkDensity * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${state.inkDensity * 100}" 
+                       oninput="state.inkDensity = this.value / 100; updateInkPreview();">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>含水量</span><span>${(state.waterAmount * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${state.waterAmount * 100}" 
+                       oninput="state.waterAmount = this.value / 100; updateInkPreview();">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>笔刷大小</span><span>${state.brushSize}px</span></div>
+                <input type="range" min="5" max="80" value="${state.brushSize}" 
+                       oninput="state.brushSize = parseInt(this.value); renderControlPanel();">
+            </div>
+            <div class="ink-preview" id="inkPreview"></div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📜 纸张设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>纸张湿度</span><span>${(state.paperWetness * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${state.paperWetness * 100}" 
+                       oninput="state.paperWetness = this.value / 100;">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>扩散速度</span><span>${(state.diffusionRate * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${state.diffusionRate * 100}" 
+                       oninput="state.diffusionRate = this.value / 100;">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>纹理强度</span><span>${(state.textureStrength * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${state.textureStrength * 100}" 
+                       oninput="state.textureStrength = this.value / 100;">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎭 传统技法</div>
+            <button class="btn btn-secondary technique-btn" onclick="technique('splash')">💧 泼墨法</button>
+            <button class="btn btn-secondary technique-btn" onclick="technique('dry')">🖌️ 焦墨法</button>
+            <button class="btn btn-secondary technique-btn" onclick="technique('wet')">💦 破墨法</button>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎬 操作</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                <button class="btn btn-primary" onclick="clearCanvas()">🗑️ 清空</button>
+                <button class="btn btn-secondary" onclick="saveImage()">💾 保存</button>
+                <button class="btn btn-secondary" onclick="addSeal()">🔴 印章</button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.7em;color:#6a5a40;line-height:1.4;">
+                模拟水墨在宣纸上的物理扩散。<br>
+                <b>浓墨</b>：高浓度低水量<br>
+                <b>淡墨</b>：低浓度高水量<br>
+                湿纸扩散更快，干纸边缘更清晰。
+            </div>
+        </div>
+    `;
+    
+    updateInkPreview();
+}
+
+function updateInkPreview() {
+    const preview = document.getElementById('inkPreview');
+    if (!preview) return;
+    
+    const density = state.inkDensity;
+    const water = state.waterAmount;
+    const alpha = density * (1 - water * 0.5);
+    
+    preview.style.background = `linear-gradient(90deg, 
+        rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha}),
+        rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha * 0.3}))`;
+}
+
+function setBrush(type) {
+    state.brushType = type;
+    renderControlPanel();
+}
+
+function technique(type) {
+    switch (type) {
+        case 'splash':
+            state.inkDensity = 0.9;
+            state.waterAmount = 0.8;
+            state.brushSize = 60;
+            state.diffusionRate = 0.8;
+            break;
+        case 'dry':
+            state.inkDensity = 1;
+            state.waterAmount = 0.1;
+            state.brushSize = 15;
+            state.diffusionRate = 0.1;
+            break;
+        case 'wet':
+            state.inkDensity = 0.5;
+            state.waterAmount = 0.9;
+            state.brushSize = 30;
+            state.diffusionRate = 0.6;
+            break;
+    }
+    renderControlPanel();
+}
+
+function startPaint(e) {
+    painting = true;
+    const rect = canvas.getBoundingClientRect();
+    lastX = e.clientX - rect.left;
+    lastY = e.clientY - rect.top;
+    lastTime = Date.now();
+    
+    // 初始点
+    applyBrush(lastX, lastY, 1);
+}
+
+function paint(e) {
+    if (!painting) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const now = Date.now();
+    
+    // 计算速度（影响笔触粗细）
+    const dx = x - lastX;
+    const dy = y - lastY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dt = now - lastTime;
+    const speed = dt > 0 ? dist / dt : 0;
+    
+    // 压力模拟（速度越快，笔触越细）
+    const pressure = Math.max(0.3, 1 - speed * 0.1);
+    
+    // 插值绘制
+    const steps = Math.max(1, Math.floor(dist / 3));
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const px = lastX + dx * t;
+        const py = lastY + dy * t;
+        applyBrush(px, py, pressure);
+    }
+    
+    lastX = x;
+    lastY = y;
+    lastTime = now;
+}
+
+function stopPaint() {
+    painting = false;
+}
+
+function applyBrush(x, y, pressure) {
+    const size = state.brushSize * pressure;
+    const density = state.inkDensity;
+    const water = state.waterAmount;
+    
+    ctx.save();
+    
+    switch (state.brushType) {
+        case 'round':
+            drawRoundBrush(x, y, size, density, water);
+            break;
+        case 'flat':
+            drawFlatBrush(x, y, size, density, water);
+            break;
+        case 'scatter':
+            drawScatterBrush(x, y, size, density, water);
+            break;
+        case 'splash':
+            drawSplashBrush(x, y, size, density, water);
+            break;
+    }
+    
+    ctx.restore();
+    
+    // 更新墨水场（用于扩散）
+    updateInkFieldAt(x, y, size, density * water);
+}
+
+function drawRoundBrush(x, y, size, density, water) {
+    const alpha = density * (1 - water * 0.3);
+    
+    // 多层叠加模拟墨水浓淡
+    for (let i = 0; i < 3; i++) {
+        const r = size * (1 - i * 0.2);
+        const a = alpha * (1 - i * 0.3);
+        
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gradient.addColorStop(0, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${a})`);
+        gradient.addColorStop(0.5, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${a * 0.6})`);
+        gradient.addColorStop(1, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // 添加纹理效果
+    if (state.textureStrength > 0) {
+        addTextureEffect(x, y, size, density);
+    }
+}
+
+function drawFlatBrush(x, y, size, density, water) {
+    const alpha = density * (1 - water * 0.3);
+    const width = size;
+    const height = size * 0.3;
+    
+    ctx.fillStyle = `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, width / 2, height / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawScatterBrush(x, y, size, density, water) {
+    const alpha = density * (1 - water * 0.5);
+    const count = Math.floor(size / 2);
+    
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * size;
+        const px = x + Math.cos(angle) * dist;
+        const py = y + Math.sin(angle) * dist;
+        const r = Math.random() * 3 + 1;
+        
+        ctx.fillStyle = `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha * Math.random()})`;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawSplashBrush(x, y, size, density, water) {
+    const alpha = density * 0.8;
+    
+    // 主墨点
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+    gradient.addColorStop(0, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha})`);
+    gradient.addColorStop(0.7, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha * 0.3})`);
+    gradient.addColorStop(1, `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, 0)`);
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 飞溅效果
+    const splashCount = Math.floor(size / 3);
+    for (let i = 0; i < splashCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = size + Math.random() * size * 2;
+        const px = x + Math.cos(angle) * dist;
+        const py = y + Math.sin(angle) * dist;
+        const r = Math.random() * 4 + 1;
+        
+        ctx.fillStyle = `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function addTextureEffect(x, y, size, density) {
+    const strength = state.textureStrength;
+    const count = Math.floor(size * strength);
+    
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * size;
+        const px = Math.floor(x + Math.cos(angle) * dist);
+        const py = Math.floor(y + Math.sin(angle) * dist);
+        
+        if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
+            const texIdx = py * canvas.width + px;
+            const tex = paperTexture[texIdx];
+            
+            if (tex < 0.4) {
+                // 纤维吸墨更多
+                ctx.fillStyle = `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${density * 0.3})`;
+                ctx.fillRect(px, py, 2, 2);
+            }
+        }
+    }
+}
+
+function updateInkFieldAt(x, y, size, amount) {
+    const scaleX = GRID_SIZE / canvas.width;
+    const scaleY = GRID_SIZE / canvas.height;
+    const gx = Math.floor(x * scaleX);
+    const gy = Math.floor(y * scaleY);
+    const gr = Math.ceil(size * scaleX);
+    
+    for (let dy = -gr; dy <= gr; dy++) {
+        for (let dx = -gr; dx <= gr; dx++) {
+            const px = gx + dx;
+            const py = gy + dy;
+            if (px >= 0 && px < GRID_SIZE && py >= 0 && py < GRID_SIZE) {
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= gr) {
+                    const idx = py * GRID_SIZE + px;
+                    const falloff = 1 - dist / gr;
+                    inkField[idx] = Math.min(1, inkField[idx] + amount * falloff);
+                    wetField[idx] = Math.min(1, wetField[idx] + state.waterAmount * falloff);
+                }
+            }
+        }
+    }
+}
+
+function updateInkField() {
+    if (state.diffusionRate === 0) return;
+    
+    const rate = state.diffusionRate * 0.1;
+    const dryRate = state.dryingRate;
+    
+    // 扩散
+    for (let y = 1; y < GRID_SIZE - 1; y++) {
+        for (let x = 1; x < GRID_SIZE - 1; x++) {
+            const idx = y * GRID_SIZE + x;
+            const wet = wetField[idx];
+            
+            if (wet > 0.01) {
+                const neighbors = [
+                    inkField[idx - 1], inkField[idx + 1],
+                    inkField[idx - GRID_SIZE], inkField[idx + GRID_SIZE]
+                ];
+                const avg = neighbors.reduce((a, b) => a + b, 0) / 4;
+                tempField[idx] = inkField[idx] + (avg - inkField[idx]) * rate * wet;
+                
+                // 干燥
+                wetField[idx] = Math.max(0, wet - dryRate);
+            } else {
+                tempField[idx] = inkField[idx];
+            }
+        }
+    }
+    
+    // 交换缓冲区
+    [inkField, tempField] = [tempField, inkField];
+    
+    // 渲染扩散效果
+    renderDiffusion();
+}
+
+function renderDiffusion() {
+    const scaleX = canvas.width / GRID_SIZE;
+    const scaleY = canvas.height / GRID_SIZE;
+    
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            const idx = y * GRID_SIZE + x;
+            const ink = inkField[idx];
+            const wet = wetField[idx];
+            
+            if (wet > 0.01 && ink > 0.01) {
+                const px = x * scaleX;
+                const py = y * scaleY;
+                const alpha = ink * wet * 0.1;
+                
+                ctx.fillStyle = `rgba(${state.inkColor.r}, ${state.inkColor.g}, ${state.inkColor.b}, ${alpha})`;
+                ctx.fillRect(px, py, scaleX + 1, scaleY + 1);
+            }
+        }
+    }
+}
+
+function addSeal() {
+    const x = canvas.width - 60;
+    const y = canvas.height - 60;
+    
+    ctx.fillStyle = '#c41e3a';
+    ctx.beginPath();
+    ctx.roundRect(x, y, 50, 50, 3);
+    ctx.fill();
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px SimSun';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('印', x + 25, y + 25);
+}
+
+function saveImage() {
+    const link = document.createElement('a');
+    link.download = `ink_painting_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+init();
+</script>
+</body>
+</html>

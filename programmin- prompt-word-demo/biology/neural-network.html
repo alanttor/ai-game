@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神经网络可视化学习器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: #0a0f0a;
+            color: #0f0;
+            font-family: 'Consolas', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .top-row {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+        }
+
+        .panel {
+            background: rgba(0, 30, 0, 0.8);
+            border: 1px solid #0a0;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                linear-gradient(90deg, rgba(0,50,0,0.1) 1px, transparent 1px),
+                linear-gradient(rgba(0,50,0,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+
+        .panel-title {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            font-size: 0.85em;
+            color: #0a0;
+            z-index: 10;
+        }
+
+        .data-panel { flex: 1; }
+        .network-panel { flex: 1; }
+        .loss-panel { height: 180px; }
+
+        canvas { display: block; }
+
+        .control-panel {
+            width: 260px;
+            background: rgba(0, 20, 0, 0.95);
+            border-left: 1px solid #0a0;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .control-title {
+            text-align: center;
+            font-size: 1.1em;
+            color: #0f0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #0a0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #0a0;
+            margin-bottom: 6px;
+        }
+
+        .control-group .value {
+            color: #0f0;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #030;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #0f0;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px #0f0;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #020;
+            border: 1px solid #0a0;
+            color: #0f0;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 10px;
+            background: #020;
+            border: 1px solid #0a0;
+            color: #0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #040;
+            box-shadow: 0 0 10px rgba(0,255,0,0.3);
+        }
+
+        .btn.active {
+            background: #0a0;
+            color: #000;
+        }
+
+        .btn.full { grid-column: 1 / -1; }
+
+        .stats {
+            background: #010;
+            border: 1px solid #050;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 6px 0;
+            font-size: 0.85em;
+        }
+
+        .stat-label { color: #080; }
+        .stat-value { color: #0f0; font-weight: bold; }
+
+        .section-title {
+            color: #0a0;
+            font-size: 0.9em;
+            margin: 15px 0 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #050;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-area">
+            <div class="top-row">
+                <div class="panel data-panel">
+                    <div class="panel-title">📊 数据分布 (点击添加数据点)</div>
+                    <canvas id="dataCanvas"></canvas>
+                </div>
+                <div class="panel network-panel">
+                    <div class="panel-title">🧠 神经网络结构</div>
+                    <canvas id="networkCanvas"></canvas>
+                </div>
+            </div>
+            <div class="panel loss-panel">
+                <div class="panel-title">📈 损失曲线</div>
+                <canvas id="lossCanvas"></canvas>
+            </div>
+        </div>
+        <div class="control-panel" id="controls"></div>
+    </div>
+
+    <script>
+        // ==================== 神经网络类 ====================
+        class NeuralNetwork {
+            constructor(layers, activation = 'sigmoid') {
+                this.layers = layers;
+                this.activation = activation;
+                this.weights = [];
+                this.biases = [];
+                this.initWeights();
+            }
+
+            initWeights() {
+                this.weights = [];
+                this.biases = [];
+                for (let i = 0; i < this.layers.length - 1; i++) {
+                    const w = [];
+                    for (let j = 0; j < this.layers[i + 1]; j++) {
+                        const row = [];
+                        for (let k = 0; k < this.layers[i]; k++) {
+                            row.push((Math.random() - 0.5) * 2);
+                        }
+                        w.push(row);
+                    }
+                    this.weights.push(w);
+                    this.biases.push(Array(this.layers[i + 1]).fill(0).map(() => (Math.random() - 0.5)));
+                }
+            }
+
+            activate(x) {
+                switch (this.activation) {
+                    case 'relu': return Math.max(0, x);
+                    case 'tanh': return Math.tanh(x);
+                    default: return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
+                }
+            }
+
+            activateDerivative(x) {
+                switch (this.activation) {
+                    case 'relu': return x > 0 ? 1 : 0;
+                    case 'tanh': const t = Math.tanh(x); return 1 - t * t;
+                    default: const s = this.activate(x); return s * (1 - s);
+                }
+            }
+
+            forward(input) {
+                this.activations = [input];
+                this.zValues = [];
+                let current = input;
+
+                for (let l = 0; l < this.weights.length; l++) {
+                    const next = [];
+                    const z = [];
+                    for (let j = 0; j < this.weights[l].length; j++) {
+                        let sum = this.biases[l][j];
+                        for (let k = 0; k < current.length; k++) {
+                            sum += this.weights[l][j][k] * current[k];
+                        }
+                        z.push(sum);
+                        next.push(l === this.weights.length - 1 ? this.activate(sum) : this.activate(sum));
+                    }
+                    this.zValues.push(z);
+                    this.activations.push(next);
+                    current = next;
+                }
+                return current;
+            }
+
+            backward(target, lr, reg = 0) {
+                const deltas = [];
+                const output = this.activations[this.activations.length - 1];
+                
+                // 输出层误差
+                const outputDelta = [];
+                for (let i = 0; i < output.length; i++) {
+                    const error = output[i] - target[i];
+                    outputDelta.push(error * this.activateDerivative(this.zValues[this.zValues.length - 1][i]));
+                }
+                deltas.unshift(outputDelta);
+
+                // 反向传播
+                for (let l = this.weights.length - 2; l >= 0; l--) {
+                    const delta = [];
+                    for (let j = 0; j < this.weights[l].length; j++) {
+                        let error = 0;
+                        for (let k = 0; k < this.weights[l + 1].length; k++) {
+                            error += this.weights[l + 1][k][j] * deltas[0][k];
+                        }
+                        delta.push(error * this.activateDerivative(this.zValues[l][j]));
+                    }
+                    deltas.unshift(delta);
+                }
+
+                // 更新权重
+                for (let l = 0; l < this.weights.length; l++) {
+                    for (let j = 0; j < this.weights[l].length; j++) {
+                        for (let k = 0; k < this.weights[l][j].length; k++) {
+                            this.weights[l][j][k] -= lr * (deltas[l][j] * this.activations[l][k] + reg * this.weights[l][j][k]);
+                        }
+                        this.biases[l][j] -= lr * deltas[l][j];
+                    }
+                }
+            }
+
+            predict(input) {
+                return this.forward(input)[0] > 0.5 ? 1 : 0;
+            }
+        }
+
+        // ==================== 可视化器 ====================
+        class Visualizer {
+            constructor() {
+                this.dataCanvas = document.getElementById('dataCanvas');
+                this.networkCanvas = document.getElementById('networkCanvas');
+                this.lossCanvas = document.getElementById('lossCanvas');
+                this.dataCtx = this.dataCanvas.getContext('2d');
+                this.networkCtx = this.networkCanvas.getContext('2d');
+                this.lossCtx = this.lossCanvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const dataPanel = this.dataCanvas.parentElement;
+                const networkPanel = this.networkCanvas.parentElement;
+                const lossPanel = this.lossCanvas.parentElement;
+
+                this.dataCanvas.width = dataPanel.clientWidth;
+                this.dataCanvas.height = dataPanel.clientHeight;
+                this.networkCanvas.width = networkPanel.clientWidth;
+                this.networkCanvas.height = networkPanel.clientHeight;
+                this.lossCanvas.width = lossPanel.clientWidth;
+                this.lossCanvas.height = lossPanel.clientHeight;
+            }
+
+            drawData(data, network) {
+                const ctx = this.dataCtx;
+                const w = this.dataCanvas.width;
+                const h = this.dataCanvas.height;
+                ctx.clearRect(0, 0, w, h);
+
+                // 绘制决策边界
+                if (network) {
+                    const resolution = 8;
+                    for (let x = 0; x < w; x += resolution) {
+                        for (let y = 0; y < h; y += resolution) {
+                            const nx = x / w;
+                            const ny = y / h;
+                            const output = network.forward([nx, ny])[0];
+                            const r = Math.floor(output * 100);
+                            const g = Math.floor((1 - output) * 100);
+                            ctx.fillStyle = `rgba(${r}, ${g}, 50, 0.3)`;
+                            ctx.fillRect(x, y, resolution, resolution);
+                        }
+                    }
+                }
+
+                // 绘制数据点
+                data.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x * w, point.y * h, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = point.label === 1 ? '#0f0' : '#f00';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 发光效果
+                    ctx.shadowColor = point.label === 1 ? '#0f0' : '#f00';
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+            }
+
+            drawNetwork(network, time) {
+                const ctx = this.networkCtx;
+                const w = this.networkCanvas.width;
+                const h = this.networkCanvas.height;
+                ctx.clearRect(0, 0, w, h);
+
+                const layers = network.layers;
+                const maxNeurons = Math.max(...layers);
+                const layerSpacing = w / (layers.length + 1);
+                const positions = [];
+
+                // 计算神经元位置
+                for (let l = 0; l < layers.length; l++) {
+                    const layerPositions = [];
+                    const neuronSpacing = h / (layers[l] + 1);
+                    for (let n = 0; n < layers[l]; n++) {
+                        layerPositions.push({
+                            x: layerSpacing * (l + 1),
+                            y: neuronSpacing * (n + 1)
+                        });
+                    }
+                    positions.push(layerPositions);
+                }
+
+                // 绘制连接
+                for (let l = 0; l < network.weights.length; l++) {
+                    for (let j = 0; j < network.weights[l].length; j++) {
+                        for (let k = 0; k < network.weights[l][j].length; k++) {
+                            const weight = network.weights[l][j][k];
+                            const from = positions[l][k];
+                            const to = positions[l + 1][j];
+                            
+                            const intensity = Math.min(Math.abs(weight) * 2, 1);
+                            const color = weight > 0 ? `rgba(0,${Math.floor(intensity*255)},0,0.6)` : `rgba(${Math.floor(intensity*255)},0,0,0.6)`;
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(from.x, from.y);
+                            ctx.lineTo(to.x, to.y);
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = Math.abs(weight) * 2 + 0.5;
+                            ctx.stroke();
+
+                            // 数据流动动画
+                            if (network.activations && network.activations[l]) {
+                                const activation = network.activations[l][k];
+                                if (activation > 0.1) {
+                                    const progress = ((time * 0.002) + l * 0.2 + k * 0.1) % 1;
+                                    const px = from.x + (to.x - from.x) * progress;
+                                    const py = from.y + (to.y - from.y) * progress;
+                                    ctx.beginPath();
+                                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                                    ctx.fillStyle = '#0f0';
+                                    ctx.fill();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 绘制神经元
+                for (let l = 0; l < positions.length; l++) {
+                    for (let n = 0; n < positions[l].length; n++) {
+                        const pos = positions[l][n];
+                        const activation = network.activations ? (network.activations[l][n] || 0) : 0;
+                        
+                        // 发光效果
+                        const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 20 + activation * 10);
+                        glow.addColorStop(0, `rgba(0,${Math.floor(activation*255)},0,0.8)`);
+                        glow.addColorStop(1, 'transparent');
+                        ctx.fillStyle = glow;
+                        ctx.fillRect(pos.x - 30, pos.y - 30, 60, 60);
+
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, 12, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgb(0,${Math.floor(50 + activation*200)},0)`;
+                        ctx.fill();
+                        ctx.strokeStyle = '#0f0';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+
+                // 层标签
+                ctx.fillStyle = '#0a0';
+                ctx.font = '12px Consolas';
+                ctx.textAlign = 'center';
+                const labels = ['输入层', ...Array(layers.length - 2).fill('').map((_, i) => `隐藏层${i+1}`), '输出层'];
+                positions.forEach((layer, i) => {
+                    ctx.fillText(labels[i] || `层${i}`, layer[0].x, 25);
+                });
+            }
+
+            drawLoss(lossHistory, accuracyHistory) {
+                const ctx = this.lossCtx;
+                const w = this.lossCanvas.width;
+                const h = this.lossCanvas.height;
+                ctx.clearRect(0, 0, w, h);
+
+                if (lossHistory.length < 2) return;
+
+                const padding = 40;
+                const graphW = w - padding * 2;
+                const graphH = h - padding * 2;
+
+                // 绘制损失曲线
+                const maxLoss = Math.max(...lossHistory, 1);
+                ctx.beginPath();
+                ctx.strokeStyle = '#f00';
+                ctx.lineWidth = 2;
+                lossHistory.forEach((loss, i) => {
+                    const x = padding + (i / (lossHistory.length - 1)) * graphW;
+                    const y = padding + (1 - loss / maxLoss) * graphH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // 绘制准确率曲线
+                ctx.beginPath();
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                accuracyHistory.forEach((acc, i) => {
+                    const x = padding + (i / (accuracyHistory.length - 1)) * graphW;
+                    const y = padding + (1 - acc) * graphH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // 图例
+                ctx.fillStyle = '#f00';
+                ctx.fillRect(w - 100, 15, 15, 10);
+                ctx.fillStyle = '#0a0';
+                ctx.font = '11px Consolas';
+                ctx.fillText('损失', w - 80, 24);
+
+                ctx.fillStyle = '#0f0';
+                ctx.fillRect(w - 100, 30, 15, 10);
+                ctx.fillStyle = '#0a0';
+                ctx.fillText('准确率', w - 80, 39);
+            }
+        }
+
+        // ==================== 训练器 ====================
+        class Trainer {
+            constructor() {
+                this.viz = new Visualizer();
+                this.data = [];
+                this.network = null;
+                this.lossHistory = [];
+                this.accuracyHistory = [];
+                this.epoch = 0;
+                this.isTraining = false;
+                this.params = {
+                    depth: 3,
+                    neurons: 4,
+                    learningRate: 0.1,
+                    activation: 'sigmoid',
+                    complexity: 2,
+                    batchSize: 10,
+                    regularization: 0
+                };
+                this.initControls();
+                this.generateData();
+                this.initNetwork();
+                this.setupDataInteraction();
+                this.animate();
+            }
+
+            initControls() {
+                const controls = document.getElementById('controls');
+                controls.innerHTML = `
+                    <div class="control-title">⚙️ 控制面板</div>
+                    
+                    <div class="section-title">网络结构</div>
+                    <div class="control-group">
+                        <label><span>网络深度</span><span class="value" id="depthVal">${this.params.depth}层</span></label>
+                        <input type="range" id="depth" min="1" max="5" value="${this.params.depth}">
+                    </div>
+                    <div class="control-group">
+                        <label><span>每层神经元</span><span class="value" id="neuronsVal">${this.params.neurons}个</span></label>
+                        <input type="range" id="neurons" min="2" max="10" value="${this.params.neurons}">
+                    </div>
+                    <div class="control-group">
+                        <label><span>激活函数</span></label>
+                        <select id="activation">
+                            <option value="sigmoid">Sigmoid</option>
+                            <option value="relu">ReLU</option>
+                            <option value="tanh">Tanh</option>
+                        </select>
+                    </div>
+
+                    <div class="section-title">训练参数</div>
+                    <div class="control-group">
+                        <label><span>学习率</span><span class="value" id="lrVal">${this.params.learningRate}</span></label>
+                        <input type="range" id="learningRate" min="1" max="100" value="${this.params.learningRate * 1000}">
+                    </div>
+                    <div class="control-group">
+                        <label><span>批量大小</span><span class="value" id="batchVal">${this.params.batchSize}</span></label>
+                        <input type="range" id="batchSize" min="1" max="50" value="${this.params.batchSize}">
+                    </div>
+                    <div class="control-group">
+                        <label><span>正则化</span><span class="value" id="regVal">${this.params.regularization}</span></label>
+                        <input type="range" id="regularization" min="0" max="100" value="${this.params.regularization * 1000}">
+                    </div>
+
+                    <div class="section-title">数据设置</div>
+                    <div class="control-group">
+                        <label><span>数据复杂度</span><span class="value" id="complexVal">${this.params.complexity}</span></label>
+                        <input type="range" id="complexity" min="1" max="5" value="${this.params.complexity}">
+                    </div>
+
+                    <div class="section-title">训练控制</div>
+                    <div class="btn-group">
+                        <button class="btn" id="stepBtn">单步训练</button>
+                        <button class="btn" id="trainBtn">连续训练</button>
+                        <button class="btn" id="resetBtn">重置网络</button>
+                        <button class="btn" id="dataBtn">重新生成数据</button>
+                        <button class="btn full" id="screenshotBtn">📷 保存截图</button>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat-row"><span class="stat-label">Epoch:</span><span class="stat-value" id="epochVal">0</span></div>
+                        <div class="stat-row"><span class="stat-label">损失:</span><span class="stat-value" id="lossVal">-</span></div>
+                        <div class="stat-row"><span class="stat-label">准确率:</span><span class="stat-value" id="accVal">-</span></div>
+                    </div>
+                `;
+
+                // 绑定事件
+                document.getElementById('depth').addEventListener('input', e => {
+                    this.params.depth = parseInt(e.target.value);
+                    document.getElementById('depthVal').textContent = this.params.depth + '层';
+                    this.initNetwork();
+                });
+
+                document.getElementById('neurons').addEventListener('input', e => {
+                    this.params.neurons = parseInt(e.target.value);
+                    document.getElementById('neuronsVal').textContent = this.params.neurons + '个';
+                    this.initNetwork();
+                });
+
+                document.getElementById('activation').addEventListener('change', e => {
+                    this.params.activation = e.target.value;
+                    this.initNetwork();
+                });
+
+                document.getElementById('learningRate').addEventListener('input', e => {
+                    this.params.learningRate = parseInt(e.target.value) / 1000;
+                    document.getElementById('lrVal').textContent = this.params.learningRate.toFixed(3);
+                });
+
+                document.getElementById('batchSize').addEventListener('input', e => {
+                    this.params.batchSize = parseInt(e.target.value);
+                    document.getElementById('batchVal').textContent = this.params.batchSize;
+                });
+
+                document.getElementById('regularization').addEventListener('input', e => {
+                    this.params.regularization = parseInt(e.target.value) / 1000;
+                    document.getElementById('regVal').textContent = this.params.regularization.toFixed(3);
+                });
+
+                document.getElementById('complexity').addEventListener('input', e => {
+                    this.params.complexity = parseInt(e.target.value);
+                    document.getElementById('complexVal').textContent = this.params.complexity;
+                    this.generateData();
+                });
+
+                document.getElementById('stepBtn').addEventListener('click', () => this.trainStep());
+                document.getElementById('trainBtn').addEventListener('click', () => this.toggleTraining());
+                document.getElementById('resetBtn').addEventListener('click', () => this.initNetwork());
+                document.getElementById('dataBtn').addEventListener('click', () => this.generateData());
+                document.getElementById('screenshotBtn').addEventListener('click', () => this.saveScreenshot());
+            }
+
+            generateData() {
+                this.data = [];
+                const n = 50 + this.params.complexity * 20;
+                const complexity = this.params.complexity;
+
+                for (let i = 0; i < n; i++) {
+                    const x = Math.random();
+                    const y = Math.random();
+                    let label;
+
+                    switch (complexity) {
+                        case 1: // 线性
+                            label = x + y > 1 ? 1 : 0;
+                            break;
+                        case 2: // 圆形
+                            label = Math.sqrt((x-0.5)**2 + (y-0.5)**2) < 0.3 ? 1 : 0;
+                            break;
+                        case 3: // XOR
+                            label = (x > 0.5) !== (y > 0.5) ? 1 : 0;
+                            break;
+                        case 4: // 螺旋
+                            const angle = Math.atan2(y - 0.5, x - 0.5);
+                            const dist = Math.sqrt((x-0.5)**2 + (y-0.5)**2);
+                            label = Math.sin(angle * 2 + dist * 10) > 0 ? 1 : 0;
+                            break;
+                        default: // 多圆
+                            const d1 = Math.sqrt((x-0.3)**2 + (y-0.3)**2);
+                            const d2 = Math.sqrt((x-0.7)**2 + (y-0.7)**2);
+                            label = (d1 < 0.2 || d2 < 0.2) ? 1 : 0;
+                    }
+
+                    this.data.push({ x, y, label });
+                }
+                this.initNetwork();
+            }
+
+            initNetwork() {
+                const layers = [2];
+                for (let i = 0; i < this.params.depth - 1; i++) {
+                    layers.push(this.params.neurons);
+                }
+                layers.push(1);
+
+                this.network = new NeuralNetwork(layers, this.params.activation);
+                this.lossHistory = [];
+                this.accuracyHistory = [];
+                this.epoch = 0;
+                this.isTraining = false;
+                document.getElementById('trainBtn').textContent = '连续训练';
+                document.getElementById('trainBtn').classList.remove('active');
+                this.updateStats();
+            }
+
+            trainStep() {
+                if (!this.network || this.data.length === 0) return;
+
+                let totalLoss = 0;
+                let correct = 0;
+                const batchSize = Math.min(this.params.batchSize, this.data.length);
+                const batch = [...this.data].sort(() => Math.random() - 0.5).slice(0, batchSize);
+
+                batch.forEach(point => {
+                    const output = this.network.forward([point.x, point.y]);
+                    const target = [point.label];
+                    totalLoss += (output[0] - target[0]) ** 2;
+                    if (this.network.predict([point.x, point.y]) === point.label) correct++;
+                    this.network.backward(target, this.params.learningRate, this.params.regularization);
+                });
+
+                this.epoch++;
+                const avgLoss = totalLoss / batchSize;
+                const accuracy = correct / batchSize;
+                this.lossHistory.push(avgLoss);
+                this.accuracyHistory.push(accuracy);
+
+                if (this.lossHistory.length > 200) {
+                    this.lossHistory.shift();
+                    this.accuracyHistory.shift();
+                }
+
+                this.updateStats();
+            }
+
+            toggleTraining() {
+                this.isTraining = !this.isTraining;
+                const btn = document.getElementById('trainBtn');
+                btn.textContent = this.isTraining ? '暂停' : '连续训练';
+                btn.classList.toggle('active', this.isTraining);
+            }
+
+            updateStats() {
+                document.getElementById('epochVal').textContent = this.epoch;
+                const loss = this.lossHistory.length > 0 ? this.lossHistory[this.lossHistory.length - 1].toFixed(4) : '-';
+                const acc = this.accuracyHistory.length > 0 ? (this.accuracyHistory[this.accuracyHistory.length - 1] * 100).toFixed(1) + '%' : '-';
+                document.getElementById('lossVal').textContent = loss;
+                document.getElementById('accVal').textContent = acc;
+            }
+
+            setupDataInteraction() {
+                const canvas = this.viz.dataCanvas;
+                let selectedPoint = null;
+
+                canvas.addEventListener('mousedown', e => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / canvas.width;
+                    const y = (e.clientY - rect.top) / canvas.height;
+
+                    // 检查是否点击了现有点
+                    selectedPoint = this.data.find(p => 
+                        Math.abs(p.x - x) < 0.03 && Math.abs(p.y - y) < 0.03
+                    );
+
+                    if (!selectedPoint) {
+                        // 添加新点
+                        const label = e.button === 2 ? 0 : 1;
+                        this.data.push({ x, y, label });
+                    }
+                });
+
+                canvas.addEventListener('mousemove', e => {
+                    if (selectedPoint) {
+                        const rect = canvas.getBoundingClientRect();
+                        selectedPoint.x = Math.max(0, Math.min(1, (e.clientX - rect.left) / canvas.width));
+                        selectedPoint.y = Math.max(0, Math.min(1, (e.clientY - rect.top) / canvas.height));
+                    }
+                });
+
+                canvas.addEventListener('mouseup', () => { selectedPoint = null; });
+                canvas.addEventListener('contextmenu', e => e.preventDefault());
+            }
+
+            saveScreenshot() {
+                const link = document.createElement('a');
+                link.download = `neural-network-${Date.now()}.png`;
+                link.href = this.viz.dataCanvas.toDataURL();
+                link.click();
+            }
+
+            animate(time = 0) {
+                if (this.isTraining && this.epoch < 10000) {
+                    this.trainStep();
+                }
+
+                this.viz.drawData(this.data, this.network);
+                this.viz.drawNetwork(this.network, time);
+                this.viz.drawLoss(this.lossHistory, this.accuracyHistory);
+
+                requestAnimationFrame(t => this.animate(t));
+            }
+        }
+
+        // 启动
+        new Trainer();
+    </script>
+</body>
+</html>

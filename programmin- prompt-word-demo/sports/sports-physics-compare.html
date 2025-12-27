@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三球运动物理对比分析</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0a15;
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .header {
+            background: rgba(0,0,0,0.5);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .header h1 { font-size: 1.3em; color: #fff; }
+        .main-container { display: flex; height: calc(100vh - 60px); }
+        .sports-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: #333;
+        }
+        .sport-panel {
+            background: #0a0a15;
+            display: flex;
+            flex-direction: column;
+        }
+        .sport-header {
+            padding: 10px 15px;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 2px solid;
+        }
+        .badminton .sport-header { background: rgba(127,255,127,0.1); border-color: #7fff7f; color: #7fff7f; }
+        .basketball .sport-header { background: rgba(255,107,53,0.1); border-color: #ff6b35; color: #ff6b35; }
+        .volleyball .sport-header { background: rgba(255,215,0,0.1); border-color: #ffd700; color: #ffd700; }
+        .sport-canvas { flex: 1; }
+        .control-panel {
+            width: 280px;
+            background: rgba(0,0,0,0.5);
+            border-left: 1px solid #333;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .panel-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        .section-title {
+            color: #fff;
+            font-size: 0.9em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-label { color: #888; font-size: 0.85em; }
+        .control-value { color: #4af; font-size: 0.85em; }
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 2px;
+            margin-top: 5px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            background: #4af;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .compare-table {
+            width: 100%;
+            font-size: 0.8em;
+            border-collapse: collapse;
+        }
+        .compare-table th, .compare-table td {
+            padding: 8px 5px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        .compare-table th { color: #888; font-weight: normal; }
+        .compare-table .badminton-col { color: #7fff7f; }
+        .compare-table .basketball-col { color: #ff6b35; }
+        .compare-table .volleyball-col { color: #ffd700; }
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #4af, #28a);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .action-btn:hover { opacity: 0.9; }
+        .physics-insight {
+            background: rgba(74,170,255,0.1);
+            border-left: 3px solid #4af;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>🏸🏀🏐 三球运动物理原理对比分析</h1>
+    <div style="color:#888;font-size:0.9em;">统一物理框架下的运动科学</div>
+</div>
+<div class="main-container">
+    <div class="sports-grid">
+        <div class="sport-panel badminton">
+            <div class="sport-header">🏸 羽毛球</div>
+            <canvas class="sport-canvas" id="badmintonCanvas"></canvas>
+        </div>
+        <div class="sport-panel basketball">
+            <div class="sport-header">🏀 篮球</div>
+            <canvas class="sport-canvas" id="basketballCanvas"></canvas>
+        </div>
+        <div class="sport-panel volleyball">
+            <div class="sport-header">🏐 排球</div>
+            <canvas class="sport-canvas" id="volleyballCanvas"></canvas>
+        </div>
+    </div>
+    <div class="control-panel">
+        <div class="panel-section">
+            <div class="section-title">⚙️ 统一参数控制</div>
+            <div class="control-row">
+                <span class="control-label">初速度比例</span>
+                <span class="control-value" id="speedVal">70%</span>
+            </div>
+            <input type="range" id="speedControl" min="30" max="100" value="70">
+            
+            <div class="control-row" style="margin-top:15px;">
+                <span class="control-label">发射角度</span>
+                <span class="control-value" id="angleVal">30°</span>
+            </div>
+            <input type="range" id="angleControl" min="-30" max="60" value="30">
+            
+            <div class="control-row" style="margin-top:15px;">
+                <span class="control-label">旋转强度</span>
+                <span class="control-value" id="spinVal">50%</span>
+            </div>
+            <input type="range" id="spinControl" min="0" max="100" value="50">
+        </div>
+
+        <div class="panel-section">
+            <div class="section-title">📊 物理参数对比</div>
+            <table class="compare-table">
+                <tr>
+                    <th></th>
+                    <th class="badminton-col">羽毛球</th>
+                    <th class="basketball-col">篮球</th>
+                    <th class="volleyball-col">排球</th>
+                </tr>
+                <tr>
+                    <td>质量</td>
+                    <td class="badminton-col">5g</td>
+                    <td class="basketball-col">625g</td>
+                    <td class="volleyball-col">270g</td>
+                </tr>
+                <tr>
+                    <td>最高速度</td>
+                    <td class="badminton-col" id="badSpeed">0</td>
+                    <td class="basketball-col" id="basSpeed">0</td>
+                    <td class="volleyball-col" id="volSpeed">0</td>
+                </tr>
+                <tr>
+                    <td>最大高度</td>
+                    <td class="badminton-col" id="badHeight">0</td>
+                    <td class="basketball-col" id="basHeight">0</td>
+                    <td class="volleyball-col" id="volHeight">0</td>
+                </tr>
+                <tr>
+                    <td>飞行距离</td>
+                    <td class="badminton-col" id="badDist">0</td>
+                    <td class="basketball-col" id="basDist">0</td>
+                    <td class="volleyball-col" id="volDist">0</td>
+                </tr>
+                <tr>
+                    <td>阻力系数</td>
+                    <td class="badminton-col">0.6</td>
+                    <td class="basketball-col">0.47</td>
+                    <td class="volleyball-col">0.4</td>
+                </tr>
+            </table>
+        </div>
+        
+        <button class="action-btn" onclick="launchAll()">🚀 同时发射</button>
+        <button class="action-btn" style="background:linear-gradient(135deg,#666,#444);" onclick="resetAll()">🔄 重置</button>
+        
+        <div class="physics-insight" id="insight">
+            <strong>物理洞察：</strong><br>
+            点击"同时发射"观察三种球在相同初始条件下的不同轨迹。羽毛球因高阻力系数会快速减速，篮球轨迹最接近理想抛物线，排球的飘球效应会产生不规则摆动。
+        </div>
+    </div>
+</div>
+<script>
+// 获取三个画布
+const canvases = {
+    badminton: document.getElementById('badmintonCanvas'),
+    basketball: document.getElementById('basketballCanvas'),
+    volleyball: document.getElementById('volleyballCanvas')
+};
+
+const contexts = {
+    badminton: canvases.badminton.getContext('2d'),
+    basketball: canvases.basketball.getContext('2d'),
+    volleyball: canvases.volleyball.getContext('2d')
+};
+
+// 球的物理参数
+const ballParams = {
+    badminton: { mass: 0.005, radius: 0.03, Cd: 0.6, color: '#7fff7f', maxSpeed: 150 },
+    basketball: { mass: 0.625, radius: 0.12, Cd: 0.47, color: '#ff6b35', maxSpeed: 35 },
+    volleyball: { mass: 0.27, radius: 0.105, Cd: 0.4, color: '#ffd700', maxSpeed: 130 }
+};
+
+const GRAVITY = 9.81;
+const AIR_DENSITY = 1.225;
+
+// 球状态
+let balls = {
+    badminton: null,
+    basketball: null,
+    volleyball: null
+};
+
+let trajectories = {
+    badminton: [],
+    basketball: [],
+    volleyball: []
+};
+
+let animating = false;
+
+// 控制参数
+let params = {
+    speedRatio: 0.7,
+    angle: 30,
+    spinRatio: 0.5
+};
+
+function init() {
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+    setupControls();
+    resetAll();
+    animate();
+}
+
+function resizeCanvases() {
+    Object.keys(canvases).forEach(key => {
+        const canvas = canvases[key];
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    });
+}
+
+function setupControls() {
+    document.getElementById('speedControl').addEventListener('input', (e) => {
+        params.speedRatio = e.target.value / 100;
+        document.getElementById('speedVal').textContent = e.target.value + '%';
+    });
+    document.getElementById('angleControl').addEventListener('input', (e) => {
+        params.angle = parseFloat(e.target.value);
+        document.getElementById('angleVal').textContent = params.angle + '°';
+    });
+    document.getElementById('spinControl').addEventListener('input', (e) => {
+        params.spinRatio = e.target.value / 100;
+        document.getElementById('spinVal').textContent = e.target.value + '%';
+    });
+}
+
+function resetAll() {
+    Object.keys(balls).forEach(key => {
+        balls[key] = { x: 1, y: 2, vx: 0, vy: 0, active: false };
+        trajectories[key] = [];
+    });
+    animating = false;
+    
+    // 重置统计
+    ['bad', 'bas', 'vol'].forEach(prefix => {
+        document.getElementById(prefix + 'Speed').textContent = '0';
+        document.getElementById(prefix + 'Height').textContent = '0';
+        document.getElementById(prefix + 'Dist').textContent = '0';
+    });
+}
+
+function launchAll() {
+    const angleRad = params.angle * Math.PI / 180;
+    
+    Object.keys(balls).forEach(key => {
+        const bp = ballParams[key];
+        const speed = bp.maxSpeed * params.speedRatio / 3.6; // km/h to m/s
+        
+        balls[key] = {
+            x: 1,
+            y: 2,
+            vx: speed * Math.cos(angleRad),
+            vy: speed * Math.sin(angleRad),
+            spin: params.spinRatio,
+            active: true,
+            maxHeight: 2,
+            initialSpeed: speed * 3.6
+        };
+        trajectories[key] = [{ x: 1, y: 2 }];
+    });
+    
+    animating = true;
+    
+    // 更新初速度显示
+    document.getElementById('badSpeed').textContent = balls.badminton.initialSpeed.toFixed(0) + ' km/h';
+    document.getElementById('basSpeed').textContent = balls.basketball.initialSpeed.toFixed(0) + ' km/h';
+    document.getElementById('volSpeed').textContent = balls.volleyball.initialSpeed.toFixed(0) + ' km/h';
+}
+
+function simulateStep(key, dt) {
+    const ball = balls[key];
+    if (!ball || !ball.active) return;
+    
+    const bp = ballParams[key];
+    const v = Math.sqrt(ball.vx**2 + ball.vy**2);
+    
+    // 空气阻力
+    const area = Math.PI * bp.radius * bp.radius;
+    const dragForce = 0.5 * AIR_DENSITY * bp.Cd * area * v * v;
+    const dragAcc = dragForce / bp.mass;
+    
+    if (v > 0.1) {
+        ball.vx -= (ball.vx / v) * dragAcc * dt;
+        ball.vy -= (ball.vy / v) * dragAcc * dt;
+    }
+    
+    // 重力
+    ball.vy -= GRAVITY * dt;
+    
+    // 旋转效应
+    if (ball.spin > 0) {
+        if (key === 'badminton') {
+            // 羽毛球旋转效果较小
+            ball.vy -= ball.spin * 0.3 * dt;
+        } else if (key === 'basketball') {
+            // 篮球后旋增加升力
+            ball.vy += ball.spin * 0.2 * dt;
+        } else if (key === 'volleyball') {
+            // 排球飘球效应
+            if (v > 8 && v < 15) {
+                ball.vx += (Math.random() - 0.5) * ball.spin * 2 * dt;
+            }
+        }
+    }
+    
+    // 更新位置
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    
+    // 记录最大高度
+    if (ball.y > ball.maxHeight) ball.maxHeight = ball.y;
+    
+    trajectories[key].push({ x: ball.x, y: ball.y });
+    
+    // 落地检测
+    if (ball.y <= bp.radius) {
+        ball.y = bp.radius;
+        ball.active = false;
+        
+        // 更新统计
+        const prefix = key === 'badminton' ? 'bad' : key === 'basketball' ? 'bas' : 'vol';
+        document.getElementById(prefix + 'Height').textContent = ball.maxHeight.toFixed(1) + 'm';
+        document.getElementById(prefix + 'Dist').textContent = ball.x.toFixed(1) + 'm';
+    }
+    
+    // 出界检测
+    if (ball.x > 20 || ball.x < 0) {
+        ball.active = false;
+    }
+}
+
+function drawSport(key) {
+    const ctx = contexts[key];
+    const canvas = canvases[key];
+    const bp = ballParams[key];
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const scale = canvas.width / 15;
+    const offsetY = canvas.height - 30;
+    
+    // 地面
+    ctx.fillStyle = '#1a1a2a';
+    ctx.fillRect(0, offsetY, canvas.width, 30);
+    
+    // 网格线
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 15; i += 2) {
+        ctx.beginPath();
+        ctx.moveTo(i * scale, 0);
+        ctx.lineTo(i * scale, offsetY);
+        ctx.stroke();
+    }
+    for (let i = 0; i <= 10; i += 2) {
+        ctx.beginPath();
+        ctx.moveTo(0, offsetY - i * scale);
+        ctx.lineTo(canvas.width, offsetY - i * scale);
+        ctx.stroke();
+    }
+    
+    // 轨迹
+    const traj = trajectories[key];
+    if (traj.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = bp.color + '80';
+        ctx.lineWidth = 2;
+        
+        traj.forEach((p, i) => {
+            const px = p.x * scale;
+            const py = offsetY - p.y * scale;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+    }
+    
+    // 球
+    const ball = balls[key];
+    if (ball) {
+        const bx = ball.x * scale;
+        const by = offsetY - ball.y * scale;
+        
+        ctx.fillStyle = bp.color;
+        ctx.beginPath();
+        ctx.arc(bx, by, Math.max(bp.radius * scale, 5), 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 速度向量
+        if (ball.active) {
+            const vScale = 5;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx + ball.vx * vScale, by - ball.vy * vScale);
+            ctx.stroke();
+        }
+    }
+    
+    // 标签
+    ctx.fillStyle = '#666';
+    ctx.font = '10px Arial';
+    ctx.fillText('0m', 5, offsetY - 5);
+    ctx.fillText('5m', 5 * scale, offsetY + 15);
+    ctx.fillText('10m', 10 * scale, offsetY + 15);
+}
+
+function updateInsight() {
+    const allDone = !balls.badminton?.active && !balls.basketball?.active && !balls.volleyball?.active;
+    
+    if (allDone && trajectories.badminton.length > 1) {
+        const badDist = balls.badminton?.x || 0;
+        const basDist = balls.basketball?.x || 0;
+        const volDist = balls.volleyball?.x || 0;
+        
+        let insight = '<strong>分析结果：</strong><br>';
+        
+        if (badDist < basDist && badDist < volDist) {
+            insight += '羽毛球飞行距离最短，这是因为其高阻力系数(0.6)导致快速减速。';
+        }
+        
+        if (basDist > badDist && basDist > volDist) {
+            insight += '篮球飞行距离最远，其较大质量使其更能抵抗空气阻力。';
+        }
+        
+        insight += '<br><br>💡 相同初始条件下，质量越大、阻力系数越小的球飞得越远。';
+        
+        document.getElementById('insight').innerHTML = insight;
+    }
+}
+
+function animate() {
+    if (animating) {
+        let anyActive = false;
+        Object.keys(balls).forEach(key => {
+            if (balls[key]?.active) {
+                anyActive = true;
+                simulateStep(key, 0.02);
+            }
+        });
+        
+        if (!anyActive) {
+            animating = false;
+            updateInsight();
+        }
+    }
+    
+    Object.keys(canvases).forEach(key => drawSport(key));
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子化学分子轨道模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0a2a 0%, #1a1a4a 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .canvas-area {
+            flex: 7;
+            position: relative;
+            background: radial-gradient(ellipse at center, #1a1a3a 0%, #0a0a1a 100%);
+        }
+        #molCanvas { display: block; width: 100%; height: 100%; }
+        .control-panel {
+            flex: 3;
+            background: rgba(0,0,0,0.6);
+            border-left: 1px solid #a0f3;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.95em;
+            color: #a0f;
+            border-bottom: 1px solid #a0f3;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 10px;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="canvas-area">
+        <canvas id="molCanvas"></canvas>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let rotX = 0.3, rotY = 0.5, rotZ = 0;
+let zoom = 150;
+let dragging = false;
+let lastX, lastY;
+let animating = true;
+
+// 分子数据
+const MOLECULES = {
+    H2: {
+        name: '氢气 H₂',
+        atoms: [
+            { element: 'H', x: -0.74, y: 0, z: 0 },
+            { element: 'H', x: 0.74, y: 0, z: 0 }
+        ],
+        bonds: [[0, 1]],
+        orbitals: ['σ1s', 'σ*1s'],
+        electrons: 2,
+        desc: '最简单的双原子分子，σ成键轨道'
+    },
+    O2: {
+        name: '氧气 O₂',
+        atoms: [
+            { element: 'O', x: -1.21, y: 0, z: 0 },
+            { element: 'O', x: 1.21, y: 0, z: 0 }
+        ],
+        bonds: [[0, 1]],
+        orbitals: ['σ2s', 'σ*2s', 'σ2p', 'π2p', 'π*2p'],
+        electrons: 16,
+        desc: '含有π键的双原子分子，顺磁性'
+    },
+    H2O: {
+        name: '水 H₂O',
+        atoms: [
+            { element: 'O', x: 0, y: 0, z: 0 },
+            { element: 'H', x: -0.96, y: 0.59, z: 0 },
+            { element: 'H', x: 0.96, y: 0.59, z: 0 }
+        ],
+        bonds: [[0, 1], [0, 2]],
+        orbitals: ['σO-H', 'σO-H', 'n(O)', 'n(O)'],
+        electrons: 10,
+        desc: '弯曲分子，104.5°键角，有孤对电子'
+    },
+    CO2: {
+        name: '二氧化碳 CO₂',
+        atoms: [
+            { element: 'C', x: 0, y: 0, z: 0 },
+            { element: 'O', x: -2.32, y: 0, z: 0 },
+            { element: 'O', x: 2.32, y: 0, z: 0 }
+        ],
+        bonds: [[0, 1], [0, 2]],
+        orbitals: ['σC-O', 'σC-O', 'πC-O', 'πC-O'],
+        electrons: 22,
+        desc: '线性分子，含有离域π键'
+    },
+    CH4: {
+        name: '甲烷 CH₄',
+        atoms: [
+            { element: 'C', x: 0, y: 0, z: 0 },
+            { element: 'H', x: 1.09, y: 1.09, z: 1.09 },
+            { element: 'H', x: -1.09, y: -1.09, z: 1.09 },
+            { element: 'H', x: -1.09, y: 1.09, z: -1.09 },
+            { element: 'H', x: 1.09, y: -1.09, z: -1.09 }
+        ],
+        bonds: [[0, 1], [0, 2], [0, 3], [0, 4]],
+        orbitals: ['σC-H', 'σC-H', 'σC-H', 'σC-H'],
+        electrons: 10,
+        desc: '正四面体结构，sp³杂化'
+    },
+    C6H6: {
+        name: '苯 C₆H₆',
+        atoms: [],
+        bonds: [],
+        orbitals: ['σC-C', 'σC-H', 'π离域'],
+        electrons: 42,
+        desc: '平面六边形，离域π电子云'
+    }
+};
+
+// 初始化苯分子
+(function initBenzene() {
+    const mol = MOLECULES.C6H6;
+    const r = 1.4;
+    for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        mol.atoms.push({ element: 'C', x: r * Math.cos(angle), y: r * Math.sin(angle), z: 0 });
+    }
+    for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        mol.atoms.push({ element: 'H', x: 2.5 * Math.cos(angle), y: 2.5 * Math.sin(angle), z: 0 });
+    }
+    for (let i = 0; i < 6; i++) {
+        mol.bonds.push([i, (i + 1) % 6]);
+        mol.bonds.push([i, i + 6]);
+    }
+})();
+
+// 元素属性
+const ELEMENTS = {
+    H: { color: '#ffffff', radius: 0.3, name: '氢' },
+    C: { color: '#404040', radius: 0.5, name: '碳' },
+    O: { color: '#ff4040', radius: 0.45, name: '氧' },
+    N: { color: '#4040ff', radius: 0.45, name: '氮' }
+};
+
+let currentMol = 'H2';
+let showOrbital = true;
+let orbitalType = 'sigma';
+let isoValue = 0.1;
+
+function init() {
+    canvas = document.getElementById('molCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    renderControlPanel();
+    
+    canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+    });
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mouseleave', () => dragging = false);
+    canvas.addEventListener('mousemove', (e) => {
+        if (dragging) {
+            rotY += (e.clientX - lastX) * 0.01;
+            rotX += (e.clientY - lastY) * 0.01;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        }
+    });
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoom *= e.deltaY > 0 ? 0.9 : 1.1;
+        zoom = Math.max(50, Math.min(400, zoom));
+    });
+    
+    window.addEventListener('resize', resizeCanvas);
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+// 3D变换
+function rotate3D(x, y, z) {
+    // 绕X轴
+    let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
+    let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+    // 绕Y轴
+    let x1 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
+    let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
+    // 绕Z轴
+    let x2 = x1 * Math.cos(rotZ) - y1 * Math.sin(rotZ);
+    let y2 = x1 * Math.sin(rotZ) + y1 * Math.cos(rotZ);
+    
+    return { x: x2, y: y2, z: z2 };
+}
+
+function project(x, y, z) {
+    const perspective = 500;
+    const scale = perspective / (perspective + z);
+    return {
+        x: canvas.width / 2 + x * zoom * scale,
+        y: canvas.height / 2 - y * zoom * scale,
+        scale: scale
+    };
+}
+
+function renderControlPanel() {
+    const mol = MOLECULES[currentMol];
+    const panel = document.getElementById('controlPanel');
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 10px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #aaa; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 5px; border-radius: 3px; background: #333; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #a0f; cursor: pointer; }
+            .btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em; transition: all 0.3s; margin: 2px; }
+            .btn-primary { background: linear-gradient(135deg, #a0f, #60a); color: #fff; }
+            .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+            .btn.active { box-shadow: 0 0 10px #a0f; }
+            .btn:hover { transform: translateY(-1px); }
+            .mol-btn { display: block; width: 100%; text-align: left; padding: 10px; margin: 4px 0; }
+            .mol-btn.active { background: rgba(160,0,255,0.3); border-left: 3px solid #a0f; }
+            .orbital-list { max-height: 120px; overflow-y: auto; }
+            .orbital-item { padding: 6px 10px; margin: 3px 0; background: rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.8em; display: flex; justify-content: space-between; }
+            .energy-diagram { background: #111; border-radius: 8px; padding: 10px; height: 150px; position: relative; }
+            .energy-level { position: absolute; height: 3px; background: #a0f; border-radius: 2px; }
+            .electron { width: 8px; height: 8px; background: #ff0; border-radius: 50%; position: absolute; }
+        </style>
+        <div style="text-align:center;margin-bottom:8px;">
+            <h2 style="color:#a0f;font-size:1.1em;">⚛️ 分子轨道模拟器</h2>
+            <p style="color:#666;font-size:0.75em;">拖拽旋转，滚轮缩放</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🧪 选择分子</div>
+            ${Object.entries(MOLECULES).map(([key, m]) => `
+                <button class="btn mol-btn ${currentMol === key ? 'active' : ''}" onclick="selectMolecule('${key}')">
+                    ${m.name}
+                </button>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 分子信息</div>
+            <div style="font-size:0.8em;color:#aaa;line-height:1.6;">
+                <b style="color:#fff;">${mol.name}</b><br>
+                原子数: ${mol.atoms.length}<br>
+                电子数: ${mol.electrons}<br>
+                ${mol.desc}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔮 轨道显示</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
+                <button class="btn ${showOrbital?'btn-primary':'btn-secondary'}" onclick="toggleOrbital()">
+                    ${showOrbital ? '隐藏轨道' : '显示轨道'}
+                </button>
+                <button class="btn ${animating?'btn-primary':'btn-secondary'}" onclick="toggleAnimation()">
+                    ${animating ? '停止旋转' : '自动旋转'}
+                </button>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>等值面</span><span id="isoVal">${isoValue.toFixed(2)}</span></div>
+                <input type="range" id="isoSlider" min="1" max="30" value="${isoValue * 100}">
+            </div>
+            <div class="orbital-list">
+                ${mol.orbitals.map((orb, i) => `
+                    <div class="orbital-item">
+                        <span>${orb}</span>
+                        <span style="color:${i < mol.electrons/2 ? '#0f0' : '#666'}">
+                            ${i < mol.electrons/2 ? '●●' : '○○'}
+                        </span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚡ 能级图</div>
+            <div class="energy-diagram" id="energyDiagram"></div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 量子化学</div>
+            <div style="font-size:0.75em;color:#888;line-height:1.5;">
+                <b>分子轨道</b>：原子轨道线性组合形成<br>
+                <b>成键轨道</b>：能量降低，电子云集中在核间<br>
+                <b>反键轨道</b>：能量升高，有节面<br>
+                <b>HOMO</b>：最高占据轨道<br>
+                <b>LUMO</b>：最低未占据轨道
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('isoSlider').oninput = (e) => {
+        isoValue = e.target.value / 100;
+        document.getElementById('isoVal').textContent = isoValue.toFixed(2);
+    };
+    
+    drawEnergyDiagram();
+}
+
+function drawEnergyDiagram() {
+    const diagram = document.getElementById('energyDiagram');
+    const mol = MOLECULES[currentMol];
+    const levels = mol.orbitals.length;
+    
+    let html = '';
+    mol.orbitals.forEach((orb, i) => {
+        const y = 130 - (i + 1) * (120 / (levels + 1));
+        const isOccupied = i < mol.electrons / 2;
+        const isBonding = !orb.includes('*');
+        
+        html += `<div class="energy-level" style="left:30%;width:40%;top:${y}px;background:${isBonding ? '#0af' : '#f66'}"></div>`;
+        html += `<span style="position:absolute;left:75%;top:${y - 8}px;font-size:0.7em;color:#888;">${orb}</span>`;
+        
+        if (isOccupied) {
+            html += `<div class="electron" style="left:calc(30% + 15%);top:${y - 4}px;"></div>`;
+            html += `<div class="electron" style="left:calc(30% + 25%);top:${y - 4}px;"></div>`;
+        }
+    });
+    
+    html += `<span style="position:absolute;left:5px;top:5px;font-size:0.7em;color:#666;">能量↑</span>`;
+    diagram.innerHTML = html;
+}
+
+function selectMolecule(key) {
+    currentMol = key;
+    renderControlPanel();
+}
+
+function toggleOrbital() {
+    showOrbital = !showOrbital;
+    renderControlPanel();
+}
+
+function toggleAnimation() {
+    animating = !animating;
+    renderControlPanel();
+}
+
+function draw() {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制星空背景
+    drawStars();
+    
+    const mol = MOLECULES[currentMol];
+    
+    // 收集所有要绘制的对象并按z排序
+    const objects = [];
+    
+    // 添加原子
+    mol.atoms.forEach((atom, i) => {
+        const rotated = rotate3D(atom.x, atom.y, atom.z);
+        const projected = project(rotated.x, rotated.y, rotated.z);
+        objects.push({
+            type: 'atom',
+            atom: atom,
+            index: i,
+            x: projected.x,
+            y: projected.y,
+            z: rotated.z,
+            scale: projected.scale
+        });
+    });
+    
+    // 按z排序（远的先画）
+    objects.sort((a, b) => a.z - b.z);
+    
+    // 绘制轨道云
+    if (showOrbital) {
+        drawOrbitalCloud(mol);
+    }
+    
+    // 绘制化学键
+    mol.bonds.forEach(bond => {
+        const atom1 = mol.atoms[bond[0]];
+        const atom2 = mol.atoms[bond[1]];
+        
+        const r1 = rotate3D(atom1.x, atom1.y, atom1.z);
+        const r2 = rotate3D(atom2.x, atom2.y, atom2.z);
+        const p1 = project(r1.x, r1.y, r1.z);
+        const p2 = project(r2.x, r2.y, r2.z);
+        
+        // 渐变键
+        const gradient = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+        gradient.addColorStop(0, ELEMENTS[atom1.element].color);
+        gradient.addColorStop(1, ELEMENTS[atom2.element].color);
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 4 * Math.min(p1.scale, p2.scale);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+    });
+    
+    // 绘制原子
+    objects.forEach(obj => {
+        if (obj.type === 'atom') {
+            const elem = ELEMENTS[obj.atom.element];
+            const radius = elem.radius * zoom * obj.scale * 0.5;
+            
+            // 原子球体（带光泽）
+            const gradient = ctx.createRadialGradient(
+                obj.x - radius * 0.3, obj.y - radius * 0.3, 0,
+                obj.x, obj.y, radius
+            );
+            gradient.addColorStop(0, lightenColor(elem.color, 50));
+            gradient.addColorStop(0.5, elem.color);
+            gradient.addColorStop(1, darkenColor(elem.color, 30));
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 元素符号
+            ctx.fillStyle = elem.color === '#ffffff' ? '#000' : '#fff';
+            ctx.font = `${Math.max(10, radius * 0.8)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(obj.atom.element, obj.x, obj.y);
+        }
+    });
+    
+    // 绘制信息
+    drawInfo(mol);
+}
+
+function drawStars() {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 50; i++) {
+        const x = (Math.sin(i * 123.456) * 0.5 + 0.5) * canvas.width;
+        const y = (Math.cos(i * 789.012) * 0.5 + 0.5) * canvas.height;
+        ctx.globalAlpha = 0.2 + Math.random() * 0.2;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.random() * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawOrbitalCloud(mol) {
+    const time = Date.now() / 1000;
+    
+    // 根据分子类型绘制不同的轨道
+    if (currentMol === 'H2' || currentMol === 'O2') {
+        // σ轨道 - 沿键轴的椭球
+        drawSigmaOrbital(mol, time);
+    } else if (currentMol === 'C6H6') {
+        // 苯的离域π轨道
+        drawDelocalizedPi(mol, time);
+    } else {
+        // 其他分子的简化轨道
+        drawSimpleOrbitals(mol, time);
+    }
+}
+
+function drawSigmaOrbital(mol, time) {
+    const atom1 = mol.atoms[0];
+    const atom2 = mol.atoms[1];
+    const midX = (atom1.x + atom2.x) / 2;
+    const midY = (atom1.y + atom2.y) / 2;
+    const midZ = (atom1.z + atom2.z) / 2;
+    
+    const rotated = rotate3D(midX, midY, midZ);
+    const projected = project(rotated.x, rotated.y, rotated.z);
+    
+    // 成键轨道（正相位）
+    const bondLength = Math.sqrt(
+        Math.pow(atom2.x - atom1.x, 2) +
+        Math.pow(atom2.y - atom1.y, 2) +
+        Math.pow(atom2.z - atom1.z, 2)
+    );
+    
+    const width = bondLength * zoom * projected.scale * 0.8;
+    const height = bondLength * zoom * projected.scale * 0.4;
+    
+    // 脉动效果
+    const pulse = 1 + Math.sin(time * 2) * 0.1 * isoValue;
+    
+    ctx.save();
+    ctx.translate(projected.x, projected.y);
+    ctx.rotate(Math.atan2(atom2.y - atom1.y, atom2.x - atom1.x) + rotY);
+    
+    // 正相位（蓝色）
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, width * pulse);
+    gradient.addColorStop(0, `rgba(100, 150, 255, ${0.4 * isoValue})`);
+    gradient.addColorStop(0.5, `rgba(100, 150, 255, ${0.2 * isoValue})`);
+    gradient.addColorStop(1, 'rgba(100, 150, 255, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, width * pulse, height * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
+function drawDelocalizedPi(mol, time) {
+    // 苯环上下的π电子云
+    const r = 1.4 * zoom * 0.7;
+    const center = rotate3D(0, 0, 0);
+    const projected = project(center.x, center.y, center.z);
+    
+    const pulse = 1 + Math.sin(time * 1.5) * 0.15 * isoValue;
+    
+    // 上方π云
+    ctx.fillStyle = `rgba(255, 100, 255, ${0.3 * isoValue})`;
+    ctx.beginPath();
+    ctx.ellipse(projected.x, projected.y - 30 * projected.scale, r * pulse, r * 0.3 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 下方π云
+    ctx.beginPath();
+    ctx.ellipse(projected.x, projected.y + 30 * projected.scale, r * pulse, r * 0.3 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 环形电子云
+    ctx.strokeStyle = `rgba(255, 100, 255, ${0.5 * isoValue})`;
+    ctx.lineWidth = 10 * isoValue;
+    ctx.beginPath();
+    ctx.arc(projected.x, projected.y, r * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function drawSimpleOrbitals(mol, time) {
+    mol.atoms.forEach(atom => {
+        const rotated = rotate3D(atom.x, atom.y, atom.z);
+        const projected = project(rotated.x, rotated.y, rotated.z);
+        
+        const pulse = 1 + Math.sin(time * 2 + atom.x) * 0.1 * isoValue;
+        const radius = ELEMENTS[atom.element].radius * zoom * projected.scale * 2 * pulse;
+        
+        const gradient = ctx.createRadialGradient(
+            projected.x, projected.y, 0,
+            projected.x, projected.y, radius
+        );
+        gradient.addColorStop(0, `rgba(100, 200, 255, ${0.3 * isoValue})`);
+        gradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(projected.x, projected.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawInfo(mol) {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(10, 10, 200, 60);
+    
+    ctx.fillStyle = '#a0f';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(mol.name, 20, 30);
+    
+    ctx.fillStyle = '#888';
+    ctx.font = '12px Arial';
+    ctx.fillText(`电子数: ${mol.electrons}`, 20, 50);
+}
+
+function lightenColor(color, percent) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return `rgb(${R},${G},${B})`;
+}
+
+function darkenColor(color, percent) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, (num >> 16) - amt);
+    const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+    const B = Math.max(0, (num & 0x0000FF) - amt);
+    return `rgb(${R},${G},${B})`;
+}
+
+function animate() {
+    if (animating) {
+        rotY += 0.005;
+    }
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

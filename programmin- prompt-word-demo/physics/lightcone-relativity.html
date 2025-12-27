@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时空相对论光锥可视化器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏳</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .canvas-area {
+            flex: 7;
+            position: relative;
+            background: radial-gradient(ellipse at center, #1a1a3a 0%, #0a0a1a 100%);
+        }
+        #mainCanvas { display: block; width: 100%; height: 100%; }
+        .control-panel {
+            flex: 3;
+            background: rgba(0,0,0,0.6);
+            border-left: 1px solid #0ff3;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .panel-title {
+            font-size: 1.1em;
+            color: #0ff;
+            border-bottom: 1px solid #0ff3;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 12px;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="canvas-area">
+        <canvas id="mainCanvas"></canvas>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+const c = 1; // 光速单位
+let canvas, ctx;
+const state = {
+    observerV: 0,
+    worldLineV: 0.5,
+    zoom: 1,
+    coneAlpha: 0.4,
+    gridDensity: 10,
+    events: [{x: 0, t: 0, label: '原点'}],
+    selectedEvent: null,
+    showTwinParadox: false,
+    mode: 'normal'
+};
+
+function init() {
+    canvas = document.getElementById('mainCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    renderControlPanel();
+    animate();
+    
+    window.addEventListener('resize', resizeCanvas);
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+// 洛伦兹变换
+function lorentzTransform(x, t, v) {
+    const gamma = 1 / Math.sqrt(1 - v * v);
+    return {
+        x: gamma * (x - v * t),
+        t: gamma * (t - v * x)
+    };
+}
+
+// 逆洛伦兹变换
+function inverseLorentz(xPrime, tPrime, v) {
+    const gamma = 1 / Math.sqrt(1 - v * v);
+    return {
+        x: gamma * (xPrime + v * tPrime),
+        t: gamma * (tPrime + v * xPrime)
+    };
+}
+
+// 时间膨胀因子
+function gamma(v) {
+    return 1 / Math.sqrt(1 - v * v);
+}
+
+// 坐标转换：物理坐标到画布坐标
+function toCanvas(x, t) {
+    const scale = Math.min(canvas.width, canvas.height) / 10 * state.zoom;
+    return {
+        cx: canvas.width / 2 + x * scale,
+        cy: canvas.height / 2 - t * scale
+    };
+}
+
+// 画布坐标到物理坐标
+function toPhysics(cx, cy) {
+    const scale = Math.min(canvas.width, canvas.height) / 10 * state.zoom;
+    return {
+        x: (cx - canvas.width / 2) / scale,
+        t: (canvas.height / 2 - cy) / scale
+    };
+}
+
+function renderControlPanel() {
+    const panel = document.getElementById('controlPanel');
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 12px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.85em; color: #aaa; margin-bottom: 5px; }
+            input[type="range"] { width: 100%; height: 6px; border-radius: 3px; background: #333; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #0ff; cursor: pointer; }
+            .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; transition: all 0.3s; margin: 3px; }
+            .btn-primary { background: linear-gradient(135deg, #0ff, #00a); color: #000; }
+            .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+            .btn:hover { transform: translateY(-2px); }
+            .info-box { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; font-size: 0.8em; line-height: 1.6; color: #aaa; border-left: 3px solid #0ff; }
+            .event-list { max-height: 150px; overflow-y: auto; }
+            .event-item { background: rgba(0,255,255,0.1); padding: 8px; margin: 5px 0; border-radius: 5px; font-size: 0.8em; display: flex; justify-content: space-between; }
+            .formula { font-family: 'Times New Roman', serif; font-style: italic; color: #0ff; text-align: center; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; margin: 10px 0; }
+        </style>
+        <div style="text-align:center;margin-bottom:10px;">
+            <h2 style="color:#0ff;font-size:1.3em;">🌌 时空光锥模拟器</h2>
+            <p style="color:#888;font-size:0.8em;">狭义相对论可视化</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚡ 参照系设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>观测者速度</span><span id="obsVVal">${(state.observerV * 100).toFixed(0)}% c</span></div>
+                <input type="range" id="obsVSlider" min="0" max="99" value="${state.observerV * 100}">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>世界线速度</span><span id="wlVVal">${(state.worldLineV * 100).toFixed(0)}% c</span></div>
+                <input type="range" id="wlVSlider" min="0" max="99" value="${state.worldLineV * 100}">
+            </div>
+            <div class="formula">γ = ${gamma(state.observerV).toFixed(3)}</div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔧 显示设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>缩放</span><span id="zoomVal">${state.zoom.toFixed(1)}x</span></div>
+                <input type="range" id="zoomSlider" min="1" max="30" value="${state.zoom * 10}">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>光锥透明度</span><span id="alphaVal">${(state.coneAlpha * 100).toFixed(0)}%</span></div>
+                <input type="range" id="alphaSlider" min="10" max="80" value="${state.coneAlpha * 100}">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎬 演示模式</div>
+            <div style="display:flex;flex-wrap:wrap;">
+                <button class="btn ${state.mode==='normal'?'btn-primary':'btn-secondary'}" onclick="setMode('normal')">标准模式</button>
+                <button class="btn ${state.mode==='twin'?'btn-primary':'btn-secondary'}" onclick="setMode('twin')">双生子悖论</button>
+                <button class="btn ${state.mode==='doppler'?'btn-primary':'btn-secondary'}" onclick="setMode('doppler')">多普勒效应</button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📍 事件列表</div>
+            <div class="event-list" id="eventList"></div>
+            <button class="btn btn-secondary" onclick="clearEvents()" style="width:100%;margin-top:8px;">清除事件</button>
+            <p style="font-size:0.75em;color:#666;margin-top:5px;">点击时空图添加事件</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 物理说明</div>
+            <div class="info-box" id="infoBox">
+                <b>光锥</b>：从任一事件出发，光能到达的所有时空点构成未来光锥；能发出光到达该事件的所有点构成过去光锥。<br><br>
+                <b>因果性</b>：只有在光锥内的事件才能有因果联系。
+            </div>
+        </div>
+    `;
+    
+    // 绑定事件
+    document.getElementById('obsVSlider').oninput = (e) => {
+        state.observerV = e.target.value / 100;
+        document.getElementById('obsVVal').textContent = e.target.value + '% c';
+        document.querySelector('.formula').textContent = `γ = ${gamma(state.observerV).toFixed(3)}`;
+    };
+    document.getElementById('wlVSlider').oninput = (e) => {
+        state.worldLineV = e.target.value / 100;
+        document.getElementById('wlVVal').textContent = e.target.value + '% c';
+    };
+    document.getElementById('zoomSlider').oninput = (e) => {
+        state.zoom = e.target.value / 10;
+        document.getElementById('zoomVal').textContent = state.zoom.toFixed(1) + 'x';
+    };
+    document.getElementById('alphaSlider').oninput = (e) => {
+        state.coneAlpha = e.target.value / 100;
+        document.getElementById('alphaVal').textContent = e.target.value + '%';
+    };
+    
+    updateEventList();
+}
+
+function updateEventList() {
+    const list = document.getElementById('eventList');
+    if (!list) return;
+    list.innerHTML = state.events.map((ev, i) => `
+        <div class="event-item">
+            <span>${ev.label || '事件' + i}: (${ev.x.toFixed(2)}, ${ev.t.toFixed(2)})</span>
+            ${i > 0 ? `<span style="cursor:pointer;color:#f66;" onclick="removeEvent(${i})">×</span>` : ''}
+        </div>
+    `).join('');
+}
+
+function setMode(mode) {
+    state.mode = mode;
+    state.events = [{x: 0, t: 0, label: '原点'}];
+    
+    if (mode === 'twin') {
+        state.worldLineV = 0.8;
+        document.getElementById('wlVSlider').value = 80;
+        document.getElementById('wlVVal').textContent = '80% c';
+    }
+    
+    renderControlPanel();
+}
+
+function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const pos = toPhysics(e.clientX - rect.left, e.clientY - rect.top);
+    
+    state.events.push({
+        x: pos.x,
+        t: pos.t,
+        label: '事件' + state.events.length
+    });
+    updateEventList();
+}
+
+function handleMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    state.mousePos = toPhysics(e.clientX - rect.left, e.clientY - rect.top);
+}
+
+function removeEvent(i) {
+    state.events.splice(i, 1);
+    updateEventList();
+}
+
+function clearEvents() {
+    state.events = [{x: 0, t: 0, label: '原点'}];
+    updateEventList();
+}
+
+function draw() {
+    // 清空画布
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制星空背景
+    drawStars();
+    
+    // 绘制网格（在观测者参照系中）
+    drawGrid();
+    
+    // 绘制光锥
+    drawLightCone(0, 0);
+    
+    // 绘制世界线
+    drawWorldLines();
+    
+    // 绘制事件
+    drawEvents();
+    
+    // 绘制坐标轴标签
+    drawLabels();
+    
+    // 绘制鼠标位置信息
+    if (state.mousePos) {
+        drawMouseInfo();
+    }
+}
+
+function drawStars() {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 100; i++) {
+        const x = (Math.sin(i * 123.456) * 0.5 + 0.5) * canvas.width;
+        const y = (Math.cos(i * 789.012) * 0.5 + 0.5) * canvas.height;
+        const size = Math.random() * 1.5;
+        ctx.globalAlpha = 0.3 + Math.random() * 0.3;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawGrid() {
+    const v = state.observerV;
+    const scale = Math.min(canvas.width, canvas.height) / 10 * state.zoom;
+    
+    ctx.strokeStyle = '#ffffff15';
+    ctx.lineWidth = 1;
+    
+    // 绘制变换后的网格线
+    for (let i = -20; i <= 20; i++) {
+        // 等时线（在运动参照系中）
+        ctx.beginPath();
+        for (let x = -20; x <= 20; x += 0.5) {
+            const transformed = inverseLorentz(x, i, v);
+            const canvasPos = toCanvas(transformed.x, transformed.t);
+            if (x === -20) ctx.moveTo(canvasPos.cx, canvasPos.cy);
+            else ctx.lineTo(canvasPos.cx, canvasPos.cy);
+        }
+        ctx.stroke();
+        
+        // 等位置线
+        ctx.beginPath();
+        for (let t = -20; t <= 20; t += 0.5) {
+            const transformed = inverseLorentz(i, t, v);
+            const canvasPos = toCanvas(transformed.x, transformed.t);
+            if (t === -20) ctx.moveTo(canvasPos.cx, canvasPos.cy);
+            else ctx.lineTo(canvasPos.cx, canvasPos.cy);
+        }
+        ctx.stroke();
+    }
+    
+    // 绘制坐标轴
+    ctx.strokeStyle = '#0ff';
+    ctx.lineWidth = 2;
+    
+    // 时间轴
+    ctx.beginPath();
+    const t1 = toCanvas(0, -10);
+    const t2 = toCanvas(0, 10);
+    ctx.moveTo(t1.cx, t1.cy);
+    ctx.lineTo(t2.cx, t2.cy);
+    ctx.stroke();
+    
+    // 空间轴
+    ctx.beginPath();
+    const x1 = toCanvas(-10, 0);
+    const x2 = toCanvas(10, 0);
+    ctx.moveTo(x1.cx, x1.cy);
+    ctx.lineTo(x2.cx, x2.cy);
+    ctx.stroke();
+}
+
+function drawLightCone(x0, t0) {
+    const canvasOrigin = toCanvas(x0, t0);
+    const scale = Math.min(canvas.width, canvas.height) / 10 * state.zoom;
+    const size = 20 * scale;
+    
+    // 未来光锥
+    const futureGrad = ctx.createLinearGradient(
+        canvasOrigin.cx, canvasOrigin.cy,
+        canvasOrigin.cx, canvasOrigin.cy - size
+    );
+    futureGrad.addColorStop(0, `rgba(0, 255, 255, ${state.coneAlpha})`);
+    futureGrad.addColorStop(1, 'rgba(0, 255, 255, 0)');
+    
+    ctx.fillStyle = futureGrad;
+    ctx.beginPath();
+    ctx.moveTo(canvasOrigin.cx, canvasOrigin.cy);
+    ctx.lineTo(canvasOrigin.cx - size, canvasOrigin.cy - size);
+    ctx.lineTo(canvasOrigin.cx + size, canvasOrigin.cy - size);
+    ctx.closePath();
+    ctx.fill();
+    
+    // 过去光锥
+    const pastGrad = ctx.createLinearGradient(
+        canvasOrigin.cx, canvasOrigin.cy,
+        canvasOrigin.cx, canvasOrigin.cy + size
+    );
+    pastGrad.addColorStop(0, `rgba(255, 100, 100, ${state.coneAlpha})`);
+    pastGrad.addColorStop(1, 'rgba(255, 100, 100, 0)');
+    
+    ctx.fillStyle = pastGrad;
+    ctx.beginPath();
+    ctx.moveTo(canvasOrigin.cx, canvasOrigin.cy);
+    ctx.lineTo(canvasOrigin.cx - size, canvasOrigin.cy + size);
+    ctx.lineTo(canvasOrigin.cx + size, canvasOrigin.cy + size);
+    ctx.closePath();
+    ctx.fill();
+    
+    // 光锥边界（光的世界线）
+    ctx.strokeStyle = '#ff0';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    
+    ctx.beginPath();
+    ctx.moveTo(canvasOrigin.cx - size, canvasOrigin.cy + size);
+    ctx.lineTo(canvasOrigin.cx, canvasOrigin.cy);
+    ctx.lineTo(canvasOrigin.cx - size, canvasOrigin.cy - size);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(canvasOrigin.cx + size, canvasOrigin.cy + size);
+    ctx.lineTo(canvasOrigin.cx, canvasOrigin.cy);
+    ctx.lineTo(canvasOrigin.cx + size, canvasOrigin.cy - size);
+    ctx.stroke();
+    
+    ctx.setLineDash([]);
+}
+
+function drawWorldLines() {
+    const v = state.worldLineV;
+    
+    // 静止观测者世界线（垂直）
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    const s1 = toCanvas(0, -10);
+    const s2 = toCanvas(0, 10);
+    ctx.moveTo(s1.cx, s1.cy);
+    ctx.lineTo(s2.cx, s2.cy);
+    ctx.stroke();
+    
+    // 运动物体世界线
+    ctx.strokeStyle = '#f0f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    if (state.mode === 'twin') {
+        // 双生子悖论：往返路径
+        const turnT = 3;
+        const p1 = toCanvas(0, 0);
+        const p2 = toCanvas(v * turnT, turnT);
+        const p3 = toCanvas(0, turnT * 2);
+        
+        ctx.moveTo(p1.cx, p1.cy);
+        ctx.lineTo(p2.cx, p2.cy);
+        ctx.lineTo(p3.cx, p3.cy);
+        ctx.stroke();
+        
+        // 标注
+        ctx.fillStyle = '#f0f';
+        ctx.font = '12px Arial';
+        ctx.fillText('旅行者', p2.cx + 10, p2.cy);
+        ctx.fillStyle = '#0f0';
+        ctx.fillText('留守者', s2.cx + 10, s2.cy - 50);
+        
+        // 显示时间差
+        const travelTime = 2 * turnT / gamma(v);
+        ctx.fillStyle = '#fff';
+        ctx.font = '14px Arial';
+        ctx.fillText(`旅行者经历时间: ${travelTime.toFixed(2)}`, 20, 30);
+        ctx.fillText(`留守者经历时间: ${(turnT * 2).toFixed(2)}`, 20, 50);
+    } else {
+        // 普通世界线
+        for (let t = -10; t <= 10; t += 0.1) {
+            const x = v * t;
+            const pos = toCanvas(x, t);
+            if (t === -10) ctx.moveTo(pos.cx, pos.cy);
+            else ctx.lineTo(pos.cx, pos.cy);
+        }
+        ctx.stroke();
+    }
+    
+    // 多普勒效应模式
+    if (state.mode === 'doppler') {
+        drawDopplerWaves();
+    }
+}
+
+function drawDopplerWaves() {
+    const v = state.worldLineV;
+    const time = Date.now() / 1000;
+    
+    // 从运动源发出的光波
+    for (let i = 0; i < 8; i++) {
+        const emitT = -4 + i;
+        const emitX = v * emitT;
+        const radius = (time % 4 + i) * 0.5;
+        
+        if (radius > 0 && radius < 8) {
+            ctx.strokeStyle = `rgba(255, 255, 0, ${0.5 - radius / 16})`;
+            ctx.lineWidth = 2;
+            
+            // 前向波（蓝移）
+            const frontPos = toCanvas(emitX + radius, emitT + radius);
+            ctx.beginPath();
+            ctx.arc(toCanvas(emitX, emitT).cx, toCanvas(emitX, emitT).cy, 
+                    radius * Math.min(canvas.width, canvas.height) / 10 * state.zoom, 
+                    0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+}
+
+function drawEvents() {
+    state.events.forEach((ev, i) => {
+        const pos = toCanvas(ev.x, ev.t);
+        
+        // 事件点
+        ctx.fillStyle = i === 0 ? '#0ff' : '#ff0';
+        ctx.beginPath();
+        ctx.arc(pos.cx, pos.cy, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 标签
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.fillText(ev.label, pos.cx + 12, pos.cy - 5);
+        
+        // 显示因果关系
+        if (i > 0) {
+            const origin = state.events[0];
+            const dx = ev.x - origin.x;
+            const dt = ev.t - origin.t;
+            const interval = dt * dt - dx * dx;
+            
+            let relation = '';
+            let color = '#888';
+            if (interval > 0 && dt > 0) {
+                relation = '类时未来';
+                color = '#0f0';
+            } else if (interval > 0 && dt < 0) {
+                relation = '类时过去';
+                color = '#f66';
+            } else if (interval < 0) {
+                relation = '类空（无因果）';
+                color = '#ff0';
+            } else {
+                relation = '类光';
+                color = '#0ff';
+            }
+            
+            ctx.fillStyle = color;
+            ctx.fillText(relation, pos.cx + 12, pos.cy + 10);
+        }
+    });
+}
+
+function drawLabels() {
+    ctx.fillStyle = '#0ff';
+    ctx.font = '14px Arial';
+    
+    // 时间轴标签
+    ctx.fillText('t (时间)', canvas.width / 2 + 10, 30);
+    ctx.fillText('未来', canvas.width / 2 + 10, 50);
+    ctx.fillText('过去', canvas.width / 2 + 10, canvas.height - 30);
+    
+    // 空间轴标签
+    ctx.fillText('x (空间)', canvas.width - 80, canvas.height / 2 - 10);
+}
+
+function drawMouseInfo() {
+    if (!state.mousePos) return;
+    
+    const {x, t} = state.mousePos;
+    const transformed = lorentzTransform(x, t, state.observerV);
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(10, canvas.height - 80, 250, 70);
+    
+    ctx.fillStyle = '#0ff';
+    ctx.font = '12px Arial';
+    ctx.fillText(`静止系: x=${x.toFixed(2)}, t=${t.toFixed(2)}`, 20, canvas.height - 60);
+    ctx.fillText(`运动系: x'=${transformed.x.toFixed(2)}, t'=${transformed.t.toFixed(2)}`, 20, canvas.height - 40);
+    
+    const interval = t * t - x * x;
+    ctx.fillText(`时空间隔: s²=${interval.toFixed(2)} (${interval > 0 ? '类时' : interval < 0 ? '类空' : '类光'})`, 20, canvas.height - 20);
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

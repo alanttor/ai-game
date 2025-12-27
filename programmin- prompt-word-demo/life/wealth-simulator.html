@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>复利理财可视化模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #8892b0;
+            font-size: 0.9em;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-size: 0.9em;
+            color: #ffd700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 控制面板 */
+        .control-section {
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            font-size: 0.75em;
+            color: #8892b0;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+        }
+
+        .control-value {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 215, 0, 0.2);
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #ffd700;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #fff;
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .btn.active {
+            background: #ffd700;
+            color: #1a1a2e;
+        }
+
+        /* 仪表盘 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .metric-label {
+            font-size: 0.75em;
+            color: #8892b0;
+            margin-top: 5px;
+        }
+
+        .metric-change {
+            font-size: 0.7em;
+            margin-top: 3px;
+        }
+
+        .metric-change.positive { color: #48bb78; }
+        .metric-change.negative { color: #f56565; }
+
+        /* 图表区域 */
+        .charts-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .main-chart {
+            height: 350px;
+            position: relative;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .small-chart {
+            height: 200px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 时间轴 */
+        .timeline {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .timeline-slider {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .timeline-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #8892b0;
+        }
+
+        /* 里程碑 */
+        .milestones {
+            margin-top: 15px;
+        }
+
+        .milestone {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            margin-bottom: 8px;
+            background: rgba(255, 215, 0, 0.05);
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+
+        .milestone.achieved {
+            background: rgba(72, 187, 120, 0.2);
+            border-left: 3px solid #48bb78;
+        }
+
+        .milestone.pending {
+            opacity: 0.6;
+        }
+
+        .milestone-icon {
+            font-size: 1.2em;
+        }
+
+        /* 教育提示 */
+        .tip-box {
+            background: rgba(99, 179, 237, 0.1);
+            border: 1px solid rgba(99, 179, 237, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 0.8em;
+        }
+
+        .tip-box strong {
+            color: #63b3ed;
+        }
+
+        /* 人生事件 */
+        .events-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 0.8em;
+        }
+
+        .event-item .remove {
+            cursor: pointer;
+            color: #f56565;
+        }
+
+        /* 庆祝动画 */
+        .celebration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            animation: fall 3s linear forwards;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* 工具提示 */
+        .tooltip {
+            position: absolute;
+            background: rgba(26, 26, 46, 0.95);
+            border: 1px solid #ffd700;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.8em;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+
+        .tooltip.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 复利理财可视化模拟器</h1>
+            <p>规划您的财务未来，见证复利的力量</p>
+        </div>
+
+        <div class="dashboard">
+            <div class="metric-card">
+                <div class="metric-value" id="totalWealth">¥0</div>
+                <div class="metric-label">总资产</div>
+                <div class="metric-change positive" id="wealthChange">+0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="realWealth">¥0</div>
+                <div class="metric-label">实际购买力</div>
+                <div class="metric-change" id="inflationImpact">通胀影响: -0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="passiveIncome">¥0</div>
+                <div class="metric-label">月被动收入</div>
+                <div class="metric-change" id="fireProgress">财务自由: 0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="yearsToFire">--</div>
+                <div class="metric-label">距财务自由</div>
+                <div class="metric-change" id="retireAge">退休年龄: --岁</div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <div class="panel">
+                <div class="panel-title">⚙️ 参数设置</div>
+                
+                <div class="control-section">
+                    <div class="section-label">基础设置</div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>💵 初始资金</span>
+                            <span class="control-value" id="initialVal">¥10,000</span>
+                        </div>
+                        <input type="range" id="initialCapital" min="0" max="1000000" value="10000" step="1000">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>📈 月收入</span>
+                            <span class="control-value" id="incomeVal">¥8,000</span>
+                        </div>
+                        <input type="range" id="monthlyIncome" min="0" max="50000" value="8000" step="500">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>📉 月支出</span>
+                            <span class="control-value" id="expenseVal">¥5,000</span>
+                        </div>
+                        <input type="range" id="monthlyExpense" min="0" max="50000" value="5000" step="500">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>💰 储蓄率</span>
+                            <span class="control-value" id="savingsVal">30%</span>
+                        </div>
+                        <input type="range" id="savingsRate" min="0" max="80" value="30">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-label">投资设置</div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>📊 年化收益率</span>
+                            <span class="control-value" id="returnVal">8%</span>
+                        </div>
+                        <input type="range" id="annualReturn" min="-20" max="20" value="8">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>💸 通货膨胀率</span>
+                            <span class="control-value" id="inflationVal">3%</span>
+                        </div>
+                        <input type="range" id="inflationRate" min="0" max="10" value="3">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>➕ 月追加投资</span>
+                            <span class="control-value" id="addInvestVal">¥1,000</span>
+                        </div>
+                        <input type="range" id="monthlyInvest" min="0" max="10000" value="1000" step="100">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-label">年龄设置</div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>🎂 当前年龄</span>
+                            <span class="control-value" id="ageVal">25岁</span>
+                        </div>
+                        <input type="range" id="currentAge" min="18" max="60" value="25">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>🏖️ 目标退休年龄</span>
+                            <span class="control-value" id="retireVal">60岁</span>
+                        </div>
+                        <input type="range" id="retireAge" min="40" max="80" value="60">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-label">投资策略</div>
+                    <div class="btn-group">
+                        <button class="btn" data-strategy="conservative">保守型</button>
+                        <button class="btn active" data-strategy="balanced">稳健型</button>
+                        <button class="btn" data-strategy="aggressive">激进型</button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-label">市场情景</div>
+                    <select id="marketScenario">
+                        <option value="normal">正常市场</option>
+                        <option value="bull">牛市 (+5%)</option>
+                        <option value="bear">熊市 (-5%)</option>
+                        <option value="volatile">高波动</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-label">人生事件</div>
+                    <select id="lifeEvent">
+                        <option value="">添加事件...</option>
+                        <option value="marriage">结婚 (-¥100,000)</option>
+                        <option value="house">买房首付 (-¥500,000)</option>
+                        <option value="car">购车 (-¥150,000)</option>
+                        <option value="child">子女教育 (-¥200,000)</option>
+                        <option value="inheritance">继承遗产 (+¥300,000)</option>
+                    </select>
+                    <div class="events-list" id="eventsList"></div>
+                </div>
+
+                <div class="tip-box">
+                    <strong>💡 72法则：</strong>用72除以年化收益率，即可估算资产翻倍所需年数。例如8%收益率，约需72÷8=9年翻倍。
+                </div>
+            </div>
+
+            <div class="charts-area">
+                <div class="panel main-chart">
+                    <div class="panel-title">📈 财富增长曲线</div>
+                    <canvas id="mainChart"></canvas>
+                    <div class="tooltip" id="chartTooltip"></div>
+                </div>
+
+                <div class="timeline">
+                    <input type="range" class="timeline-slider" id="timelineSlider" min="0" max="100" value="0">
+                    <div class="timeline-info">
+                        <span id="timelineStart">25岁</span>
+                        <span id="timelineCurrent">当前: 25岁 | 资产: ¥10,000</span>
+                        <span id="timelineEnd">60岁</span>
+                    </div>
+                </div>
+
+                <div class="chart-row">
+                    <div class="panel small-chart">
+                        <div class="panel-title">🥧 资产配置</div>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                    <div class="panel small-chart">
+                        <div class="panel-title">📊 现金流分析</div>
+                        <canvas id="flowChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel milestones">
+                    <div class="panel-title">🎯 财务里程碑</div>
+                    <div id="milestonesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="celebration" id="celebration"></div>
+
+    <script>
+
+        // ==================== 财务计算引擎 ====================
+        class FinanceEngine {
+            constructor() {
+                this.params = {
+                    initialCapital: 10000,
+                    monthlyIncome: 8000,
+                    monthlyExpense: 5000,
+                    savingsRate: 30,
+                    annualReturn: 8,
+                    inflationRate: 3,
+                    monthlyInvest: 1000,
+                    currentAge: 25,
+                    retireAge: 60,
+                    taxRate: 20
+                };
+                
+                this.lifeEvents = [];
+                this.marketScenario = 'normal';
+                this.wealthHistory = [];
+            }
+            
+            setStrategy(strategy) {
+                const strategies = {
+                    conservative: { annualReturn: 4, risk: 0.05 },
+                    balanced: { annualReturn: 8, risk: 0.1 },
+                    aggressive: { annualReturn: 12, risk: 0.2 }
+                };
+                
+                const s = strategies[strategy];
+                this.params.annualReturn = s.annualReturn;
+                document.getElementById('annualReturn').value = s.annualReturn;
+                document.getElementById('returnVal').textContent = s.annualReturn + '%';
+            }
+            
+            addLifeEvent(event) {
+                const events = {
+                    marriage: { name: '结婚', amount: -100000, age: this.params.currentAge + 3 },
+                    house: { name: '买房首付', amount: -500000, age: this.params.currentAge + 5 },
+                    car: { name: '购车', amount: -150000, age: this.params.currentAge + 2 },
+                    child: { name: '子女教育', amount: -200000, age: this.params.currentAge + 10 },
+                    inheritance: { name: '继承遗产', amount: 300000, age: this.params.currentAge + 20 }
+                };
+                
+                if (events[event]) {
+                    this.lifeEvents.push({ ...events[event], id: Date.now() });
+                }
+            }
+            
+            removeLifeEvent(id) {
+                this.lifeEvents = this.lifeEvents.filter(e => e.id !== id);
+            }
+            
+            calculateWealth() {
+                const years = this.params.retireAge - this.params.currentAge;
+                const monthlyReturn = this.params.annualReturn / 100 / 12;
+                const monthlyInflation = this.params.inflationRate / 100 / 12;
+                
+                let wealth = this.params.initialCapital;
+                let realWealth = this.params.initialCapital;
+                const monthlySavings = this.params.monthlyIncome * (this.params.savingsRate / 100);
+                
+                this.wealthHistory = [];
+                const milestones = [];
+                
+                // 市场情景调整
+                let returnAdjust = 0;
+                let volatility = 0;
+                switch(this.marketScenario) {
+                    case 'bull': returnAdjust = 0.05 / 12; break;
+                    case 'bear': returnAdjust = -0.05 / 12; break;
+                    case 'volatile': volatility = 0.03; break;
+                }
+                
+                for (let month = 0; month <= years * 12; month++) {
+                    const age = this.params.currentAge + month / 12;
+                    const year = Math.floor(month / 12);
+                    
+                    // 检查人生事件
+                    this.lifeEvents.forEach(event => {
+                        if (Math.abs(age - event.age) < 0.1) {
+                            wealth += event.amount;
+                        }
+                    });
+                    
+                    // 波动模拟
+                    let actualReturn = monthlyReturn + returnAdjust;
+                    if (volatility > 0) {
+                        actualReturn += (Math.random() - 0.5) * volatility;
+                    }
+                    
+                    // 复利增长
+                    wealth = wealth * (1 + actualReturn) + monthlySavings + this.params.monthlyInvest;
+                    
+                    // 通胀调整后的实际购买力
+                    realWealth = wealth / Math.pow(1 + this.params.inflationRate / 100, year);
+                    
+                    // 记录历史
+                    if (month % 12 === 0) {
+                        this.wealthHistory.push({
+                            age: Math.round(age),
+                            wealth: Math.round(wealth),
+                            realWealth: Math.round(realWealth),
+                            year: year
+                        });
+                        
+                        // 检查里程碑
+                        const targets = [100000, 500000, 1000000, 5000000, 10000000];
+                        targets.forEach(target => {
+                            if (wealth >= target && !milestones.find(m => m.target === target)) {
+                                milestones.push({ target, age: Math.round(age), achieved: true });
+                            }
+                        });
+                    }
+                }
+                
+                return {
+                    finalWealth: wealth,
+                    finalRealWealth: realWealth,
+                    history: this.wealthHistory,
+                    milestones,
+                    passiveIncome: wealth * (this.params.annualReturn / 100) / 12,
+                    yearsToFire: this.calculateFireYears()
+                };
+            }
+            
+            calculateFireYears() {
+                // 财务自由：被动收入 >= 月支出
+                const targetWealth = this.params.monthlyExpense * 12 / (this.params.annualReturn / 100);
+                const monthlyReturn = this.params.annualReturn / 100 / 12;
+                const monthlySavings = this.params.monthlyIncome * (this.params.savingsRate / 100) + this.params.monthlyInvest;
+                
+                let wealth = this.params.initialCapital;
+                let months = 0;
+                
+                while (wealth < targetWealth && months < 600) {
+                    wealth = wealth * (1 + monthlyReturn) + monthlySavings;
+                    months++;
+                }
+                
+                return months < 600 ? Math.ceil(months / 12) : null;
+            }
+        }
+
+        // ==================== 图表渲染器 ====================
+        class ChartRenderer {
+            constructor() {
+                this.mainCanvas = document.getElementById('mainChart');
+                this.pieCanvas = document.getElementById('pieChart');
+                this.flowCanvas = document.getElementById('flowChart');
+                
+                this.mainCtx = this.mainCanvas.getContext('2d');
+                this.pieCtx = this.pieCanvas.getContext('2d');
+                this.flowCtx = this.flowCanvas.getContext('2d');
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                [this.mainCanvas, this.pieCanvas, this.flowCanvas].forEach(canvas => {
+                    const parent = canvas.parentElement;
+                    canvas.width = parent.clientWidth - 40;
+                    canvas.height = parent.clientHeight - 50;
+                });
+            }
+            
+            drawMainChart(history, currentIndex) {
+                const ctx = this.mainCtx;
+                const w = this.mainCanvas.width;
+                const h = this.mainCanvas.height;
+                
+                ctx.clearRect(0, 0, w, h);
+                
+                if (history.length < 2) return;
+                
+                const padding = { top: 20, right: 20, bottom: 30, left: 70 };
+                const chartW = w - padding.left - padding.right;
+                const chartH = h - padding.top - padding.bottom;
+                
+                const maxWealth = Math.max(...history.map(d => d.wealth));
+                const minWealth = 0;
+                
+                // 绘制网格
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.1)';
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i <= 5; i++) {
+                    const y = padding.top + (chartH / 5) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(padding.left, y);
+                    ctx.lineTo(w - padding.right, y);
+                    ctx.stroke();
+                    
+                    // Y轴标签
+                    const value = maxWealth - (maxWealth / 5) * i;
+                    ctx.fillStyle = '#8892b0';
+                    ctx.font = '11px Arial';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(this.formatMoney(value), padding.left - 10, y + 4);
+                }
+                
+                // 绘制实际购买力曲线（虚线）
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(99, 179, 237, 0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
+                
+                history.forEach((point, i) => {
+                    const x = padding.left + (i / (history.length - 1)) * chartW;
+                    const y = padding.top + (1 - point.realWealth / maxWealth) * chartH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 绘制名义财富曲线
+                ctx.beginPath();
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                
+                history.forEach((point, i) => {
+                    const x = padding.left + (i / (history.length - 1)) * chartW;
+                    const y = padding.top + (1 - point.wealth / maxWealth) * chartH;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                
+                // 填充渐变
+                ctx.lineTo(padding.left + chartW, padding.top + chartH);
+                ctx.lineTo(padding.left, padding.top + chartH);
+                ctx.closePath();
+                
+                const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+                gradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // 当前位置指示器
+                if (currentIndex >= 0 && currentIndex < history.length) {
+                    const point = history[currentIndex];
+                    const x = padding.left + (currentIndex / (history.length - 1)) * chartW;
+                    const y = padding.top + (1 - point.wealth / maxWealth) * chartH;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                // X轴标签
+                ctx.fillStyle = '#8892b0';
+                ctx.textAlign = 'center';
+                const step = Math.ceil(history.length / 6);
+                history.forEach((point, i) => {
+                    if (i % step === 0 || i === history.length - 1) {
+                        const x = padding.left + (i / (history.length - 1)) * chartW;
+                        ctx.fillText(point.age + '岁', x, h - 10);
+                    }
+                });
+                
+                // 图例
+                ctx.font = '11px Arial';
+                ctx.fillStyle = '#ffd700';
+                ctx.fillRect(w - 150, 10, 12, 12);
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'left';
+                ctx.fillText('名义财富', w - 130, 20);
+                
+                ctx.fillStyle = 'rgba(99, 179, 237, 0.5)';
+                ctx.fillRect(w - 150, 28, 12, 12);
+                ctx.fillStyle = '#fff';
+                ctx.fillText('实际购买力', w - 130, 38);
+            }
+            
+            drawPieChart(params) {
+                const ctx = this.pieCtx;
+                const w = this.pieCanvas.width;
+                const h = this.pieCanvas.height;
+                
+                ctx.clearRect(0, 0, w, h);
+                
+                const centerX = w / 2;
+                const centerY = h / 2;
+                const radius = Math.min(w, h) / 2 - 30;
+                
+                const income = params.monthlyIncome;
+                const expense = params.monthlyExpense;
+                const savings = income * (params.savingsRate / 100);
+                const invest = params.monthlyInvest;
+                
+                const data = [
+                    { label: '支出', value: expense, color: '#f56565' },
+                    { label: '储蓄', value: savings, color: '#48bb78' },
+                    { label: '投资', value: invest, color: '#ffd700' },
+                    { label: '其他', value: Math.max(0, income - expense - savings - invest), color: '#8892b0' }
+                ].filter(d => d.value > 0);
+                
+                const total = data.reduce((sum, d) => sum + d.value, 0);
+                let startAngle = -Math.PI / 2;
+                
+                data.forEach(item => {
+                    const sliceAngle = (item.value / total) * Math.PI * 2;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                    ctx.closePath();
+                    ctx.fillStyle = item.color;
+                    ctx.fill();
+                    
+                    // 标签
+                    const midAngle = startAngle + sliceAngle / 2;
+                    const labelX = centerX + Math.cos(midAngle) * (radius * 0.7);
+                    const labelY = centerY + Math.sin(midAngle) * (radius * 0.7);
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(item.label, labelX, labelY);
+                    ctx.fillText(Math.round(item.value / total * 100) + '%', labelX, labelY + 12);
+                    
+                    startAngle += sliceAngle;
+                });
+            }
+            
+            drawFlowChart(params) {
+                const ctx = this.flowCtx;
+                const w = this.flowCanvas.width;
+                const h = this.flowCanvas.height;
+                
+                ctx.clearRect(0, 0, w, h);
+                
+                const income = params.monthlyIncome;
+                const expense = params.monthlyExpense;
+                const savings = income * (params.savingsRate / 100);
+                const invest = params.monthlyInvest;
+                
+                const barWidth = 40;
+                const maxValue = Math.max(income, expense, savings, invest);
+                const scale = (h - 60) / maxValue;
+                
+                const bars = [
+                    { label: '收入', value: income, color: '#48bb78' },
+                    { label: '支出', value: expense, color: '#f56565' },
+                    { label: '储蓄', value: savings, color: '#4299e1' },
+                    { label: '投资', value: invest, color: '#ffd700' }
+                ];
+                
+                const spacing = (w - bars.length * barWidth) / (bars.length + 1);
+                
+                bars.forEach((bar, i) => {
+                    const x = spacing + i * (barWidth + spacing);
+                    const barH = bar.value * scale;
+                    const y = h - 30 - barH;
+                    
+                    // 渐变
+                    const gradient = ctx.createLinearGradient(x, y, x, h - 30);
+                    gradient.addColorStop(0, bar.color);
+                    gradient.addColorStop(1, bar.color + '66');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, y, barWidth, barH);
+                    
+                    // 标签
+                    ctx.fillStyle = '#8892b0';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(bar.label, x + barWidth / 2, h - 10);
+                    
+                    // 数值
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('¥' + bar.value.toLocaleString(), x + barWidth / 2, y - 5);
+                });
+            }
+            
+            formatMoney(value) {
+                if (value >= 10000000) return (value / 10000000).toFixed(1) + '千万';
+                if (value >= 10000) return (value / 10000).toFixed(0) + '万';
+                return '¥' + Math.round(value).toLocaleString();
+            }
+        }
+
+
+        // ==================== 主控制器 ====================
+        class WealthSimulator {
+            constructor() {
+                this.engine = new FinanceEngine();
+                this.renderer = new ChartRenderer();
+                this.currentIndex = 0;
+                this.lastMilestoneCount = 0;
+                
+                this.initControls();
+                this.update();
+            }
+            
+            initControls() {
+                // 参数滑块
+                const sliders = [
+                    { id: 'initialCapital', param: 'initialCapital', display: 'initialVal', format: v => '¥' + parseInt(v).toLocaleString() },
+                    { id: 'monthlyIncome', param: 'monthlyIncome', display: 'incomeVal', format: v => '¥' + parseInt(v).toLocaleString() },
+                    { id: 'monthlyExpense', param: 'monthlyExpense', display: 'expenseVal', format: v => '¥' + parseInt(v).toLocaleString() },
+                    { id: 'savingsRate', param: 'savingsRate', display: 'savingsVal', format: v => v + '%' },
+                    { id: 'annualReturn', param: 'annualReturn', display: 'returnVal', format: v => v + '%' },
+                    { id: 'inflationRate', param: 'inflationRate', display: 'inflationVal', format: v => v + '%' },
+                    { id: 'monthlyInvest', param: 'monthlyInvest', display: 'addInvestVal', format: v => '¥' + parseInt(v).toLocaleString() },
+                    { id: 'currentAge', param: 'currentAge', display: 'ageVal', format: v => v + '岁' },
+                    { id: 'retireAge', param: 'retireAge', display: 'retireVal', format: v => v + '岁' }
+                ];
+                
+                sliders.forEach(s => {
+                    const el = document.getElementById(s.id);
+                    el.addEventListener('input', () => {
+                        this.engine.params[s.param] = parseFloat(el.value);
+                        document.getElementById(s.display).textContent = s.format(el.value);
+                        this.update();
+                    });
+                });
+                
+                // 投资策略按钮
+                document.querySelectorAll('[data-strategy]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('[data-strategy]').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.engine.setStrategy(btn.dataset.strategy);
+                        this.update();
+                    });
+                });
+                
+                // 市场情景
+                document.getElementById('marketScenario').addEventListener('change', (e) => {
+                    this.engine.marketScenario = e.target.value;
+                    this.update();
+                });
+                
+                // 人生事件
+                document.getElementById('lifeEvent').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.engine.addLifeEvent(e.target.value);
+                        e.target.value = '';
+                        this.updateEventsList();
+                        this.update();
+                    }
+                });
+                
+                // 时间轴
+                document.getElementById('timelineSlider').addEventListener('input', (e) => {
+                    const history = this.engine.wealthHistory;
+                    this.currentIndex = Math.round((e.target.value / 100) * (history.length - 1));
+                    this.updateTimelineDisplay();
+                    this.renderer.drawMainChart(history, this.currentIndex);
+                });
+                
+                // 图表悬停
+                this.setupChartHover();
+            }
+            
+            setupChartHover() {
+                const canvas = this.renderer.mainCanvas;
+                const tooltip = document.getElementById('chartTooltip');
+                
+                canvas.addEventListener('mousemove', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const history = this.engine.wealthHistory;
+                    
+                    if (history.length < 2) return;
+                    
+                    const padding = 70;
+                    const chartW = canvas.width - padding - 20;
+                    const index = Math.round(((x - padding) / chartW) * (history.length - 1));
+                    
+                    if (index >= 0 && index < history.length) {
+                        const point = history[index];
+                        tooltip.innerHTML = `
+                            <div><strong>${point.age}岁</strong></div>
+                            <div>名义财富: ¥${point.wealth.toLocaleString()}</div>
+                            <div>实际购买力: ¥${point.realWealth.toLocaleString()}</div>
+                        `;
+                        tooltip.style.left = (e.clientX - rect.left + 10) + 'px';
+                        tooltip.style.top = (e.clientY - rect.top - 60) + 'px';
+                        tooltip.classList.add('show');
+                    }
+                });
+                
+                canvas.addEventListener('mouseleave', () => {
+                    tooltip.classList.remove('show');
+                });
+            }
+            
+            update() {
+                const result = this.engine.calculateWealth();
+                
+                // 更新仪表盘
+                const current = result.history[this.currentIndex] || result.history[result.history.length - 1];
+                
+                document.getElementById('totalWealth').textContent = '¥' + Math.round(result.finalWealth).toLocaleString();
+                document.getElementById('realWealth').textContent = '¥' + Math.round(result.finalRealWealth).toLocaleString();
+                document.getElementById('passiveIncome').textContent = '¥' + Math.round(result.passiveIncome).toLocaleString();
+                
+                const growthPercent = ((result.finalWealth / this.engine.params.initialCapital - 1) * 100).toFixed(0);
+                document.getElementById('wealthChange').textContent = '+' + growthPercent + '%';
+                
+                const inflationImpact = ((1 - result.finalRealWealth / result.finalWealth) * 100).toFixed(0);
+                document.getElementById('inflationImpact').textContent = '通胀影响: -' + inflationImpact + '%';
+                
+                // 财务自由进度
+                const fireTarget = this.engine.params.monthlyExpense * 12 / (this.engine.params.annualReturn / 100);
+                const fireProgress = Math.min(100, (result.finalWealth / fireTarget * 100)).toFixed(0);
+                document.getElementById('fireProgress').textContent = '财务自由: ' + fireProgress + '%';
+                
+                // 距财务自由年数
+                if (result.yearsToFire) {
+                    document.getElementById('yearsToFire').textContent = result.yearsToFire + '年';
+                    document.getElementById('retireAge').textContent = '退休年龄: ' + (this.engine.params.currentAge + result.yearsToFire) + '岁';
+                } else {
+                    document.getElementById('yearsToFire').textContent = '未达成';
+                    document.getElementById('retireAge').textContent = '需调整参数';
+                }
+                
+                // 更新图表
+                this.renderer.drawMainChart(result.history, this.currentIndex);
+                this.renderer.drawPieChart(this.engine.params);
+                this.renderer.drawFlowChart(this.engine.params);
+                
+                // 更新里程碑
+                this.updateMilestones(result.milestones);
+                
+                // 更新时间轴
+                this.updateTimelineDisplay();
+                
+                // 检查新达成的里程碑
+                if (result.milestones.length > this.lastMilestoneCount) {
+                    this.celebrate();
+                }
+                this.lastMilestoneCount = result.milestones.length;
+            }
+            
+            updateTimelineDisplay() {
+                const history = this.engine.wealthHistory;
+                const current = history[this.currentIndex] || history[0];
+                
+                document.getElementById('timelineStart').textContent = this.engine.params.currentAge + '岁';
+                document.getElementById('timelineEnd').textContent = this.engine.params.retireAge + '岁';
+                document.getElementById('timelineCurrent').textContent = 
+                    `当前: ${current.age}岁 | 资产: ¥${current.wealth.toLocaleString()}`;
+            }
+            
+            updateMilestones(milestones) {
+                const targets = [
+                    { target: 100000, label: '10万', icon: '🎯' },
+                    { target: 500000, label: '50万', icon: '🏆' },
+                    { target: 1000000, label: '100万', icon: '💎' },
+                    { target: 5000000, label: '500万', icon: '👑' },
+                    { target: 10000000, label: '1000万', icon: '🚀' }
+                ];
+                
+                const container = document.getElementById('milestonesList');
+                container.innerHTML = targets.map(t => {
+                    const achieved = milestones.find(m => m.target === t.target);
+                    return `
+                        <div class="milestone ${achieved ? 'achieved' : 'pending'}">
+                            <span class="milestone-icon">${t.icon}</span>
+                            <span>资产达到 ${t.label}</span>
+                            <span style="margin-left:auto">${achieved ? achieved.age + '岁达成 ✓' : '未达成'}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            updateEventsList() {
+                const container = document.getElementById('eventsList');
+                container.innerHTML = this.engine.lifeEvents.map(event => `
+                    <div class="event-item">
+                        <span>${event.name} (${event.age}岁)</span>
+                        <span>${event.amount > 0 ? '+' : ''}¥${event.amount.toLocaleString()}</span>
+                        <span class="remove" onclick="simulator.removeEvent(${event.id})">✕</span>
+                    </div>
+                `).join('');
+            }
+            
+            removeEvent(id) {
+                this.engine.removeLifeEvent(id);
+                this.updateEventsList();
+                this.update();
+            }
+            
+            celebrate() {
+                const container = document.getElementById('celebration');
+                const colors = ['#ffd700', '#ff6b6b', '#48bb78', '#4299e1', '#ed64a6'];
+                
+                for (let i = 0; i < 50; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-20px';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    container.appendChild(confetti);
+                    
+                    setTimeout(() => confetti.remove(), 3000);
+                }
+            }
+        }
+
+        // 启动模拟器
+        const simulator = new WealthSimulator();
+    </script>
+</body>
+</html>

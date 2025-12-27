@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>睡眠阶段与梦境生成</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0d0d2b 0%, #1a1a4e 50%, #0d0d2b 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        .container { display: flex; flex-direction: column; height: 100vh; }
+        .top-bar {
+            height: 120px;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid #3a3a6a;
+            padding: 10px 20px;
+        }
+        .main-area { flex: 1; display: flex; }
+        .dream-canvas { flex: 1; position: relative; overflow: hidden; }
+        .right-panel {
+            width: 300px;
+            background: rgba(0,0,0,0.4);
+            border-left: 1px solid #3a3a6a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .hypnogram { height: 80px; position: relative; }
+        #hypnoCanvas { width: 100%; height: 100%; }
+        .stage-labels {
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 50px; display: flex; flex-direction: column;
+            justify-content: space-between; font-size: 0.7em; color: #888;
+            padding: 5px 0;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="color:#a78bfa;font-weight:bold;">🌙 睡眠结构图</div>
+            <div id="sleepInfo" style="color:#888;font-size:0.9em;"></div>
+        </div>
+        <div class="hypnogram">
+            <div class="stage-labels">
+                <span>清醒</span><span>REM</span><span>N1</span><span>N2</span><span>N3</span>
+            </div>
+            <canvas id="hypnoCanvas"></canvas>
+        </div>
+    </div>
+    <div class="main-area">
+        <div class="dream-canvas">
+            <canvas id="dreamCanvas"></canvas>
+            <div id="dreamOverlay" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;"></div>
+        </div>
+        <div class="right-panel">
+            <div style="color:#a78bfa;font-weight:bold;margin-bottom:15px;">⚙️ 睡眠控制</div>
+            <div id="controls"></div>
+            <div style="color:#a78bfa;font-weight:bold;margin:20px 0 15px;">🧠 生理指标</div>
+            <div id="vitals"></div>
+            <div style="color:#a78bfa;font-weight:bold;margin:20px 0 15px;">💭 梦境元素</div>
+            <div id="dreamElements"></div>
+        </div>
+    </div>
+</div>
+<script>
+const hypnoCanvas = document.getElementById('hypnoCanvas');
+const hypnoCtx = hypnoCanvas.getContext('2d');
+const dreamCanvas = document.getElementById('dreamCanvas');
+const dreamCtx = dreamCanvas.getContext('2d');
+
+// 睡眠阶段定义
+const sleepStages = {
+    W: { name: '清醒', level: 0, color: '#ff6b6b', brainwave: 'β波', freq: '13-30Hz' },
+    REM: { name: 'REM睡眠', level: 1, color: '#a78bfa', brainwave: '混合波', freq: '混合' },
+    N1: { name: '浅睡期', level: 2, color: '#60a5fa', brainwave: 'θ波', freq: '4-8Hz' },
+    N2: { name: '轻睡期', level: 3, color: '#34d399', brainwave: '纺锤波', freq: '12-14Hz' },
+    N3: { name: '深睡期', level: 4, color: '#1e3a5f', brainwave: 'δ波', freq: '0.5-4Hz' }
+};
+
+// 梦境元素库
+const dreamElements = {
+    locations: ['森林', '海边', '城市', '山顶', '太空', '童年家', '学校', '办公室', '迷宫', '云端'],
+    characters: ['家人', '朋友', '陌生人', '动物', '自己', '名人', '老师', '同事'],
+    emotions: ['快乐', '焦虑', '恐惧', '平静', '兴奋', '困惑', '自由', '追逐'],
+    objects: ['水', '飞行', '坠落', '门', '镜子', '钥匙', '光', '影子'],
+    colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6', '#e74c3c', '#1abc9c', '#f39c12']
+};
+
+// 睡眠状态
+let sleepState = {
+    stage: 'W',
+    cycleTime: 0,
+    totalTime: 0,
+    cycleCount: 0,
+    history: [],
+    dreaming: false,
+    dreamIntensity: 0
+};
+
+// 生理指标
+let vitals = {
+    heartRate: 70,
+    breathRate: 16,
+    eyeMovement: 0,
+    muscleTone: 100,
+    brainActivity: 50
+};
+
+// 梦境状态
+let dreamState = {
+    elements: [],
+    particles: [],
+    hue: 0,
+    morphTime: 0
+};
+
+// 日间经历（影响梦境）
+let dayExperiences = {
+    stress: 30,
+    learning: 50,
+    emotion: 'neutral',
+    keywords: []
+};
+
+let simulating = false;
+let simSpeed = 1;
+
+function init() {
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+    renderControls();
+    renderVitals();
+    renderDreamElements();
+    animate();
+}
+
+function resizeCanvases() {
+    hypnoCanvas.width = hypnoCanvas.parentElement.clientWidth - 60;
+    hypnoCanvas.height = hypnoCanvas.parentElement.clientHeight;
+    dreamCanvas.width = dreamCanvas.parentElement.clientWidth;
+    dreamCanvas.height = dreamCanvas.parentElement.clientHeight;
+}
+
+function renderControls() {
+    document.getElementById('controls').innerHTML = `
+        <div style="margin-bottom:15px;">
+            <label style="color:#888;font-size:0.85em;display:block;margin-bottom:5px;">压力水平</label>
+            <input type="range" min="0" max="100" value="${dayExperiences.stress}" 
+                   onchange="dayExperiences.stress=this.value" style="width:100%;">
+        </div>
+        <div style="margin-bottom:15px;">
+            <label style="color:#888;font-size:0.85em;display:block;margin-bottom:5px;">学习强度</label>
+            <input type="range" min="0" max="100" value="${dayExperiences.learning}" 
+                   onchange="dayExperiences.learning=this.value" style="width:100%;">
+        </div>
+        <div style="margin-bottom:15px;">
+            <label style="color:#888;font-size:0.85em;display:block;margin-bottom:5px;">模拟速度</label>
+            <input type="range" min="1" max="10" value="${simSpeed}" 
+                   onchange="simSpeed=this.value" style="width:100%;">
+            <span style="color:#888;font-size:0.8em;">${simSpeed}x</span>
+        </div>
+        <div style="margin-bottom:15px;">
+            <label style="color:#888;font-size:0.85em;display:block;margin-bottom:5px;">情绪状态</label>
+            <select onchange="dayExperiences.emotion=this.value" style="width:100%;padding:8px;background:#1a1a4e;border:1px solid #3a3a6a;color:#fff;border-radius:5px;">
+                <option value="neutral">平静</option>
+                <option value="happy">快乐</option>
+                <option value="anxious">焦虑</option>
+                <option value="sad">悲伤</option>
+                <option value="excited">兴奋</option>
+            </select>
+        </div>
+        <button onclick="toggleSimulation()" style="
+            width:100%;padding:12px;margin-top:10px;
+            background:${simulating ? '#ff6b6b' : 'linear-gradient(135deg,#a78bfa,#6366f1)'};
+            border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;
+        ">${simulating ? '⏹ 停止睡眠' : '🌙 开始睡眠'}</button>
+        <button onclick="resetSleep()" style="
+            width:100%;padding:10px;margin-top:8px;
+            background:rgba(255,255,255,0.1);border:none;border-radius:8px;color:#888;cursor:pointer;
+        ">重置</button>
+    `;
+}
+
+function renderVitals() {
+    const stage = sleepStages[sleepState.stage];
+    document.getElementById('vitals').innerHTML = `
+        <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="color:#888;">当前阶段</span>
+                <span style="color:${stage.color};font-weight:bold;">${stage.name}</span>
+            </div>
+            <div style="font-size:0.8em;color:#666;">${stage.brainwave} (${stage.freq})</div>
+        </div>
+        ${[
+            { name: '心率', value: vitals.heartRate, unit: 'bpm', color: '#ff6b6b', max: 100 },
+            { name: '呼吸', value: vitals.breathRate, unit: '/min', color: '#60a5fa', max: 25 },
+            { name: '眼动', value: vitals.eyeMovement, unit: '%', color: '#a78bfa', max: 100 },
+            { name: '肌张力', value: vitals.muscleTone, unit: '%', color: '#34d399', max: 100 }
+        ].map(v => `
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.85em;margin-bottom:3px;">
+                    <span style="color:#888;">${v.name}</span>
+                    <span style="color:${v.color};">${v.value.toFixed(0)}${v.unit}</span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;">
+                    <div style="height:100%;width:${(v.value/v.max)*100}%;background:${v.color};border-radius:2px;"></div>
+                </div>
+            </div>
+        `).join('')}
+    `;
+}
+
+function renderDreamElements() {
+    const container = document.getElementById('dreamElements');
+    if (!sleepState.dreaming || dreamState.elements.length === 0) {
+        container.innerHTML = '<div style="color:#666;font-size:0.9em;text-align:center;padding:20px;">进入REM睡眠后开始生成梦境...</div>';
+        return;
+    }
+    
+    container.innerHTML = dreamState.elements.map(el => `
+        <div style="background:rgba(167,139,250,0.1);border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:0.9em;">
+            ${el.type === 'location' ? '📍' : el.type === 'character' ? '👤' : el.type === 'emotion' ? '💭' : '✨'} ${el.value}
+        </div>
+    `).join('');
+}
+
+function toggleSimulation() {
+    simulating = !simulating;
+    if (simulating && sleepState.stage === 'W') {
+        sleepState.stage = 'N1';
+    }
+    renderControls();
+}
+
+function resetSleep() {
+    simulating = false;
+    sleepState = { stage: 'W', cycleTime: 0, totalTime: 0, cycleCount: 0, history: [], dreaming: false, dreamIntensity: 0 };
+    vitals = { heartRate: 70, breathRate: 16, eyeMovement: 0, muscleTone: 100, brainActivity: 50 };
+    dreamState = { elements: [], particles: [], hue: 0, morphTime: 0 };
+    renderControls();
+    renderVitals();
+    renderDreamElements();
+}
+
+function simulateSleep() {
+    if (!simulating) return;
+    
+    sleepState.cycleTime += 0.1 * simSpeed;
+    sleepState.totalTime += 0.1 * simSpeed;
+    
+    // 90分钟睡眠周期模拟（压缩到90秒）
+    const cycleProgress = (sleepState.cycleTime % 90) / 90;
+    
+    // 阶段转换逻辑
+    if (cycleProgress < 0.05) sleepState.stage = 'N1';
+    else if (cycleProgress < 0.15) sleepState.stage = 'N2';
+    else if (cycleProgress < 0.35) sleepState.stage = 'N3';
+    else if (cycleProgress < 0.45) sleepState.stage = 'N2';
+    else if (cycleProgress < 0.65) sleepState.stage = 'REM';
+    else if (cycleProgress < 0.75) sleepState.stage = 'N2';
+    else if (cycleProgress < 0.9) sleepState.stage = 'N3';
+    else sleepState.stage = 'N2';
+    
+    // 随机短暂觉醒
+    if (Math.random() < 0.001) sleepState.stage = 'W';
+    
+    // 记录历史
+    if (sleepState.history.length === 0 || sleepState.history[sleepState.history.length-1].stage !== sleepState.stage) {
+        sleepState.history.push({ stage: sleepState.stage, time: sleepState.totalTime });
+    }
+    
+    // 更新生理指标
+    updateVitals();
+    
+    // 梦境生成
+    sleepState.dreaming = sleepState.stage === 'REM';
+    if (sleepState.dreaming) {
+        sleepState.dreamIntensity = Math.min(100, sleepState.dreamIntensity + 0.5);
+        if (Math.random() < 0.02) generateDreamElement();
+    } else {
+        sleepState.dreamIntensity = Math.max(0, sleepState.dreamIntensity - 1);
+    }
+    
+    // 更新周期计数
+    if (sleepState.cycleTime >= 90) {
+        sleepState.cycleTime = 0;
+        sleepState.cycleCount++;
+    }
+    
+    // 更新显示
+    document.getElementById('sleepInfo').textContent = 
+        `总时长: ${formatTime(sleepState.totalTime)} | 周期: ${sleepState.cycleCount + 1} | 梦境强度: ${sleepState.dreamIntensity.toFixed(0)}%`;
+    
+    renderVitals();
+    renderDreamElements();
+}
+
+function updateVitals() {
+    const stage = sleepState.stage;
+    const targets = {
+        W: { hr: 70, br: 16, em: 50, mt: 100, ba: 80 },
+        REM: { hr: 65, br: 14, em: 80, mt: 10, ba: 70 },
+        N1: { hr: 60, br: 14, em: 20, mt: 70, ba: 50 },
+        N2: { hr: 55, br: 12, em: 5, mt: 50, ba: 40 },
+        N3: { hr: 50, br: 10, em: 0, mt: 30, ba: 20 }
+    }[stage];
+    
+    vitals.heartRate += (targets.hr - vitals.heartRate) * 0.05 + (Math.random() - 0.5) * 2;
+    vitals.breathRate += (targets.br - vitals.breathRate) * 0.05 + (Math.random() - 0.5) * 0.5;
+    vitals.eyeMovement += (targets.em - vitals.eyeMovement) * 0.1 + (stage === 'REM' ? (Math.random() - 0.5) * 20 : 0);
+    vitals.muscleTone += (targets.mt - vitals.muscleTone) * 0.05;
+    vitals.brainActivity += (targets.ba - vitals.brainActivity) * 0.05 + (Math.random() - 0.5) * 5;
+    
+    // 限制范围
+    vitals.heartRate = Math.max(40, Math.min(100, vitals.heartRate));
+    vitals.breathRate = Math.max(8, Math.min(25, vitals.breathRate));
+    vitals.eyeMovement = Math.max(0, Math.min(100, vitals.eyeMovement));
+    vitals.muscleTone = Math.max(0, Math.min(100, vitals.muscleTone));
+    vitals.brainActivity = Math.max(10, Math.min(100, vitals.brainActivity));
+}
+
+function generateDreamElement() {
+    const types = ['location', 'character', 'emotion', 'object'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const pool = dreamElements[type + 's'] || dreamElements.objects;
+    const value = pool[Math.floor(Math.random() * pool.length)];
+    
+    // 压力影响梦境内容
+    if (dayExperiences.stress > 70 && Math.random() < 0.3) {
+        dreamState.elements.unshift({ type: 'emotion', value: '焦虑' });
+    }
+    
+    dreamState.elements.unshift({ type, value });
+    if (dreamState.elements.length > 6) dreamState.elements.pop();
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function drawHypnogram() {
+    hypnoCtx.clearRect(0, 0, hypnoCanvas.width, hypnoCanvas.height);
+    
+    const w = hypnoCanvas.width;
+    const h = hypnoCanvas.height;
+    
+    // 背景网格
+    hypnoCtx.strokeStyle = 'rgba(255,255,255,0.1)';
+    hypnoCtx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = (i / 4) * h;
+        hypnoCtx.beginPath();
+        hypnoCtx.moveTo(0, y);
+        hypnoCtx.lineTo(w, y);
+        hypnoCtx.stroke();
+    }
+    
+    // 绘制睡眠历史
+    if (sleepState.history.length > 1) {
+        hypnoCtx.beginPath();
+        hypnoCtx.strokeStyle = '#a78bfa';
+        hypnoCtx.lineWidth = 2;
+        
+        const maxTime = Math.max(sleepState.totalTime, 90);
+        
+        sleepState.history.forEach((point, i) => {
+            const x = (point.time / maxTime) * w;
+            const y = (sleepStages[point.stage].level / 4) * h;
+            
+            if (i === 0) hypnoCtx.moveTo(x, y);
+            else hypnoCtx.lineTo(x, y);
+        });
+        
+        // 当前位置
+        const currentX = (sleepState.totalTime / maxTime) * w;
+        const currentY = (sleepStages[sleepState.stage].level / 4) * h;
+        hypnoCtx.lineTo(currentX, currentY);
+        hypnoCtx.stroke();
+        
+        // 当前点
+        hypnoCtx.fillStyle = sleepStages[sleepState.stage].color;
+        hypnoCtx.beginPath();
+        hypnoCtx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+        hypnoCtx.fill();
+    }
+}
+
+function drawDream() {
+    dreamCtx.fillStyle = 'rgba(13,13,43,0.1)';
+    dreamCtx.fillRect(0, 0, dreamCanvas.width, dreamCanvas.height);
+    
+    const cx = dreamCanvas.width / 2;
+    const cy = dreamCanvas.height / 2;
+    
+    if (!sleepState.dreaming && sleepState.dreamIntensity < 5) {
+        // 非REM状态 - 平静的深色背景
+        const gradient = dreamCtx.createRadialGradient(cx, cy, 0, cx, cy, 300);
+        gradient.addColorStop(0, 'rgba(30,30,80,0.3)');
+        gradient.addColorStop(1, 'rgba(13,13,43,0)');
+        dreamCtx.fillStyle = gradient;
+        dreamCtx.fillRect(0, 0, dreamCanvas.width, dreamCanvas.height);
+        
+        document.getElementById('dreamOverlay').innerHTML = `
+            <div style="font-size:3em;opacity:0.3;">😴</div>
+            <div style="color:#666;margin-top:10px;">${sleepStages[sleepState.stage].name}</div>
+        `;
+        return;
+    }
+    
+    document.getElementById('dreamOverlay').innerHTML = '';
+    
+    // REM梦境可视化
+    dreamState.hue = (dreamState.hue + 0.2) % 360;
+    dreamState.morphTime += 0.02;
+    
+    // 梦境粒子
+    if (dreamState.particles.length < 100 && Math.random() < 0.1) {
+        dreamState.particles.push({
+            x: Math.random() * dreamCanvas.width,
+            y: Math.random() * dreamCanvas.height,
+            size: Math.random() * 20 + 5,
+            hue: Math.random() * 360,
+            speed: Math.random() * 2 + 0.5,
+            angle: Math.random() * Math.PI * 2,
+            life: 1
+        });
+    }
+    
+    // 更新和绘制粒子
+    dreamState.particles = dreamState.particles.filter(p => {
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+        p.angle += (Math.random() - 0.5) * 0.1;
+        p.life -= 0.005;
+        p.size *= 0.995;
+        
+        if (p.life > 0 && p.size > 1) {
+            const gradient = dreamCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+            gradient.addColorStop(0, `hsla(${p.hue}, 70%, 60%, ${p.life * 0.5})`);
+            gradient.addColorStop(1, `hsla(${p.hue}, 70%, 60%, 0)`);
+            dreamCtx.fillStyle = gradient;
+            dreamCtx.beginPath();
+            dreamCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            dreamCtx.fill();
+            return true;
+        }
+        return false;
+    });
+    
+    // 中心梦境漩涡
+    const intensity = sleepState.dreamIntensity / 100;
+    for (let i = 0; i < 5; i++) {
+        const radius = 50 + i * 40 + Math.sin(dreamState.morphTime + i) * 20;
+        const alpha = (1 - i / 5) * intensity * 0.3;
+        
+        dreamCtx.strokeStyle = `hsla(${dreamState.hue + i * 30}, 70%, 60%, ${alpha})`;
+        dreamCtx.lineWidth = 3;
+        dreamCtx.beginPath();
+        
+        for (let a = 0; a < Math.PI * 2; a += 0.1) {
+            const r = radius + Math.sin(a * 3 + dreamState.morphTime) * 20;
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r;
+            if (a === 0) dreamCtx.moveTo(x, y);
+            else dreamCtx.lineTo(x, y);
+        }
+        dreamCtx.closePath();
+        dreamCtx.stroke();
+    }
+    
+    // 显示梦境元素文字
+    if (dreamState.elements.length > 0) {
+        dreamCtx.font = '16px Arial';
+        dreamCtx.textAlign = 'center';
+        dreamState.elements.forEach((el, i) => {
+            const angle = (i / dreamState.elements.length) * Math.PI * 2 + dreamState.morphTime * 0.5;
+            const dist = 200 + Math.sin(dreamState.morphTime + i) * 30;
+            const x = cx + Math.cos(angle) * dist;
+            const y = cy + Math.sin(angle) * dist;
+            const alpha = 0.7 - i * 0.1;
+            
+            dreamCtx.fillStyle = `rgba(255,255,255,${alpha})`;
+            dreamCtx.fillText(el.value, x, y);
+        });
+    }
+}
+
+function animate() {
+    simulateSleep();
+    drawHypnogram();
+    drawDream();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

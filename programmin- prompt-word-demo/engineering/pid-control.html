@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PID控制仿真平台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a2030 0%, #0d1520 100%);
+            min-height: 100vh;
+            color: #a0b0c0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .left-panel {
+            width: 250px;
+            background: rgba(20,30,40,0.95);
+            border-right: 2px solid #2a4060;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .process-area {
+            height: 200px;
+            background: rgba(20,30,40,0.8);
+            border-bottom: 1px solid #2a4060;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .chart-area {
+            flex: 1;
+            position: relative;
+            background: #0a1520;
+        }
+        #chartCanvas { display: block; }
+        .right-panel {
+            width: 280px;
+            background: rgba(20,30,40,0.95);
+            border-left: 2px solid #2a4060;
+            padding: 15px;
+            overflow-y: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="left-panel" id="leftPanel"></div>
+    <div class="main-area">
+        <div class="process-area" id="processArea"></div>
+        <div class="chart-area">
+            <canvas id="chartCanvas"></canvas>
+        </div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('chartCanvas');
+const ctx = canvas.getContext('2d');
+
+// PID参数
+let Kp = 2.0;
+let Ki = 0.5;
+let Kd = 0.1;
+let setpoint = 50;
+
+// 过程参数
+let processType = 'firstOrder';
+const processes = {
+    firstOrder: { name: '一阶惯性', tau: 2, K: 1, delay: 0 },
+    secondOrder: { name: '二阶振荡', tau: 1, zeta: 0.3, K: 1 },
+    integrator: { name: '积分环节', K: 1 },
+    delay: { name: '纯滞后', tau: 1, K: 1, delay: 1 }
+};
+
+// 仿真状态
+let simRunning = true;
+let simTime = 0;
+let dt = 0.02;
+let simSpeed = 1;
+
+// 过程变量
+let pv = 0;           // 过程值
+let cv = 0;           // 控制器输出
+let error = 0;        // 误差
+let integral = 0;     // 积分项
+let prevError = 0;    // 上一次误差
+let derivative = 0;   // 微分项
+
+// 二阶系统状态
+let x1 = 0, x2 = 0;
+
+// 延迟缓冲
+let delayBuffer = [];
+
+// 数据记录
+let history = [];
+const maxHistory = 500;
+
+// 性能指标
+let overshoot = 0;
+let settlingTime = 0;
+let riseTime = 0;
+let steadyError = 0;
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    renderLeftPanel();
+    renderProcessArea();
+    renderRightPanel();
+    
+    setInterval(simulate, 20);
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+}
+
+function renderLeftPanel() {
+    const panel = document.getElementById('leftPanel');
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 0.9em; color: #4080c0; border-bottom: 1px solid #2a4060; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #2a4060; }
+            .param-row { margin: 10px 0; }
+            .param-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #6090b0; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #2a4060; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #4080c0; cursor: pointer; }
+            .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; margin: 3px 0; width: 100%; }
+            .btn-primary { background: linear-gradient(135deg, #2060a0, #1a4070); color: #a0c0e0; border: 1px solid #3080c0; }
+            .btn-secondary { background: rgba(255,255,255,0.05); color: #6090b0; border: 1px solid #2a4060; }
+            .btn:hover { opacity: 0.9; }
+            select { width: 100%; padding: 6px; background: rgba(255,255,255,0.05); border: 1px solid #2a4060; border-radius: 4px; color: #a0b0c0; font-size: 0.85em; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#4080c0;font-size:1.1em;">🎛️ PID控制仿真</h2>
+            <p style="color:#405060;font-size:0.7em;">工业过程控制模拟器</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 过程对象</div>
+            <select onchange="changeProcess(this.value)">
+                ${Object.entries(processes).map(([k, p]) => 
+                    `<option value="${k}" ${processType === k ? 'selected' : ''}>${p.name}</option>`
+                ).join('')}
+            </select>
+            <div class="param-row">
+                <div class="param-label"><span>时间常数 τ</span><span>${processes[processType].tau?.toFixed(1) || '-'} s</span></div>
+                <input type="range" min="0.1" max="5" step="0.1" value="${processes[processType].tau || 1}"
+                       onchange="processes[processType].tau=parseFloat(this.value);renderLeftPanel();">
+            </div>
+            <div class="param-row">
+                <div class="param-label"><span>增益 K</span><span>${processes[processType].K?.toFixed(1) || 1}</span></div>
+                <input type="range" min="0.1" max="5" step="0.1" value="${processes[processType].K || 1}"
+                       onchange="processes[processType].K=parseFloat(this.value);renderLeftPanel();">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎚️ PID参数</div>
+            <div class="param-row">
+                <div class="param-label"><span>比例 Kp</span><span style="color:#ff6666">${Kp.toFixed(2)}</span></div>
+                <input type="range" min="0" max="10" step="0.1" value="${Kp}"
+                       onchange="Kp=parseFloat(this.value);renderLeftPanel();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <div class="param-label"><span>积分 Ki</span><span style="color:#66ff66">${Ki.toFixed(2)}</span></div>
+                <input type="range" min="0" max="5" step="0.05" value="${Ki}"
+                       onchange="Ki=parseFloat(this.value);renderLeftPanel();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <div class="param-label"><span>微分 Kd</span><span style="color:#6666ff">${Kd.toFixed(2)}</span></div>
+                <input type="range" min="0" max="2" step="0.01" value="${Kd}"
+                       onchange="Kd=parseFloat(this.value);renderLeftPanel();renderRightPanel();">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎯 设定值</div>
+            <div class="param-row">
+                <div class="param-label"><span>SP</span><span style="color:#ffaa00">${setpoint.toFixed(1)}</span></div>
+                <input type="range" min="0" max="100" step="1" value="${setpoint}"
+                       onchange="setpoint=parseFloat(this.value);renderLeftPanel();renderRightPanel();">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 仿真控制</div>
+            <button class="btn btn-primary" onclick="toggleSim()">
+                ${simRunning ? '⏸ 暂停' : '▶ 运行'}
+            </button>
+            <button class="btn btn-secondary" onclick="resetSim()">🔄 重置</button>
+            <button class="btn btn-secondary" onclick="addDisturbance()">⚡ 添加扰动</button>
+            <div class="param-row">
+                <div class="param-label"><span>仿真速度</span><span>${simSpeed}x</span></div>
+                <input type="range" min="0.1" max="5" step="0.1" value="${simSpeed}"
+                       onchange="simSpeed=parseFloat(this.value);renderLeftPanel();">
+            </div>
+        </div>
+    `;
+}
+
+function renderProcessArea() {
+    const area = document.getElementById('processArea');
+    const proc = processes[processType];
+    
+    area.innerHTML = `
+        <style>
+            .process-block { display: flex; align-items: center; gap: 20px; }
+            .block { padding: 15px 25px; background: rgba(40,80,120,0.3); border: 2px solid #4080c0; border-radius: 8px; text-align: center; min-width: 100px; }
+            .block-title { font-size: 0.7em; color: #6090b0; margin-bottom: 5px; }
+            .block-value { font-size: 1.2em; color: #a0c0e0; font-weight: bold; }
+            .arrow { color: #4080c0; font-size: 1.5em; }
+            .tank { width: 80px; height: 120px; border: 3px solid #4080c0; border-radius: 0 0 10px 10px; position: relative; overflow: hidden; background: rgba(20,40,60,0.5); }
+            .tank-level { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, #2080c0, #40a0e0); transition: height 0.3s; }
+            .tank-label { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 0.8em; color: #6090b0; }
+            .valve { width: 30px; height: 30px; background: #4080c0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+            .pipe { width: 40px; height: 8px; background: #2a4060; }
+        </style>
+        <div class="process-block">
+            <div class="block">
+                <div class="block-title">设定值 SP</div>
+                <div class="block-value" style="color:#ffaa00">${setpoint.toFixed(1)}</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="block" style="border-color:#ff6666">
+                <div class="block-title">PID控制器</div>
+                <div class="block-value" style="color:#ff6666">${cv.toFixed(1)}%</div>
+            </div>
+            <div class="arrow">→</div>
+            <div style="display:flex;flex-direction:column;align-items:center;">
+                <div class="tank">
+                    <div class="tank-label">${proc.name}</div>
+                    <div class="tank-level" style="height:${pv}%"></div>
+                </div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="block" style="border-color:#66ff66">
+                <div class="block-title">过程值 PV</div>
+                <div class="block-value" style="color:#66ff66">${pv.toFixed(1)}</div>
+            </div>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:30px;font-size:0.75em;">
+            <span>误差: <span style="color:${Math.abs(error) < 1 ? '#66ff66' : '#ff6666'}">${error.toFixed(2)}</span></span>
+            <span>积分: <span style="color:#66ff66">${integral.toFixed(2)}</span></span>
+            <span>微分: <span style="color:#6666ff">${derivative.toFixed(2)}</span></span>
+            <span>时间: <span style="color:#ffaa00">${simTime.toFixed(1)}s</span></span>
+        </div>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    
+    panel.innerHTML = `
+        <style>
+            .metric-card { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #2a4060; }
+            .metric-title { font-size: 0.75em; color: #6090b0; margin-bottom: 4px; }
+            .metric-value { font-size: 1.1em; font-weight: bold; }
+            .legend-item { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 0.8em; }
+            .legend-color { width: 20px; height: 3px; border-radius: 2px; }
+        </style>
+        
+        <div class="panel-section">
+            <div class="panel-title">📈 性能指标</div>
+            <div class="metric-card">
+                <div class="metric-title">超调量</div>
+                <div class="metric-value" style="color:${overshoot > 20 ? '#ff6666' : '#66ff66'}">${overshoot.toFixed(1)}%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">上升时间</div>
+                <div class="metric-value" style="color:#ffaa00">${riseTime.toFixed(2)} s</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">调节时间 (±2%)</div>
+                <div class="metric-value" style="color:#4080c0">${settlingTime.toFixed(2)} s</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">稳态误差</div>
+                <div class="metric-value" style="color:${Math.abs(steadyError) > 1 ? '#ff6666' : '#66ff66'}">${steadyError.toFixed(2)}</div>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 曲线图例</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#ffaa00"></div>
+                <span>设定值 SP</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#66ff66"></div>
+                <span>过程值 PV</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background:#ff6666"></div>
+                <span>控制输出 CV</span>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔧 整定方法</div>
+            <button class="btn btn-secondary" onclick="autoTuneZN()">Ziegler-Nichols</button>
+            <button class="btn btn-secondary" onclick="autoTuneCHR()">CHR法</button>
+            <button class="btn btn-secondary" onclick="resetPID()">重置PID</button>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 PID作用说明</div>
+            <div style="font-size:0.75em;color:#6090b0;line-height:1.6;">
+                <b style="color:#ff6666">P (比例)</b>: 减小误差，但有稳态误差<br>
+                <b style="color:#66ff66">I (积分)</b>: 消除稳态误差，但可能振荡<br>
+                <b style="color:#6666ff">D (微分)</b>: 预测趋势，减小超调
+            </div>
+        </div>
+    `;
+}
+
+function changeProcess(type) {
+    processType = type;
+    resetSim();
+    renderLeftPanel();
+    renderProcessArea();
+}
+
+function toggleSim() {
+    simRunning = !simRunning;
+    renderLeftPanel();
+}
+
+function resetSim() {
+    simTime = 0;
+    pv = 0;
+    cv = 0;
+    error = 0;
+    integral = 0;
+    prevError = 0;
+    derivative = 0;
+    x1 = 0;
+    x2 = 0;
+    delayBuffer = [];
+    history = [];
+    overshoot = 0;
+    settlingTime = 0;
+    riseTime = 0;
+    steadyError = 0;
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function addDisturbance() {
+    pv += (Math.random() - 0.5) * 20;
+}
+
+function autoTuneZN() {
+    // Ziegler-Nichols 经验公式
+    const proc = processes[processType];
+    const tau = proc.tau || 1;
+    const K = proc.K || 1;
+    
+    Kp = 1.2 * tau / K;
+    Ki = Kp / (2 * tau);
+    Kd = Kp * tau / 8;
+    
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function autoTuneCHR() {
+    // CHR法 (无超调)
+    const proc = processes[processType];
+    const tau = proc.tau || 1;
+    const K = proc.K || 1;
+    
+    Kp = 0.6 * tau / K;
+    Ki = Kp / tau;
+    Kd = Kp * tau / 6;
+    
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function resetPID() {
+    Kp = 2.0;
+    Ki = 0.5;
+    Kd = 0.1;
+    renderLeftPanel();
+    renderRightPanel();
+}
+
+function simulate() {
+    if (!simRunning) return;
+    
+    const actualDt = dt * simSpeed;
+    simTime += actualDt;
+    
+    // PID计算
+    error = setpoint - pv;
+    integral += error * actualDt;
+    
+    // 积分抗饱和
+    integral = Math.max(-100, Math.min(100, integral));
+    
+    derivative = (error - prevError) / actualDt;
+    prevError = error;
+    
+    // PID输出
+    cv = Kp * error + Ki * integral + Kd * derivative;
+    cv = Math.max(0, Math.min(100, cv)); // 输出限幅
+    
+    // 过程仿真
+    const proc = processes[processType];
+    let input = cv;
+    
+    // 处理延迟
+    if (proc.delay > 0) {
+        delayBuffer.push({ time: simTime, value: cv });
+        const delayedEntry = delayBuffer.find(e => simTime - e.time >= proc.delay);
+        if (delayedEntry) {
+            input = delayedEntry.value;
+            delayBuffer = delayBuffer.filter(e => simTime - e.time < proc.delay);
+        } else {
+            input = 0;
+        }
+    }
+    
+    // 过程动态
+    switch (processType) {
+        case 'firstOrder':
+            // dy/dt = (K*u - y) / tau
+            const dydt = (proc.K * input - pv) / proc.tau;
+            pv += dydt * actualDt;
+            break;
+            
+        case 'secondOrder':
+            // 二阶系统状态空间
+            const wn = 1 / proc.tau;
+            const zeta = proc.zeta;
+            const dx1 = x2;
+            const dx2 = -2 * zeta * wn * x2 - wn * wn * x1 + wn * wn * proc.K * input;
+            x1 += dx1 * actualDt;
+            x2 += dx2 * actualDt;
+            pv = x1;
+            break;
+            
+        case 'integrator':
+            // dy/dt = K * u
+            pv += proc.K * input * actualDt * 0.1;
+            break;
+            
+        case 'delay':
+            const dydt2 = (proc.K * input - pv) / proc.tau;
+            pv += dydt2 * actualDt;
+            break;
+    }
+    
+    // 限制范围
+    pv = Math.max(0, Math.min(100, pv));
+    
+    // 记录历史
+    history.push({
+        time: simTime,
+        sp: setpoint,
+        pv: pv,
+        cv: cv,
+        error: error
+    });
+    
+    if (history.length > maxHistory) {
+        history.shift();
+    }
+    
+    // 计算性能指标
+    calculateMetrics();
+    
+    renderProcessArea();
+}
+
+function calculateMetrics() {
+    if (history.length < 10) return;
+    
+    const sp = setpoint;
+    let maxPv = 0;
+    let reachedTarget = false;
+    let settledTime = 0;
+    
+    for (let i = 0; i < history.length; i++) {
+        const h = history[i];
+        
+        // 超调量
+        if (h.pv > maxPv) maxPv = h.pv;
+        
+        // 上升时间 (0 -> 90% SP)
+        if (!reachedTarget && h.pv >= sp * 0.9) {
+            riseTime = h.time;
+            reachedTarget = true;
+        }
+        
+        // 调节时间 (±2%)
+        if (Math.abs(h.pv - sp) <= sp * 0.02) {
+            if (settledTime === 0) settledTime = h.time;
+        } else {
+            settledTime = 0;
+        }
+    }
+    
+    overshoot = sp > 0 ? Math.max(0, (maxPv - sp) / sp * 100) : 0;
+    settlingTime = settledTime > 0 ? settledTime : simTime;
+    
+    // 稳态误差
+    if (history.length > 50) {
+        const recent = history.slice(-20);
+        steadyError = recent.reduce((sum, h) => sum + h.error, 0) / recent.length;
+    }
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const w = canvas.width;
+    const h = canvas.height;
+    const padding = { top: 30, right: 20, bottom: 40, left: 60 };
+    const chartW = w - padding.left - padding.right;
+    const chartH = h - padding.top - padding.bottom;
+    
+    // 背景
+    ctx.fillStyle = '#0a1520';
+    ctx.fillRect(0, 0, w, h);
+    
+    // 网格
+    ctx.strokeStyle = '#1a2a3a';
+    ctx.lineWidth = 1;
+    
+    // 水平网格
+    for (let i = 0; i <= 10; i++) {
+        const y = padding.top + (chartH / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(w - padding.right, y);
+        ctx.stroke();
+        
+        // Y轴标签
+        ctx.fillStyle = '#4a6080';
+        ctx.font = '11px Segoe UI';
+        ctx.textAlign = 'right';
+        ctx.fillText((100 - i * 10).toString(), padding.left - 10, y + 4);
+    }
+    
+    // 垂直网格
+    const timeRange = history.length > 0 ? Math.max(10, history[history.length - 1].time) : 10;
+    for (let i = 0; i <= 10; i++) {
+        const x = padding.left + (chartW / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, h - padding.bottom);
+        ctx.stroke();
+        
+        // X轴标签
+        ctx.fillStyle = '#4a6080';
+        ctx.textAlign = 'center';
+        const t = (timeRange / 10) * i;
+        ctx.fillText(t.toFixed(1) + 's', x, h - padding.bottom + 20);
+    }
+    
+    // 坐标轴
+    ctx.strokeStyle = '#4a6080';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, h - padding.bottom);
+    ctx.lineTo(w - padding.right, h - padding.bottom);
+    ctx.stroke();
+    
+    if (history.length < 2) return;
+    
+    // 绘制曲线
+    const startTime = history[0].time;
+    const endTime = history[history.length - 1].time;
+    const duration = Math.max(endTime - startTime, 0.1);
+    
+    // 设定值曲线
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    history.forEach((h, i) => {
+        const x = padding.left + ((h.time - startTime) / duration) * chartW;
+        const y = padding.top + (1 - h.sp / 100) * chartH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // 过程值曲线
+    ctx.strokeStyle = '#66ff66';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    history.forEach((h, i) => {
+        const x = padding.left + ((h.time - startTime) / duration) * chartW;
+        const y = padding.top + (1 - h.pv / 100) * chartH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    
+    // 控制输出曲线
+    ctx.strokeStyle = '#ff6666';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    history.forEach((h, i) => {
+        const x = padding.left + ((h.time - startTime) / duration) * chartW;
+        const y = padding.top + (1 - h.cv / 100) * chartH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    
+    // 标题
+    ctx.fillStyle = '#6090b0';
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('PID控制响应曲线', w / 2, 20);
+    
+    // 当前值标注
+    if (history.length > 0) {
+        const last = history[history.length - 1];
+        const x = padding.left + chartW;
+        
+        ctx.font = '11px Segoe UI';
+        ctx.textAlign = 'left';
+        
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillText(`SP: ${last.sp.toFixed(1)}`, x + 5, padding.top + (1 - last.sp / 100) * chartH);
+        
+        ctx.fillStyle = '#66ff66';
+        ctx.fillText(`PV: ${last.pv.toFixed(1)}`, x + 5, padding.top + (1 - last.pv / 100) * chartH);
+        
+        ctx.fillStyle = '#ff6666';
+        ctx.fillText(`CV: ${last.cv.toFixed(1)}`, x + 5, padding.top + (1 - last.cv / 100) * chartH + 15);
+    }
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

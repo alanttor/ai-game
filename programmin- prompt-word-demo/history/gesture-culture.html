@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全球手势符号与文化语境</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤚</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container { display: flex; height: 100vh; }
+        .left-panel {
+            width: 280px;
+            background: rgba(0,0,0,0.3);
+            border-right: 1px solid #3a3a5a;
+            display: flex;
+            flex-direction: column;
+        }
+        .center-panel { flex: 1; display: flex; flex-direction: column; }
+        .right-panel {
+            width: 320px;
+            background: rgba(0,0,0,0.3);
+            border-left: 1px solid #3a3a5a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .panel-title {
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid #3a3a5a;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        .gesture-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .gesture-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .gesture-item:hover { background: rgba(255,255,255,0.1); transform: translateX(5px); }
+        .gesture-item.active { background: rgba(255,215,0,0.2); border: 1px solid #ffd700; }
+        .gesture-icon { font-size: 2em; }
+        .gesture-name { font-size: 0.95em; }
+        .map-area { flex: 1; position: relative; }
+        #worldMap { width: 100%; height: 100%; }
+        .hand-demo {
+            height: 200px;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid #3a3a5a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .hand-3d {
+            font-size: 8em;
+            transition: transform 0.5s;
+        }
+        .meaning-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .meaning-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .region-flag { font-size: 1.5em; }
+        .region-name { font-weight: bold; color: #4af; }
+        .meaning-text { font-size: 0.95em; line-height: 1.6; }
+        .meaning-sentiment {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-top: 8px;
+        }
+        .positive { background: rgba(76,175,80,0.3); color: #4caf50; }
+        .negative { background: rgba(244,67,54,0.3); color: #f44336; }
+        .neutral { background: rgba(158,158,158,0.3); color: #9e9e9e; }
+        .warning { background: rgba(255,152,0,0.3); color: #ff9800; }
+        .category-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+        }
+        .cat-tab {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 15px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        .cat-tab:hover { background: rgba(255,255,255,0.2); }
+        .cat-tab.active { background: #ffd700; color: #000; }
+        .scenario-box {
+            background: linear-gradient(135deg, rgba(74,144,226,0.2), rgba(80,200,120,0.2));
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .scenario-title { color: #4af; font-weight: bold; margin-bottom: 10px; }
+        .scenario-desc { font-size: 0.9em; color: #aaa; line-height: 1.5; }
+        .quiz-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 15px;
+            transition: transform 0.2s;
+        }
+        .quiz-btn:hover { transform: scale(1.02); }
+        .context-info {
+            background: rgba(255,215,0,0.1);
+            border-left: 3px solid #ffd700;
+            padding: 10px 15px;
+            margin: 15px 0;
+            font-size: 0.9em;
+        }
+        .region-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            animation: pulse 2s infinite;
+        }
+        .region-dot:hover { transform: scale(1.5); }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(255,215,0,0); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="left-panel">
+        <div class="panel-title">🤚 手势库</div>
+        <div class="category-tabs" id="categoryTabs"></div>
+        <div class="gesture-list" id="gestureList"></div>
+    </div>
+    <div class="center-panel">
+        <div class="hand-demo">
+            <div class="hand-3d" id="handDemo">👋</div>
+        </div>
+        <div class="map-area">
+            <canvas id="worldMap"></canvas>
+        </div>
+    </div>
+    <div class="right-panel">
+        <div class="panel-title">📊 文化含义分析</div>
+        <div id="meaningAnalysis"></div>
+    </div>
+</div>
+<script>
+const canvas = document.getElementById('worldMap');
+const ctx = canvas.getContext('2d');
+
+// 手势数据库
+const gestures = {
+    greeting: [
+        { id: 'wave', name: '挥手', icon: '👋', desc: '手掌张开左右摆动' },
+        { id: 'handshake', name: '握手', icon: '🤝', desc: '双方右手相握' },
+        { id: 'bow', name: '鞠躬', icon: '🙇', desc: '弯腰低头致意' },
+        { id: 'namaste', name: '合十礼', icon: '🙏', desc: '双手合十于胸前' }
+    ],
+    affirmation: [
+        { id: 'thumbsup', name: '竖大拇指', icon: '👍', desc: '大拇指向上' },
+        { id: 'ok', name: 'OK手势', icon: '👌', desc: '拇指食指成圈' },
+        { id: 'nod', name: '点头', icon: '😊', desc: '头部上下移动' },
+        { id: 'vsign', name: 'V字手势', icon: '✌️', desc: '食指中指分开' }
+    ],
+    numbers: [
+        { id: 'one', name: '数字1', icon: '☝️', desc: '食指伸出' },
+        { id: 'two', name: '数字2', icon: '✌️', desc: '食指中指伸出' },
+        { id: 'five', name: '数字5', icon: '🖐️', desc: '五指张开' }
+    ],
+    practical: [
+        { id: 'point', name: '指向', icon: '👉', desc: '食指指向目标' },
+        { id: 'beckoning', name: '招手', icon: '🫴', desc: '手掌向上招手' },
+        { id: 'stop', name: '停止', icon: '✋', desc: '手掌向前推出' }
+    ],
+    offensive: [
+        { id: 'middlefinger', name: '竖中指', icon: '🖕', desc: '中指单独伸出' },
+        { id: 'fist', name: '握拳', icon: '✊', desc: '五指紧握' }
+    ]
+};
+
+// 文化区域数据
+const regions = {
+    eastAsia: { name: '东亚', flag: '🇨🇳', x: 0.75, y: 0.35, color: '#ff6b6b' },
+    southAsia: { name: '南亚', flag: '🇮🇳', x: 0.65, y: 0.45, color: '#ffd93d' },
+    middleEast: { name: '中东', flag: '🇸🇦', x: 0.55, y: 0.4, color: '#6bcb77' },
+    europe: { name: '欧洲', flag: '🇪🇺', x: 0.48, y: 0.28, color: '#4d96ff' },
+    northAmerica: { name: '北美', flag: '🇺🇸', x: 0.2, y: 0.32, color: '#9b59b6' },
+    latinAmerica: { name: '拉美', flag: '🇧🇷', x: 0.28, y: 0.6, color: '#e74c3c' },
+    africa: { name: '非洲', flag: '🌍', x: 0.5, y: 0.55, color: '#f39c12' }
+};
+
+// 手势含义数据库
+const gestureMeanings = {
+    thumbsup: {
+        eastAsia: { meaning: '很好、赞同', sentiment: 'positive', note: '普遍接受的积极手势' },
+        southAsia: { meaning: '赞同', sentiment: 'positive', note: '广泛使用' },
+        middleEast: { meaning: '侮辱性手势', sentiment: 'negative', note: '在伊朗等地被视为粗鲁' },
+        europe: { meaning: '很好、搭车', sentiment: 'positive', note: '也用于搭便车' },
+        northAmerica: { meaning: '很好、同意', sentiment: 'positive', note: '非常常见的积极手势' },
+        latinAmerica: { meaning: '很好', sentiment: 'positive', note: '普遍积极' },
+        africa: { meaning: '因地区而异', sentiment: 'neutral', note: '西非部分地区可能有负面含义' }
+    },
+    ok: {
+        eastAsia: { meaning: 'OK、没问题', sentiment: 'positive', note: '日本也表示金钱' },
+        southAsia: { meaning: '零、无价值', sentiment: 'neutral', note: '可能表示"零"' },
+        middleEast: { meaning: '侮辱性手势', sentiment: 'negative', note: '被视为非常粗鲁' },
+        europe: { meaning: 'OK（法国表示零）', sentiment: 'warning', note: '法国可能表示"零"或"无价值"' },
+        northAmerica: { meaning: 'OK、完美', sentiment: 'positive', note: '广泛使用的积极手势' },
+        latinAmerica: { meaning: '侮辱性（巴西）', sentiment: 'negative', note: '巴西视为非常粗鲁' },
+        africa: { meaning: '因地区而异', sentiment: 'neutral', note: '含义不一' }
+    },
+    vsign: {
+        eastAsia: { meaning: '胜利、拍照姿势', sentiment: 'positive', note: '非常流行的拍照手势' },
+        southAsia: { meaning: '胜利', sentiment: 'positive', note: '和平或胜利' },
+        middleEast: { meaning: '胜利', sentiment: 'positive', note: '胜利的象征' },
+        europe: { meaning: '胜利/侮辱', sentiment: 'warning', note: '英国手背向外是侮辱' },
+        northAmerica: { meaning: '和平、胜利', sentiment: 'positive', note: '和平运动的象征' },
+        latinAmerica: { meaning: '胜利', sentiment: 'positive', note: '积极含义' },
+        africa: { meaning: '胜利', sentiment: 'positive', note: '普遍积极' }
+    },
+    wave: {
+        eastAsia: { meaning: '你好/再见', sentiment: 'positive', note: '友好的问候' },
+        southAsia: { meaning: '你好/再见', sentiment: 'positive', note: '友好问候' },
+        middleEast: { meaning: '你好/再见', sentiment: 'positive', note: '友好问候' },
+        europe: { meaning: '你好/再见', sentiment: 'positive', note: '普遍友好' },
+        northAmerica: { meaning: '你好/再见', sentiment: 'positive', note: '非常常见' },
+        latinAmerica: { meaning: '你好/再见', sentiment: 'positive', note: '友好问候' },
+        africa: { meaning: '你好/再见', sentiment: 'positive', note: '友好问候' }
+    },
+    beckoning: {
+        eastAsia: { meaning: '过来（手心向下）', sentiment: 'neutral', note: '手心向下招手是正确方式' },
+        southAsia: { meaning: '过来', sentiment: 'neutral', note: '手心向下更礼貌' },
+        middleEast: { meaning: '过来', sentiment: 'neutral', note: '手心向下' },
+        europe: { meaning: '过来（手心向上）', sentiment: 'positive', note: '手心向上招手' },
+        northAmerica: { meaning: '过来（手心向上）', sentiment: 'positive', note: '食指勾动或手心向上' },
+        latinAmerica: { meaning: '过来', sentiment: 'neutral', note: '方式因地区而异' },
+        africa: { meaning: '过来', sentiment: 'neutral', note: '方式因地区而异' }
+    },
+    point: {
+        eastAsia: { meaning: '指向（用手掌更礼貌）', sentiment: 'warning', note: '用食指指人被视为不礼貌' },
+        southAsia: { meaning: '指向（避免指人）', sentiment: 'warning', note: '指人不礼貌' },
+        middleEast: { meaning: '指向', sentiment: 'warning', note: '用食指指人不礼貌' },
+        europe: { meaning: '指向', sentiment: 'neutral', note: '相对可接受' },
+        northAmerica: { meaning: '指向', sentiment: 'neutral', note: '常见但指人时需谨慎' },
+        latinAmerica: { meaning: '指向', sentiment: 'neutral', note: '用嘴唇指向更常见' },
+        africa: { meaning: '指向', sentiment: 'warning', note: '某些地区用食指指人不礼貌' }
+    }
+};
+
+const categories = {
+    greeting: '问候',
+    affirmation: '肯定',
+    numbers: '数字',
+    practical: '实用',
+    offensive: '敏感'
+};
+
+let currentCategory = 'greeting';
+let currentGesture = null;
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    renderCategories();
+    renderGestures();
+    selectGesture(gestures.greeting[0]);
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function renderCategories() {
+    const tabs = document.getElementById('categoryTabs');
+    tabs.innerHTML = Object.entries(categories).map(([key, name]) => `
+        <button class="cat-tab ${key === currentCategory ? 'active' : ''}" 
+                onclick="selectCategory('${key}')">${name}</button>
+    `).join('');
+}
+
+function selectCategory(cat) {
+    currentCategory = cat;
+    renderCategories();
+    renderGestures();
+}
+
+function renderGestures() {
+    const list = document.getElementById('gestureList');
+    const items = gestures[currentCategory] || [];
+    list.innerHTML = items.map(g => `
+        <div class="gesture-item ${currentGesture?.id === g.id ? 'active' : ''}" 
+             onclick="selectGesture(${JSON.stringify(g).replace(/"/g, '&quot;')})">
+            <span class="gesture-icon">${g.icon}</span>
+            <div>
+                <div class="gesture-name">${g.name}</div>
+                <div style="font-size:0.8em;color:#888;">${g.desc}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function selectGesture(gesture) {
+    currentGesture = gesture;
+    document.getElementById('handDemo').textContent = gesture.icon;
+    renderGestures();
+    renderMeaningAnalysis();
+}
+
+function renderMeaningAnalysis() {
+    const container = document.getElementById('meaningAnalysis');
+    if (!currentGesture) {
+        container.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">选择一个手势查看分析</p>';
+        return;
+    }
+    
+    const meanings = gestureMeanings[currentGesture.id];
+    if (!meanings) {
+        container.innerHTML = `
+            <div class="meaning-card">
+                <h3 style="color:#ffd700;margin-bottom:10px;">${currentGesture.icon} ${currentGesture.name}</h3>
+                <p style="color:#aaa;">${currentGesture.desc}</p>
+                <div class="context-info">此手势的跨文化数据正在收集中...</div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="meaning-card">
+            <h3 style="color:#ffd700;margin-bottom:10px;">${currentGesture.icon} ${currentGesture.name}</h3>
+            <p style="color:#aaa;margin-bottom:15px;">${currentGesture.desc}</p>
+        </div>
+    `;
+    
+    Object.entries(meanings).forEach(([regionKey, data]) => {
+        const region = regions[regionKey];
+        if (!region) return;
+        
+        html += `
+            <div class="meaning-card">
+                <div class="meaning-header">
+                    <span class="region-flag">${region.flag}</span>
+                    <span class="region-name">${region.name}</span>
+                </div>
+                <div class="meaning-text">${data.meaning}</div>
+                <div class="meaning-sentiment ${data.sentiment}">${
+                    data.sentiment === 'positive' ? '✓ 积极' :
+                    data.sentiment === 'negative' ? '✗ 负面/冒犯' :
+                    data.sentiment === 'warning' ? '⚠ 需谨慎' : '○ 中性'
+                }</div>
+                <div style="font-size:0.85em;color:#888;margin-top:8px;">💡 ${data.note}</div>
+            </div>
+        `;
+    });
+    
+    html += `
+        <div class="scenario-box">
+            <div class="scenario-title">🎭 使用场景建议</div>
+            <div class="scenario-desc">
+                在跨文化交流中使用"${currentGesture.name}"时，请注意目标文化的接受程度。
+                商务场合建议保守使用，社交场合可根据对方反应调整。
+            </div>
+        </div>
+        <button class="quiz-btn" onclick="startQuiz()">🎯 开始文化测验</button>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function startQuiz() {
+    const gestureKeys = Object.keys(gestureMeanings);
+    const randomGesture = gestureKeys[Math.floor(Math.random() * gestureKeys.length)];
+    const regionKeys = Object.keys(regions);
+    const randomRegion = regionKeys[Math.floor(Math.random() * regionKeys.length)];
+    
+    const meaning = gestureMeanings[randomGesture]?.[randomRegion];
+    if (meaning) {
+        const allGestures = Object.values(gestures).flat();
+        const gesture = allGestures.find(g => g.id === randomGesture);
+        alert(`测验题目：\n\n在${regions[randomRegion].name}，"${gesture?.name || randomGesture}"手势的含义是什么？\n\n答案：${meaning.meaning}\n\n提示：${meaning.note}`);
+    }
+}
+
+function drawMap() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制简化世界地图背景
+    ctx.fillStyle = 'rgba(30,60,90,0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制大陆轮廓（简化）
+    ctx.fillStyle = 'rgba(60,100,140,0.4)';
+    ctx.strokeStyle = 'rgba(100,150,200,0.5)';
+    ctx.lineWidth = 1;
+    
+    // 北美
+    drawContinent([[0.1,0.2],[0.3,0.15],[0.35,0.35],[0.25,0.5],[0.1,0.45]]);
+    // 南美
+    drawContinent([[0.2,0.52],[0.35,0.5],[0.38,0.7],[0.3,0.9],[0.2,0.75]]);
+    // 欧洲
+    drawContinent([[0.42,0.15],[0.55,0.18],[0.58,0.35],[0.45,0.38],[0.4,0.25]]);
+    // 非洲
+    drawContinent([[0.42,0.4],[0.58,0.38],[0.6,0.7],[0.45,0.75],[0.4,0.5]]);
+    // 亚洲
+    drawContinent([[0.55,0.15],[0.9,0.2],[0.85,0.5],[0.6,0.55],[0.55,0.35]]);
+    // 澳洲
+    drawContinent([[0.75,0.65],[0.88,0.62],[0.9,0.78],[0.78,0.8]]);
+    
+    // 绘制区域标记点
+    const meanings = currentGesture ? gestureMeanings[currentGesture.id] : null;
+    
+    Object.entries(regions).forEach(([key, region]) => {
+        const x = region.x * canvas.width;
+        const y = region.y * canvas.height;
+        
+        let color = region.color;
+        let size = 8;
+        
+        if (meanings && meanings[key]) {
+            const sentiment = meanings[key].sentiment;
+            color = sentiment === 'positive' ? '#4caf50' :
+                    sentiment === 'negative' ? '#f44336' :
+                    sentiment === 'warning' ? '#ff9800' : '#9e9e9e';
+            size = 12;
+        }
+        
+        // 发光效果
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 2);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 中心点
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 标签
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(region.flag + ' ' + region.name, x, y + size + 15);
+    });
+    
+    // 图例
+    drawLegend();
+}
+
+function drawContinent(points) {
+    if (points.length < 3) return;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0] * canvas.width, points[0][1] * canvas.height);
+    for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i][0] * canvas.width, points[i][1] * canvas.height);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+function drawLegend() {
+    const legendX = 20;
+    const legendY = canvas.height - 100;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(legendX, legendY, 150, 90);
+    
+    ctx.font = '12px Arial';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('含义图例：', legendX + 10, legendY + 20);
+    
+    const items = [
+        { color: '#4caf50', text: '积极/友好' },
+        { color: '#ff9800', text: '需谨慎使用' },
+        { color: '#f44336', text: '负面/冒犯' },
+        { color: '#9e9e9e', text: '中性' }
+    ];
+    
+    items.forEach((item, i) => {
+        ctx.fillStyle = item.color;
+        ctx.beginPath();
+        ctx.arc(legendX + 20, legendY + 38 + i * 15, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ccc';
+        ctx.fillText(item.text, legendX + 35, legendY + 42 + i * 15);
+    });
+}
+
+function animate() {
+    drawMap();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

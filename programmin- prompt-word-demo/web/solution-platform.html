@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方案云 - 企业解决方案平台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: #f8fafc; color: #1e293b; }
+        
+        /* 导航栏 */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: #fff; box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+            padding: 15px 50px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 1.4em; font-weight: bold; color: #6366f1; }
+        .logo-icon { font-size: 1.5em; }
+        .nav-links { display: flex; gap: 35px; }
+        .nav-links a { color: #64748b; text-decoration: none; font-weight: 500; transition: color 0.3s; }
+        .nav-links a:hover { color: #6366f1; }
+        .nav-right { display: flex; gap: 15px; align-items: center; }
+        .search-box {
+            display: flex; align-items: center; gap: 8px;
+            background: #f1f5f9; padding: 8px 15px; border-radius: 20px;
+        }
+        .search-box input { border: none; background: none; outline: none; width: 150px; }
+        .btn-login { color: #6366f1; background: none; border: none; cursor: pointer; font-weight: 500; }
+        .btn-register { background: #6366f1; color: #fff; border: none; padding: 10px 25px; border-radius: 20px; cursor: pointer; }
+        
+        /* 主视觉区 */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 100px 50px; position: relative; overflow: hidden;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: -50%; right: -20%;
+            width: 80%; height: 200%; background: rgba(255,255,255,0.1);
+            border-radius: 50%; transform: rotate(-15deg);
+        }
+        .hero-content { max-width: 600px; z-index: 10; color: #fff; }
+        .hero h1 { font-size: 3.2em; margin-bottom: 25px; line-height: 1.3; }
+        .hero p { font-size: 1.2em; opacity: 0.9; margin-bottom: 40px; line-height: 1.8; }
+        .hero-search {
+            display: flex; background: #fff; border-radius: 50px; padding: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .hero-search input {
+            flex: 1; border: none; padding: 15px 25px; font-size: 1em;
+            border-radius: 50px; outline: none;
+        }
+        .hero-search button {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff; border: none; padding: 15px 35px; border-radius: 50px;
+            cursor: pointer; font-weight: bold;
+        }
+        .hero-tags { margin-top: 25px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .hero-tag { background: rgba(255,255,255,0.2); padding: 8px 18px; border-radius: 20px; font-size: 0.9em; }
+        
+        .hero-visual {
+            position: absolute; right: 50px; top: 50%; transform: translateY(-50%);
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; z-index: 10;
+        }
+        .float-card {
+            background: rgba(255,255,255,0.95); border-radius: 20px; padding: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15); width: 200px;
+            animation: floatCard 3s ease-in-out infinite;
+        }
+        .float-card:nth-child(2) { animation-delay: 0.5s; }
+        .float-card:nth-child(3) { animation-delay: 1s; }
+        .float-card:nth-child(4) { animation-delay: 1.5s; }
+        @keyframes floatCard { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-card .icon { font-size: 2em; margin-bottom: 10px; }
+        .float-card h4 { color: #1e293b; font-size: 1em; margin-bottom: 5px; }
+        .float-card p { color: #64748b; font-size: 0.8em; }
+        
+        /* 分类导航 */
+        .categories { padding: 80px 50px; background: #fff; }
+        .section-title { text-align: center; font-size: 2.2em; margin-bottom: 15px; }
+        .section-subtitle { text-align: center; color: #64748b; margin-bottom: 50px; }
+        .cat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .cat-card {
+            background: #f8fafc; border-radius: 16px; padding: 30px 20px;
+            text-align: center; cursor: pointer; transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .cat-card:hover { background: #fff; border-color: #6366f1; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(99, 102, 241, 0.15); }
+        .cat-icon { font-size: 2.5em; margin-bottom: 15px; }
+        .cat-name { font-weight: bold; color: #1e293b; margin-bottom: 5px; }
+        .cat-count { color: #64748b; font-size: 0.85em; }
+        
+        /* 热门方案 */
+        .solutions { padding: 80px 50px; background: #f8fafc; }
+        .sol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; max-width: 1200px; margin: 0 auto; }
+        .sol-card {
+            background: #fff; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05); transition: all 0.3s;
+        }
+        .sol-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .sol-cover {
+            height: 180px; background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 4em; color: rgba(255,255,255,0.3);
+        }
+        .sol-content { padding: 25px; }
+        .sol-tags { display: flex; gap: 8px; margin-bottom: 15px; }
+        .sol-tag { background: #f1f5f9; color: #6366f1; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; }
+        .sol-title { font-size: 1.2em; margin-bottom: 10px; color: #1e293b; }
+        .sol-desc { color: #64748b; font-size: 0.9em; line-height: 1.6; margin-bottom: 20px; }
+        .sol-footer { display: flex; justify-content: space-between; align-items: center; }
+        .sol-author { display: flex; align-items: center; gap: 10px; }
+        .sol-avatar { width: 35px; height: 35px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .sol-author-name { font-size: 0.85em; color: #64748b; }
+        .sol-stats { display: flex; gap: 15px; color: #94a3b8; font-size: 0.85em; }
+        
+        /* 服务商 */
+        .providers { padding: 80px 50px; background: #fff; }
+        .provider-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; max-width: 1200px; margin: 0 auto; }
+        .provider-card {
+            background: #f8fafc; border-radius: 16px; padding: 30px;
+            text-align: center; transition: all 0.3s;
+        }
+        .provider-card:hover { background: #fff; box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+        .provider-logo { width: 80px; height: 80px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 20px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;
+            font-size: 2em; color: #fff; }
+        .provider-name { font-weight: bold; margin-bottom: 8px; }
+        .provider-desc { color: #64748b; font-size: 0.85em; margin-bottom: 15px; }
+        .provider-stats { display: flex; justify-content: center; gap: 20px; }
+        .provider-stat { text-align: center; }
+        .provider-stat-num { font-weight: bold; color: #6366f1; }
+        .provider-stat-label { font-size: 0.75em; color: #94a3b8; }
+        
+        /* 流程 */
+        .process { padding: 80px 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .process .section-title, .process .section-subtitle { color: #fff; }
+        .process .section-subtitle { opacity: 0.8; }
+        .process-steps { display: flex; justify-content: center; gap: 60px; margin-top: 50px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        .process-step { text-align: center; position: relative; }
+        .process-step:not(:last-child)::after {
+            content: '→'; position: absolute; right: -40px; top: 30px;
+            font-size: 1.5em; opacity: 0.5;
+        }
+        .step-num {
+            width: 70px; height: 70px; background: rgba(255,255,255,0.2);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8em; font-weight: bold; margin: 0 auto 20px;
+        }
+        .step-title { font-size: 1.1em; margin-bottom: 8px; }
+        .step-desc { opacity: 0.8; font-size: 0.9em; }
+        
+        /* 页脚 */
+        footer { background: #1e293b; color: #94a3b8; padding: 60px 50px 30px; }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; max-width: 1200px; margin-left: auto; margin-right: auto; }
+        .footer-brand h3 { color: #fff; font-size: 1.5em; margin-bottom: 15px; }
+        .footer-brand p { line-height: 1.8; }
+        .footer-col h4 { color: #fff; margin-bottom: 20px; }
+        .footer-col a { display: block; color: #94a3b8; text-decoration: none; margin-bottom: 10px; transition: color 0.3s; }
+        .footer-col a:hover { color: #6366f1; }
+        .footer-bottom { text-align: center; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); }
+        
+        @media (max-width: 1024px) {
+            .hero-visual { display: none; }
+            .cat-grid { grid-template-columns: repeat(3, 1fr); }
+            .sol-grid { grid-template-columns: repeat(2, 1fr); }
+            .provider-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .navbar { padding: 15px 20px; }
+            .nav-links, .search-box { display: none; }
+            .hero { padding: 100px 20px; }
+            .hero h1 { font-size: 2em; }
+            .cat-grid { grid-template-columns: repeat(2, 1fr); }
+            .sol-grid, .provider-grid { grid-template-columns: 1fr; }
+            .process-steps { flex-direction: column; gap: 30px; }
+            .process-step::after { display: none; }
+            .footer-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo"><span class="logo-icon">💡</span>方案云</div>
+        <div class="nav-links">
+            <a href="#categories">方案分类</a>
+            <a href="#solutions">热门方案</a>
+            <a href="#providers">服务商</a>
+            <a href="#process">服务流程</a>
+        </div>
+        <div class="nav-right">
+            <div class="search-box"><span>🔍</span><input type="text" placeholder="搜索方案..."></div>
+            <button class="btn-login">登录</button>
+            <button class="btn-register">免费注册</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>一站式企业解决方案平台</h1>
+            <p>汇聚行业顶尖服务商，提供数字化转型、智能制造、企业管理等全方位解决方案，助力企业降本增效</p>
+            <div class="hero-search">
+                <input type="text" placeholder="输入您的需求，如：智慧工厂、数字营销、ERP系统...">
+                <button>搜索方案</button>
+            </div>
+            <div class="hero-tags">
+                <span class="hero-tag">🔥 智慧工厂</span>
+                <span class="hero-tag">📊 数据中台</span>
+                <span class="hero-tag">🛒 新零售</span>
+                <span class="hero-tag">🏭 工业互联网</span>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="float-card"><div class="icon">🏭</div><h4>智能制造</h4><p>128个方案</p></div>
+            <div class="float-card"><div class="icon">📊</div><h4>数据分析</h4><p>96个方案</p></div>
+            <div class="float-card"><div class="icon">🛡️</div><h4>安全合规</h4><p>64个方案</p></div>
+            <div class="float-card"><div class="icon">☁️</div><h4>云服务</h4><p>156个方案</p></div>
+        </div>
+    </section>
+
+    <section class="categories" id="categories">
+        <h2 class="section-title">方案分类</h2>
+        <p class="section-subtitle">覆盖企业数字化转型全场景</p>
+        <div class="cat-grid">
+            <div class="cat-card"><div class="cat-icon">🏭</div><div class="cat-name">智能制造</div><div class="cat-count">128个方案</div></div>
+            <div class="cat-card"><div class="cat-icon">📊</div><div class="cat-name">数据中台</div><div class="cat-count">96个方案</div></div>
+            <div class="cat-card"><div class="cat-icon">🛒</div><div class="cat-name">新零售</div><div class="cat-count">85个方案</div></div>
+            <div class="cat-card"><div class="cat-icon">💼</div><div class="cat-name">企业管理</div><div class="cat-count">156个方案</div></div>
+            <div class="cat-card"><div class="cat-icon">🔐</div><div class="cat-name">安全合规</div><div class="cat-count">64个方案</div></div>
+            <div class="cat-card"><div class="cat-icon">☁️</div><div class="cat-name">云服务</div><div class="cat-count">112个方案</div></div>
+        </div>
+    </section>
+
+    <section class="solutions" id="solutions">
+        <h2 class="section-title">热门方案</h2>
+        <p class="section-subtitle">精选行业标杆解决方案</p>
+        <div class="sol-grid">
+            <div class="sol-card">
+                <div class="sol-cover">🏭</div>
+                <div class="sol-content">
+                    <div class="sol-tags"><span class="sol-tag">智能制造</span><span class="sol-tag">MES</span></div>
+                    <h3 class="sol-title">智慧工厂整体解决方案</h3>
+                    <p class="sol-desc">从设备联网到生产调度，打造全流程数字化智能工厂</p>
+                    <div class="sol-footer">
+                        <div class="sol-author"><div class="sol-avatar">🏢</div><span class="sol-author-name">智造科技</span></div>
+                        <div class="sol-stats"><span>👁️ 2.3k</span><span>⭐ 4.9</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sol-card">
+                <div class="sol-cover" style="background: linear-gradient(135deg, #f093fb, #f5576c);">📊</div>
+                <div class="sol-content">
+                    <div class="sol-tags"><span class="sol-tag">数据中台</span><span class="sol-tag">BI</span></div>
+                    <h3 class="sol-title">企业级数据中台方案</h3>
+                    <p class="sol-desc">统一数据标准，打通数据孤岛，释放数据价值</p>
+                    <div class="sol-footer">
+                        <div class="sol-author"><div class="sol-avatar">🏢</div><span class="sol-author-name">数据云</span></div>
+                        <div class="sol-stats"><span>👁️ 1.8k</span><span>⭐ 4.8</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sol-card">
+                <div class="sol-cover" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">🛒</div>
+                <div class="sol-content">
+                    <div class="sol-tags"><span class="sol-tag">新零售</span><span class="sol-tag">全渠道</span></div>
+                    <h3 class="sol-title">全渠道零售数字化方案</h3>
+                    <p class="sol-desc">线上线下一体化，会员、库存、订单全打通</p>
+                    <div class="sol-footer">
+                        <div class="sol-author"><div class="sol-avatar">🏢</div><span class="sol-author-name">零售通</span></div>
+                        <div class="sol-stats"><span>👁️ 1.5k</span><span>⭐ 4.7</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="providers" id="providers">
+        <h2 class="section-title">优质服务商</h2>
+        <p class="section-subtitle">严选认证，品质保障</p>
+        <div class="provider-grid">
+            <div class="provider-card">
+                <div class="provider-logo">🏭</div>
+                <div class="provider-name">智造科技</div>
+                <div class="provider-desc">专注智能制造领域10年</div>
+                <div class="provider-stats">
+                    <div class="provider-stat"><div class="provider-stat-num">128</div><div class="provider-stat-label">方案</div></div>
+                    <div class="provider-stat"><div class="provider-stat-num">4.9</div><div class="provider-stat-label">评分</div></div>
+                </div>
+            </div>
+            <div class="provider-card">
+                <div class="provider-logo" style="background: linear-gradient(135deg, #f093fb, #f5576c);">📊</div>
+                <div class="provider-name">数据云</div>
+                <div class="provider-desc">企业级数据服务专家</div>
+                <div class="provider-stats">
+                    <div class="provider-stat"><div class="provider-stat-num">96</div><div class="provider-stat-label">方案</div></div>
+                    <div class="provider-stat"><div class="provider-stat-num">4.8</div><div class="provider-stat-label">评分</div></div>
+                </div>
+            </div>
+            <div class="provider-card">
+                <div class="provider-logo" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">🛒</div>
+                <div class="provider-name">零售通</div>
+                <div class="provider-desc">新零售解决方案领导者</div>
+                <div class="provider-stats">
+                    <div class="provider-stat"><div class="provider-stat-num">85</div><div class="provider-stat-label">方案</div></div>
+                    <div class="provider-stat"><div class="provider-stat-num">4.7</div><div class="provider-stat-label">评分</div></div>
+                </div>
+            </div>
+            <div class="provider-card">
+                <div class="provider-logo" style="background: linear-gradient(135deg, #fa709a, #fee140);">☁️</div>
+                <div class="provider-name">云端科技</div>
+                <div class="provider-desc">云原生架构服务商</div>
+                <div class="provider-stats">
+                    <div class="provider-stat"><div class="provider-stat-num">112</div><div class="provider-stat-label">方案</div></div>
+                    <div class="provider-stat"><div class="provider-stat-num">4.9</div><div class="provider-stat-label">评分</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="process" id="process">
+        <h2 class="section-title">服务流程</h2>
+        <p class="section-subtitle">简单四步，快速对接优质方案</p>
+        <div class="process-steps">
+            <div class="process-step">
+                <div class="step-num">1</div>
+                <div class="step-title">提交需求</div>
+                <div class="step-desc">描述您的业务场景</div>
+            </div>
+            <div class="process-step">
+                <div class="step-num">2</div>
+                <div class="step-title">智能匹配</div>
+                <div class="step-desc">AI推荐最佳方案</div>
+            </div>
+            <div class="process-step">
+                <div class="step-num">3</div>
+                <div class="step-title">方案对比</div>
+                <div class="step-desc">多维度评估选择</div>
+            </div>
+            <div class="process-step">
+                <div class="step-num">4</div>
+                <div class="step-title">签约实施</div>
+                <div class="step-desc">专业团队落地交付</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>💡 方案云</h3>
+                <p>企业数字化转型一站式服务平台，连接优质服务商与企业需求，让数字化转型更简单。</p>
+            </div>
+            <div class="footer-col"><h4>方案分类</h4><a href="#">智能制造</a><a href="#">数据中台</a><a href="#">新零售</a><a href="#">企业管理</a></div>
+            <div class="footer-col"><h4>服务商</h4><a href="#">入驻申请</a><a href="#">认证标准</a><a href="#">服务规范</a><a href="#">成功案例</a></div>
+            <div class="footer-col"><h4>企业服务</h4><a href="#">需求发布</a><a href="#">方案对比</a><a href="#">专家咨询</a><a href="#">定制开发</a></div>
+            <div class="footer-col"><h4>关于我们</h4><a href="#">平台介绍</a><a href="#">联系我们</a><a href="#">加入我们</a><a href="#">帮助中心</a></div>
+        </div>
+        <div class="footer-bottom">© 2024 方案云 版权所有 | 企业解决方案平台模板</div>
+    </footer>
+</body>
+</html>

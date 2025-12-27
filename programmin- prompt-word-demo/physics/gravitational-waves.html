@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>引力波时空涟漪模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        .simulation-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #mainCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .waveform-panel {
+            width: 280px;
+            background: rgba(10, 10, 20, 0.9);
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            padding: 12px;
+            font-size: 0.9em;
+            color: #888;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+
+        .waveform-canvas {
+            flex: 1;
+        }
+
+        .info-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-size: 0.85em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            gap: 20px;
+        }
+
+        .info-label { color: #888; }
+        .info-value { color: #0af; font-weight: bold; }
+
+        .phase-indicator {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 25px;
+            border-radius: 20px;
+            border: 1px solid #0af;
+            font-size: 1em;
+            color: #0af;
+        }
+
+        .education-panel {
+            position: absolute;
+            bottom: 100px;
+            left: 15px;
+            right: 300px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-size: 0.8em;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        .control-panel {
+            background: rgba(10, 10, 20, 0.95);
+            border-top: 1px solid #333;
+            padding: 15px 20px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .section-label {
+            font-size: 0.75em;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-size: 0.8em;
+            color: #888;
+            min-width: 80px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #0af;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .control-group .value {
+            font-size: 0.8em;
+            color: #0af;
+            min-width: 40px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            color: #888;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #2a2a4e;
+            border-color: #0af;
+            color: #fff;
+        }
+
+        .btn.active {
+            background: #0af;
+            color: #000;
+            border-color: #0af;
+        }
+
+        .btn.primary {
+            background: #0af;
+            color: #000;
+            border-color: #0af;
+        }
+
+        .btn.primary:hover {
+            background: #0cf;
+        }
+
+        .sound-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .sound-toggle input {
+            display: none;
+        }
+
+        .sound-icon {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-area">
+            <div class="simulation-container">
+                <canvas id="mainCanvas"></canvas>
+                <div class="info-overlay">
+                    <div class="info-row">
+                        <span class="info-label">黑洞1质量:</span>
+                        <span class="info-value" id="mass1Display">30 M☉</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">黑洞2质量:</span>
+                        <span class="info-value" id="mass2Display">20 M☉</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">轨道距离:</span>
+                        <span class="info-value" id="distanceDisplay">200 Rs</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">引力波频率:</span>
+                        <span class="info-value" id="freqDisplay">0 Hz</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">辐射能量:</span>
+                        <span class="info-value" id="energyDisplay">0%</span>
+                    </div>
+                </div>
+                <div class="phase-indicator" id="phaseIndicator">旋进阶段</div>
+                <div class="education-panel" id="educationPanel">
+                    <strong>旋进阶段：</strong>两个黑洞在引力作用下相互绕转，同时因引力波辐射而逐渐靠近。轨道周期随距离减小而缩短，引力波频率逐渐升高。
+                </div>
+            </div>
+            <div class="waveform-panel">
+                <div class="panel-title">📊 引力波信号 h(t)</div>
+                <canvas id="waveCanvas" class="waveform-canvas"></canvas>
+                <div class="panel-title">📈 频谱分析</div>
+                <canvas id="spectrumCanvas" class="waveform-canvas"></canvas>
+            </div>
+        </div>
+        <div class="control-panel">
+            <div class="control-section">
+                <div class="section-label">黑洞参数</div>
+                <div class="control-group">
+                    <label>黑洞1质量</label>
+                    <input type="range" id="mass1" min="10" max="50" value="30">
+                    <span class="value" id="mass1Val">30</span>
+                </div>
+                <div class="control-group">
+                    <label>黑洞2质量</label>
+                    <input type="range" id="mass2" min="10" max="50" value="20">
+                    <span class="value" id="mass2Val">20</span>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">轨道参数</div>
+                <div class="control-group">
+                    <label>初始距离</label>
+                    <input type="range" id="distance" min="100" max="400" value="200">
+                    <span class="value" id="distanceVal">200</span>
+                </div>
+                <div class="control-group">
+                    <label>自旋速度</label>
+                    <input type="range" id="spin" min="0" max="100" value="50">
+                    <span class="value" id="spinVal">0.5</span>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">模拟控制</div>
+                <div class="control-group">
+                    <label>合并速度</label>
+                    <input type="range" id="speed" min="10" max="300" value="100">
+                    <span class="value" id="speedVal">1.0</span>
+                </div>
+                <div class="control-group">
+                    <label>波强度</label>
+                    <input type="range" id="waveStrength" min="0" max="200" value="100">
+                    <span class="value" id="waveVal">1.0</span>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">播放控制</div>
+                <div class="btn-group">
+                    <button class="btn primary" id="playBtn">▶ 播放</button>
+                    <button class="btn" id="resetBtn">↺ 重置</button>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" id="inspiral">旋进</button>
+                    <button class="btn" id="merger">合并</button>
+                    <button class="btn" id="ringdown">铃荡</button>
+                </div>
+            </div>
+            <div class="control-section">
+                <div class="section-label">音效</div>
+                <label class="sound-toggle">
+                    <input type="checkbox" id="soundToggle">
+                    <span class="sound-icon" id="soundIcon">🔇</span>
+                    <span style="font-size:0.8em;color:#888">引力波声音</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // ==================== 物理引擎 ====================
+        class PhysicsEngine {
+            constructor() {
+                this.G = 1; // 引力常数（归一化）
+                this.c = 10; // 光速（归一化）
+                this.reset();
+            }
+
+            reset() {
+                this.phase = 'inspiral'; // inspiral, merger, ringdown
+                this.time = 0;
+                this.mergerTime = 0;
+                this.energyRadiated = 0;
+            }
+
+            setParameters(mass1, mass2, distance, spin) {
+                this.m1 = mass1;
+                this.m2 = mass2;
+                this.totalMass = mass1 + mass2;
+                this.reducedMass = (mass1 * mass2) / this.totalMass;
+                this.chirpMass = Math.pow(mass1 * mass2, 0.6) / Math.pow(this.totalMass, 0.2);
+                this.massRatio = Math.min(mass1, mass2) / Math.max(mass1, mass2);
+                this.initialDistance = distance;
+                this.separation = distance;
+                this.spin = spin;
+                
+                // 计算ISCO（最内稳定圆轨道）
+                this.isco = 6 * this.totalMass / this.c / this.c;
+                this.minSeparation = Math.max(30, this.isco * 5);
+            }
+
+            getOrbitalFrequency() {
+                // 开普勒第三定律（简化）
+                return Math.sqrt(this.G * this.totalMass / Math.pow(this.separation, 3));
+            }
+
+            getGravitationalWaveFrequency() {
+                return 2 * this.getOrbitalFrequency();
+            }
+
+            getGravitationalWaveAmplitude() {
+                // 简化的引力波振幅公式
+                const r = 1000; // 观测距离
+                return 4 * this.G * this.chirpMass * Math.pow(this.getOrbitalFrequency(), 2/3) / (this.c * this.c * r);
+            }
+
+            update(dt, speed) {
+                if (this.phase === 'inspiral') {
+                    // 旋进阶段：轨道衰减
+                    const decayRate = 64 * this.G * this.G * this.G * this.reducedMass * this.totalMass * this.totalMass / 
+                                     (5 * Math.pow(this.c, 5) * Math.pow(this.separation, 3));
+                    this.separation -= decayRate * dt * speed * 50;
+                    this.energyRadiated += decayRate * dt * speed * 0.1;
+
+                    if (this.separation <= this.minSeparation) {
+                        this.phase = 'merger';
+                        this.mergerTime = this.time;
+                    }
+                } else if (this.phase === 'merger') {
+                    // 合并阶段
+                    this.separation *= 0.95;
+                    this.energyRadiated += dt * speed * 0.5;
+                    
+                    if (this.time - this.mergerTime > 50 / speed) {
+                        this.phase = 'ringdown';
+                    }
+                } else if (this.phase === 'ringdown') {
+                    // 铃荡阶段：指数衰减
+                    this.energyRadiated = Math.min(this.energyRadiated, 5);
+                }
+
+                this.time += dt;
+                return this.phase;
+            }
+
+            getWaveformValue(t) {
+                const omega = this.getGravitationalWaveFrequency();
+                const amp = this.getGravitationalWaveAmplitude();
+                
+                if (this.phase === 'inspiral') {
+                    // 啁啾信号
+                    const chirp = Math.pow(1 + t * 0.001, 1.5);
+                    return amp * Math.sin(omega * t * chirp) * 1000;
+                } else if (this.phase === 'merger') {
+                    // 合并峰值
+                    const decay = Math.exp(-(this.time - this.mergerTime) * 0.05);
+                    return amp * 3 * Math.sin(omega * t * 2) * decay * 1000;
+                } else {
+                    // 铃荡衰减
+                    const decay = Math.exp(-(this.time - this.mergerTime) * 0.1);
+                    return amp * Math.sin(omega * t * 0.5) * decay * 500;
+                }
+            }
+        }
+
+        // ==================== 渲染引擎 ====================
+        class Renderer {
+            constructor(mainCanvas, waveCanvas, spectrumCanvas) {
+                this.mainCanvas = mainCanvas;
+                this.waveCanvas = waveCanvas;
+                this.spectrumCanvas = spectrumCanvas;
+                this.mainCtx = mainCanvas.getContext('2d');
+                this.waveCtx = waveCanvas.getContext('2d');
+                this.spectrumCtx = spectrumCanvas.getContext('2d');
+                
+                this.stars = [];
+                this.waveHistory = [];
+                this.ripples = [];
+                this.gridPoints = [];
+                
+                this.viewOffset = { x: 0, y: 0 };
+                this.zoom = 1;
+                
+                this.resize();
+                this.initStars();
+                this.initGrid();
+                
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const container = this.mainCanvas.parentElement;
+                this.mainCanvas.width = container.clientWidth;
+                this.mainCanvas.height = container.clientHeight;
+                
+                const wavePanel = this.waveCanvas.parentElement;
+                this.waveCanvas.width = wavePanel.clientWidth;
+                this.waveCanvas.height = (wavePanel.clientHeight - 80) / 2;
+                this.spectrumCanvas.width = wavePanel.clientWidth;
+                this.spectrumCanvas.height = (wavePanel.clientHeight - 80) / 2;
+                
+                this.centerX = this.mainCanvas.width / 2;
+                this.centerY = this.mainCanvas.height / 2;
+                
+                this.initGrid();
+            }
+
+            initStars() {
+                this.stars = [];
+                for (let i = 0; i < 300; i++) {
+                    this.stars.push({
+                        x: Math.random() * 2000 - 500,
+                        y: Math.random() * 1500 - 250,
+                        size: Math.random() * 1.5 + 0.5,
+                        brightness: Math.random()
+                    });
+                }
+            }
+
+            initGrid() {
+                this.gridPoints = [];
+                const spacing = 40;
+                const w = this.mainCanvas.width || 1200;
+                const h = this.mainCanvas.height || 800;
+                
+                for (let x = -w; x < w * 2; x += spacing) {
+                    for (let y = -h; y < h * 2; y += spacing) {
+                        this.gridPoints.push({ 
+                            baseX: x, 
+                            baseY: y, 
+                            x: x, 
+                            y: y 
+                        });
+                    }
+                }
+            }
+
+            addRipple(x, y, strength) {
+                this.ripples.push({
+                    x, y,
+                    radius: 0,
+                    maxRadius: 800,
+                    strength: strength,
+                    speed: 3
+                });
+            }
+
+            updateRipples() {
+                this.ripples = this.ripples.filter(r => {
+                    r.radius += r.speed;
+                    r.strength *= 0.995;
+                    return r.radius < r.maxRadius && r.strength > 0.01;
+                });
+            }
+
+            distortGrid(bh1, bh2, waveStrength) {
+                const distortionStrength = 0.3 * waveStrength;
+                
+                this.gridPoints.forEach(point => {
+                    let dx = 0, dy = 0;
+                    
+                    // 黑洞引力扭曲
+                    [bh1, bh2].forEach(bh => {
+                        if (!bh) return;
+                        const distX = point.baseX - bh.x;
+                        const distY = point.baseY - bh.y;
+                        const dist = Math.sqrt(distX * distX + distY * distY) + 1;
+                        const force = bh.mass * 500 / (dist * dist);
+                        dx -= distX / dist * force * distortionStrength;
+                        dy -= distY / dist * force * distortionStrength;
+                    });
+                    
+                    // 引力波涟漪扭曲
+                    this.ripples.forEach(ripple => {
+                        const distX = point.baseX - ripple.x;
+                        const distY = point.baseY - ripple.y;
+                        const dist = Math.sqrt(distX * distX + distY * distY);
+                        const ringDist = Math.abs(dist - ripple.radius);
+                        
+                        if (ringDist < 30) {
+                            const wave = Math.sin((dist - ripple.radius) * 0.2) * ripple.strength * 10;
+                            dx += distX / (dist + 1) * wave;
+                            dy += distY / (dist + 1) * wave;
+                        }
+                    });
+                    
+                    point.x = point.baseX + dx;
+                    point.y = point.baseY + dy;
+                });
+            }
+
+            drawStars(bh1, bh2) {
+                const ctx = this.mainCtx;
+                
+                this.stars.forEach(star => {
+                    let x = star.x;
+                    let y = star.y;
+                    
+                    // 引力透镜效应
+                    [bh1, bh2].forEach(bh => {
+                        if (!bh) return;
+                        const dx = x - bh.x;
+                        const dy = y - bh.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 200 && dist > bh.radius) {
+                            const lensStrength = bh.mass * 20 / (dist * dist);
+                            x += dx / dist * lensStrength * 50;
+                            y += dy / dist * lensStrength * 50;
+                        }
+                    });
+                    
+                    const flicker = 0.7 + Math.sin(Date.now() * 0.003 + star.brightness * 10) * 0.3;
+                    ctx.beginPath();
+                    ctx.arc(x, y, star.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness * flicker})`;
+                    ctx.fill();
+                });
+            }
+
+            drawGrid() {
+                const ctx = this.mainCtx;
+                ctx.strokeStyle = 'rgba(0, 100, 150, 0.15)';
+                ctx.lineWidth = 0.5;
+                
+                const spacing = 40;
+                const w = this.mainCanvas.width;
+                const h = this.mainCanvas.height;
+                
+                // 绘制水平线
+                for (let y = 0; y < h; y += spacing) {
+                    ctx.beginPath();
+                    let started = false;
+                    for (let x = 0; x < w; x += 5) {
+                        const point = this.findNearestGridPoint(x, y);
+                        if (point) {
+                            if (!started) {
+                                ctx.moveTo(point.x, point.y);
+                                started = true;
+                            } else {
+                                ctx.lineTo(point.x, point.y);
+                            }
+                        }
+                    }
+                    ctx.stroke();
+                }
+                
+                // 绘制垂直线
+                for (let x = 0; x < w; x += spacing) {
+                    ctx.beginPath();
+                    let started = false;
+                    for (let y = 0; y < h; y += 5) {
+                        const point = this.findNearestGridPoint(x, y);
+                        if (point) {
+                            if (!started) {
+                                ctx.moveTo(point.x, point.y);
+                                started = true;
+                            } else {
+                                ctx.lineTo(point.x, point.y);
+                            }
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            findNearestGridPoint(x, y) {
+                let nearest = null;
+                let minDist = Infinity;
+                
+                for (const point of this.gridPoints) {
+                    const dx = point.baseX - x;
+                    const dy = point.baseY - y;
+                    const dist = dx * dx + dy * dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = point;
+                    }
+                }
+                
+                return nearest;
+            }
+
+            drawBlackHole(bh, time) {
+                const ctx = this.mainCtx;
+                
+                // 吸积盘
+                const diskGradient = ctx.createRadialGradient(bh.x, bh.y, bh.radius, bh.x, bh.y, bh.radius * 3);
+                diskGradient.addColorStop(0, 'rgba(255, 100, 0, 0)');
+                diskGradient.addColorStop(0.3, 'rgba(255, 150, 50, 0.4)');
+                diskGradient.addColorStop(0.6, 'rgba(255, 200, 100, 0.2)');
+                diskGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                
+                ctx.save();
+                ctx.translate(bh.x, bh.y);
+                ctx.rotate(time * bh.spinRate);
+                ctx.scale(1, 0.3);
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, bh.radius * 3, 0, Math.PI * 2);
+                ctx.fillStyle = diskGradient;
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // 事件视界
+                const horizonGradient = ctx.createRadialGradient(bh.x, bh.y, 0, bh.x, bh.y, bh.radius);
+                horizonGradient.addColorStop(0, '#000');
+                horizonGradient.addColorStop(0.8, '#000');
+                horizonGradient.addColorStop(1, 'rgba(50, 50, 80, 0.5)');
+                
+                ctx.beginPath();
+                ctx.arc(bh.x, bh.y, bh.radius, 0, Math.PI * 2);
+                ctx.fillStyle = horizonGradient;
+                ctx.fill();
+                
+                // 光子球
+                ctx.beginPath();
+                ctx.arc(bh.x, bh.y, bh.radius * 1.5, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(100, 150, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            drawRipples() {
+                const ctx = this.mainCtx;
+                
+                this.ripples.forEach(ripple => {
+                    const gradient = ctx.createRadialGradient(
+                        ripple.x, ripple.y, ripple.radius - 20,
+                        ripple.x, ripple.y, ripple.radius + 20
+                    );
+                    gradient.addColorStop(0, 'rgba(0, 150, 255, 0)');
+                    gradient.addColorStop(0.5, `rgba(0, 150, 255, ${ripple.strength * 0.3})`);
+                    gradient.addColorStop(1, 'rgba(0, 150, 255, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 15;
+                    ctx.stroke();
+                });
+            }
+
+            drawWaveform(physics, waveStrength) {
+                const ctx = this.waveCtx;
+                const w = this.waveCanvas.width;
+                const h = this.waveCanvas.height;
+                
+                ctx.fillStyle = '#0a0a14';
+                ctx.fillRect(0, 0, w, h);
+                
+                // 添加当前波形值
+                const value = physics.getWaveformValue(physics.time) * waveStrength;
+                this.waveHistory.push(value);
+                if (this.waveHistory.length > w) {
+                    this.waveHistory.shift();
+                }
+                
+                // 绘制网格
+                ctx.strokeStyle = 'rgba(0, 100, 150, 0.2)';
+                ctx.lineWidth = 0.5;
+                for (let y = 0; y < h; y += 20) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+                
+                // 绘制波形
+                ctx.beginPath();
+                ctx.strokeStyle = '#0af';
+                ctx.lineWidth = 2;
+                
+                this.waveHistory.forEach((val, i) => {
+                    const x = i;
+                    const y = h / 2 - val * 2;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+                
+                // 发光效果
+                ctx.shadowColor = '#0af';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            drawSpectrum(physics) {
+                const ctx = this.spectrumCtx;
+                const w = this.spectrumCanvas.width;
+                const h = this.spectrumCanvas.height;
+                
+                ctx.fillStyle = '#0a0a14';
+                ctx.fillRect(0, 0, w, h);
+                
+                // 简化的频谱显示
+                const freq = physics.getGravitationalWaveFrequency();
+                const amp = physics.getGravitationalWaveAmplitude();
+                
+                const numBars = 32;
+                const barWidth = w / numBars - 2;
+                
+                for (let i = 0; i < numBars; i++) {
+                    const barFreq = i / numBars;
+                    const peakDist = Math.abs(barFreq - freq * 10 % 1);
+                    const barHeight = Math.exp(-peakDist * 5) * amp * 50000 * (0.5 + Math.random() * 0.5);
+                    
+                    const gradient = ctx.createLinearGradient(0, h, 0, h - barHeight);
+                    gradient.addColorStop(0, '#0af');
+                    gradient.addColorStop(1, '#05f');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(i * (barWidth + 2) + 5, h - barHeight - 5, barWidth, barHeight);
+                }
+            }
+
+            render(bh1, bh2, physics, time, waveStrength) {
+                const ctx = this.mainCtx;
+                
+                // 清空画布
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+                
+                // 更新涟漪
+                this.updateRipples();
+                
+                // 扭曲网格
+                this.distortGrid(bh1, bh2, waveStrength);
+                
+                // 绘制各层
+                this.drawStars(bh1, bh2);
+                this.drawGrid();
+                this.drawRipples();
+                
+                if (bh1) this.drawBlackHole(bh1, time);
+                if (bh2 && physics.phase !== 'ringdown') this.drawBlackHole(bh2, time);
+                
+                // 绘制波形和频谱
+                this.drawWaveform(physics, waveStrength);
+                this.drawSpectrum(physics);
+            }
+        }
+
+
+        // ==================== 音频引擎 ====================
+        class AudioEngine {
+            constructor() {
+                this.audioCtx = null;
+                this.oscillator = null;
+                this.gainNode = null;
+                this.enabled = false;
+            }
+
+            init() {
+                if (this.audioCtx) return;
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                this.gainNode = this.audioCtx.createGain();
+                this.gainNode.connect(this.audioCtx.destination);
+                this.gainNode.gain.value = 0;
+            }
+
+            enable() {
+                this.init();
+                this.enabled = true;
+                if (!this.oscillator) {
+                    this.oscillator = this.audioCtx.createOscillator();
+                    this.oscillator.type = 'sine';
+                    this.oscillator.connect(this.gainNode);
+                    this.oscillator.start();
+                }
+            }
+
+            disable() {
+                this.enabled = false;
+                if (this.gainNode) {
+                    this.gainNode.gain.value = 0;
+                }
+            }
+
+            update(frequency, amplitude, phase) {
+                if (!this.enabled || !this.oscillator) return;
+                
+                // 将引力波频率映射到可听范围 (20-2000 Hz)
+                const audibleFreq = 50 + frequency * 500;
+                this.oscillator.frequency.setValueAtTime(audibleFreq, this.audioCtx.currentTime);
+                
+                // 根据阶段调整音量
+                let volume = amplitude * 0.3;
+                if (phase === 'merger') volume *= 2;
+                else if (phase === 'ringdown') volume *= 0.5;
+                
+                this.gainNode.gain.setValueAtTime(Math.min(volume, 0.5), this.audioCtx.currentTime);
+            }
+        }
+
+        // ==================== 主控制器 ====================
+        class Simulator {
+            constructor() {
+                this.physics = new PhysicsEngine();
+                this.renderer = new Renderer(
+                    document.getElementById('mainCanvas'),
+                    document.getElementById('waveCanvas'),
+                    document.getElementById('spectrumCanvas')
+                );
+                this.audio = new AudioEngine();
+                
+                this.isPlaying = false;
+                this.time = 0;
+                this.lastRippleTime = 0;
+                
+                this.params = {
+                    mass1: 30,
+                    mass2: 20,
+                    distance: 200,
+                    spin: 0.5,
+                    speed: 1.0,
+                    waveStrength: 1.0
+                };
+                
+                this.bh1 = null;
+                this.bh2 = null;
+                
+                this.initControls();
+                this.reset();
+                this.animate();
+            }
+
+            initControls() {
+                // 滑块控制
+                const sliders = [
+                    { id: 'mass1', param: 'mass1', display: 'mass1Val', factor: 1 },
+                    { id: 'mass2', param: 'mass2', display: 'mass2Val', factor: 1 },
+                    { id: 'distance', param: 'distance', display: 'distanceVal', factor: 1 },
+                    { id: 'spin', param: 'spin', display: 'spinVal', factor: 0.01 },
+                    { id: 'speed', param: 'speed', display: 'speedVal', factor: 0.01 },
+                    { id: 'waveStrength', param: 'waveStrength', display: 'waveVal', factor: 0.01 }
+                ];
+
+                sliders.forEach(s => {
+                    const slider = document.getElementById(s.id);
+                    const display = document.getElementById(s.display);
+                    
+                    slider.addEventListener('input', () => {
+                        this.params[s.param] = parseFloat(slider.value) * s.factor;
+                        display.textContent = s.factor < 1 ? this.params[s.param].toFixed(1) : this.params[s.param];
+                        
+                        if (['mass1', 'mass2', 'distance', 'spin'].includes(s.param)) {
+                            this.updatePhysics();
+                        }
+                    });
+                });
+
+                // 按钮控制
+                document.getElementById('playBtn').addEventListener('click', () => this.togglePlay());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+                
+                document.getElementById('inspiral').addEventListener('click', () => this.setPhase('inspiral'));
+                document.getElementById('merger').addEventListener('click', () => this.setPhase('merger'));
+                document.getElementById('ringdown').addEventListener('click', () => this.setPhase('ringdown'));
+
+                // 音效控制
+                document.getElementById('soundToggle').addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        this.audio.enable();
+                        document.getElementById('soundIcon').textContent = '🔊';
+                    } else {
+                        this.audio.disable();
+                        document.getElementById('soundIcon').textContent = '🔇';
+                    }
+                });
+
+                // 拖拽交互
+                this.setupDragInteraction();
+            }
+
+            setupDragInteraction() {
+                const canvas = document.getElementById('mainCanvas');
+                let dragging = null;
+                
+                canvas.addEventListener('mousedown', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    if (this.bh1 && this.distance(x, y, this.bh1.x, this.bh1.y) < this.bh1.radius * 2) {
+                        dragging = 'bh1';
+                    } else if (this.bh2 && this.distance(x, y, this.bh2.x, this.bh2.y) < this.bh2.radius * 2) {
+                        dragging = 'bh2';
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (e) => {
+                    if (!dragging) return;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    if (dragging === 'bh1') {
+                        this.bh1.x = x;
+                        this.bh1.y = y;
+                    } else if (dragging === 'bh2') {
+                        this.bh2.x = x;
+                        this.bh2.y = y;
+                    }
+                });
+
+                canvas.addEventListener('mouseup', () => {
+                    dragging = null;
+                });
+
+                // 缩放
+                canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.renderer.zoom *= e.deltaY > 0 ? 0.95 : 1.05;
+                    this.renderer.zoom = Math.max(0.5, Math.min(2, this.renderer.zoom));
+                });
+            }
+
+            distance(x1, y1, x2, y2) {
+                return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            }
+
+            reset() {
+                this.physics.reset();
+                this.updatePhysics();
+                this.time = 0;
+                this.renderer.waveHistory = [];
+                this.renderer.ripples = [];
+                this.isPlaying = false;
+                document.getElementById('playBtn').textContent = '▶ 播放';
+                this.updateDisplay();
+            }
+
+            updatePhysics() {
+                this.physics.setParameters(
+                    this.params.mass1,
+                    this.params.mass2,
+                    this.params.distance,
+                    this.params.spin
+                );
+                
+                const centerX = this.renderer.centerX;
+                const centerY = this.renderer.centerY;
+                const separation = this.physics.separation;
+                
+                // 质心计算
+                const totalMass = this.params.mass1 + this.params.mass2;
+                const r1 = separation * this.params.mass2 / totalMass;
+                const r2 = separation * this.params.mass1 / totalMass;
+                
+                this.bh1 = {
+                    x: centerX - r1,
+                    y: centerY,
+                    mass: this.params.mass1,
+                    radius: 10 + this.params.mass1 * 0.5,
+                    spinRate: this.params.spin * 0.05,
+                    orbitRadius: r1
+                };
+                
+                this.bh2 = {
+                    x: centerX + r2,
+                    y: centerY,
+                    mass: this.params.mass2,
+                    radius: 10 + this.params.mass2 * 0.5,
+                    spinRate: this.params.spin * 0.05,
+                    orbitRadius: r2
+                };
+            }
+
+            setPhase(phase) {
+                this.physics.phase = phase;
+                if (phase === 'merger') {
+                    this.physics.separation = this.physics.minSeparation;
+                    this.physics.mergerTime = this.physics.time;
+                } else if (phase === 'ringdown') {
+                    this.physics.separation = 20;
+                    this.physics.mergerTime = this.physics.time - 30;
+                } else {
+                    this.physics.separation = this.params.distance;
+                }
+                this.updateDisplay();
+            }
+
+            togglePlay() {
+                this.isPlaying = !this.isPlaying;
+                document.getElementById('playBtn').textContent = this.isPlaying ? '⏸ 暂停' : '▶ 播放';
+            }
+
+            updateDisplay() {
+                const phase = this.physics.phase;
+                const phaseNames = {
+                    inspiral: '旋进阶段',
+                    merger: '合并阶段',
+                    ringdown: '铃荡阶段'
+                };
+                
+                document.getElementById('phaseIndicator').textContent = phaseNames[phase];
+                document.getElementById('mass1Display').textContent = `${this.params.mass1} M☉`;
+                document.getElementById('mass2Display').textContent = `${this.params.mass2} M☉`;
+                document.getElementById('distanceDisplay').textContent = `${Math.round(this.physics.separation)} Rs`;
+                document.getElementById('freqDisplay').textContent = `${(this.physics.getGravitationalWaveFrequency() * 100).toFixed(1)} Hz`;
+                document.getElementById('energyDisplay').textContent = `${Math.min(this.physics.energyRadiated * 20, 100).toFixed(1)}%`;
+                
+                // 教育信息
+                const educationTexts = {
+                    inspiral: '<strong>旋进阶段：</strong>两个黑洞在引力作用下相互绕转，同时因引力波辐射而逐渐靠近。轨道周期随距离减小而缩短，引力波频率逐渐升高，这就是著名的"啁啾"信号。',
+                    merger: '<strong>合并阶段：</strong>两个黑洞的事件视界开始接触并融合。这是引力波信号最强的时刻，释放出相当于数个太阳质量的能量。时空剧烈扭曲，产生极强的引力波爆发。',
+                    ringdown: '<strong>铃荡阶段：</strong>合并后的黑洞像被敲击的钟一样"振动"，逐渐稳定为一个克尔黑洞。引力波信号呈指数衰减，频率由最终黑洞的质量和自旋决定。'
+                };
+                document.getElementById('educationPanel').innerHTML = educationTexts[phase];
+            }
+
+            animate() {
+                if (this.isPlaying) {
+                    const dt = 1;
+                    this.physics.update(dt, this.params.speed);
+                    this.time += dt;
+                    
+                    // 更新黑洞位置（轨道运动）
+                    const omega = this.physics.getOrbitalFrequency();
+                    const angle = this.time * omega * this.params.speed * 0.1;
+                    
+                    const centerX = this.renderer.centerX;
+                    const centerY = this.renderer.centerY;
+                    
+                    if (this.physics.phase !== 'ringdown') {
+                        const separation = this.physics.separation;
+                        const totalMass = this.params.mass1 + this.params.mass2;
+                        const r1 = separation * this.params.mass2 / totalMass;
+                        const r2 = separation * this.params.mass1 / totalMass;
+                        
+                        this.bh1.x = centerX + Math.cos(angle) * r1;
+                        this.bh1.y = centerY + Math.sin(angle) * r1;
+                        this.bh2.x = centerX + Math.cos(angle + Math.PI) * r2;
+                        this.bh2.y = centerY + Math.sin(angle + Math.PI) * r2;
+                    } else {
+                        // 合并后单个黑洞
+                        this.bh1.x = centerX;
+                        this.bh1.y = centerY;
+                        this.bh1.radius = 10 + (this.params.mass1 + this.params.mass2) * 0.4;
+                    }
+                    
+                    // 生成引力波涟漪
+                    if (this.time - this.lastRippleTime > 20 / this.params.speed) {
+                        const strength = this.physics.phase === 'merger' ? 1.5 : 
+                                        this.physics.phase === 'ringdown' ? 0.5 : 1;
+                        this.renderer.addRipple(centerX, centerY, strength * this.params.waveStrength);
+                        this.lastRippleTime = this.time;
+                    }
+                    
+                    // 更新音频
+                    this.audio.update(
+                        this.physics.getGravitationalWaveFrequency(),
+                        this.physics.getGravitationalWaveAmplitude() * this.params.waveStrength,
+                        this.physics.phase
+                    );
+                    
+                    this.updateDisplay();
+                }
+                
+                // 渲染
+                this.renderer.render(
+                    this.bh1,
+                    this.bh2,
+                    this.physics,
+                    this.time,
+                    this.params.waveStrength
+                );
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 启动模拟器
+        new Simulator();
+    </script>
+</body>
+</html>

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>羽毛球飞行物理模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏸</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a2a1a 0%, #0d1f0d 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container { display: flex; height: 100vh; }
+        .court-area { flex: 1; position: relative; }
+        .right-panel {
+            width: 320px;
+            background: rgba(0,0,0,0.4);
+            border-left: 1px solid #2a4a2a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        #courtCanvas { width: 100%; height: 100%; }
+        .panel-title {
+            color: #7fff7f;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a4a2a;
+        }
+        .control-group { margin-bottom: 15px; }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        .control-value { color: #7fff7f; }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #1a2a1a;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #7fff7f;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .shot-types { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .shot-btn {
+            padding: 8px 12px;
+            background: rgba(127,255,127,0.1);
+            border: 1px solid #3a5a3a;
+            border-radius: 6px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        .shot-btn:hover { background: rgba(127,255,127,0.2); }
+        .shot-btn.active { background: #7fff7f; color: #000; border-color: #7fff7f; }
+        .stats-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #4a8f4a, #2a6a2a);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .action-btn:hover { transform: scale(1.02); }
+        .trajectory-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="court-area">
+        <canvas id="courtCanvas"></canvas>
+        <div class="trajectory-info" id="trajInfo"></div>
+    </div>
+    <div class="right-panel">
+        <div class="panel-title">🏸 击球参数</div>
+        <div class="shot-types" id="shotTypes"></div>
+
+        <div class="control-group">
+            <div class="control-label"><span>击球力量</span><span class="control-value" id="powerVal">70%</span></div>
+            <input type="range" id="power" min="10" max="100" value="70">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>击球高度</span><span class="control-value" id="heightVal">2.5m</span></div>
+            <input type="range" id="hitHeight" min="150" max="350" value="250">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>拍面角度</span><span class="control-value" id="angleVal">15°</span></div>
+            <input type="range" id="racketAngle" min="-45" max="45" value="15">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>水平方向</span><span class="control-value" id="dirVal">0°</span></div>
+            <input type="range" id="direction" min="-30" max="30" value="0">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>旋转类型</span></div>
+            <select id="spinType" style="width:100%;padding:8px;background:#1a2a1a;border:1px solid #3a5a3a;color:#fff;border-radius:5px;">
+                <option value="none">无旋转</option>
+                <option value="topspin">上旋</option>
+                <option value="backspin">下旋</option>
+                <option value="sidespin">侧旋</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>风速</span><span class="control-value" id="windVal">0 m/s</span></div>
+            <input type="range" id="wind" min="0" max="50" value="0">
+        </div>
+        
+        <button class="action-btn" onclick="hitShuttle()">🏸 击球</button>
+        <button class="action-btn" style="background:linear-gradient(135deg,#4a6a8a,#2a4a6a);" onclick="resetShuttle()">🔄 重置</button>
+        
+        <div class="stats-box">
+            <div class="panel-title" style="margin-bottom:10px;">📊 飞行数据</div>
+            <div class="stat-row"><span>初速度</span><span id="statSpeed">0 km/h</span></div>
+            <div class="stat-row"><span>最大高度</span><span id="statMaxH">0 m</span></div>
+            <div class="stat-row"><span>飞行时间</span><span id="statTime">0 s</span></div>
+            <div class="stat-row"><span>落点距离</span><span id="statDist">0 m</span></div>
+            <div class="stat-row"><span>落点速度</span><span id="statEndSpeed">0 km/h</span></div>
+        </div>
+    </div>
+</div>
+<script>
+const canvas = document.getElementById('courtCanvas');
+const ctx = canvas.getContext('2d');
+
+// 球场尺寸（米）
+const COURT = { length: 13.4, width: 6.1, netHeight: 1.55 };
+const SCALE = 50; // 像素/米
+
+// 羽毛球物理参数
+const SHUTTLE = {
+    mass: 0.005, // 5克
+    radius: 0.0325, // 半径3.25cm
+    Cd: 0.6, // 阻力系数（羽毛球特有的高阻力）
+    area: Math.PI * 0.0325 * 0.0325
+};
+
+const AIR_DENSITY = 1.225; // kg/m³
+const GRAVITY = 9.81;
+
+// 击球类型预设
+const shotTypes = [
+    { id: 'clear', name: '高远球', power: 85, angle: 35, desc: '高弧度后场球' },
+    { id: 'smash', name: '杀球', power: 100, angle: -15, desc: '快速下压进攻' },
+    { id: 'drop', name: '吊球', power: 40, angle: 5, desc: '轻柔过网落下' },
+    { id: 'drive', name: '平抽', power: 75, angle: 0, desc: '快速平直球' },
+    { id: 'net', name: '网前球', power: 25, angle: 20, desc: '贴网过渡' },
+    { id: 'lob', name: '挑球', power: 60, angle: 50, desc: '防守挑高' }
+];
+
+let currentShot = 'clear';
+let shuttle = null;
+let trajectory = [];
+let animating = false;
+
+// 参数
+let params = {
+    power: 70,
+    hitHeight: 2.5,
+    racketAngle: 15,
+    direction: 0,
+    spinType: 'none',
+    wind: 0
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    renderShotTypes();
+    setupControls();
+    resetShuttle();
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function renderShotTypes() {
+    const container = document.getElementById('shotTypes');
+    container.innerHTML = shotTypes.map(s => `
+        <button class="shot-btn ${s.id === currentShot ? 'active' : ''}" 
+                onclick="selectShot('${s.id}')" title="${s.desc}">${s.name}</button>
+    `).join('');
+}
+
+function selectShot(id) {
+    currentShot = id;
+    const shot = shotTypes.find(s => s.id === id);
+    if (shot) {
+        document.getElementById('power').value = shot.power;
+        document.getElementById('racketAngle').value = shot.angle;
+        params.power = shot.power;
+        params.racketAngle = shot.angle;
+        updateDisplays();
+    }
+    renderShotTypes();
+}
+
+function setupControls() {
+    const controls = ['power', 'hitHeight', 'racketAngle', 'direction', 'wind'];
+    controls.forEach(id => {
+        document.getElementById(id).addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (id === 'hitHeight') params[id] = val / 100;
+            else if (id === 'wind') params[id] = val / 10;
+            else params[id] = val;
+            updateDisplays();
+        });
+    });
+    document.getElementById('spinType').addEventListener('change', (e) => {
+        params.spinType = e.target.value;
+    });
+}
+
+function updateDisplays() {
+    document.getElementById('powerVal').textContent = params.power + '%';
+    document.getElementById('heightVal').textContent = params.hitHeight.toFixed(1) + 'm';
+    document.getElementById('angleVal').textContent = params.racketAngle + '°';
+    document.getElementById('dirVal').textContent = params.direction + '°';
+    document.getElementById('windVal').textContent = params.wind.toFixed(1) + ' m/s';
+}
+
+function resetShuttle() {
+    shuttle = {
+        x: 1, y: params.hitHeight, z: COURT.width / 2,
+        vx: 0, vy: 0, vz: 0,
+        active: false
+    };
+    trajectory = [];
+    animating = false;
+    updateStats(0, 0, 0, 0, 0);
+}
+
+function hitShuttle() {
+    // 计算初速度（km/h转m/s）
+    const speedKmh = 30 + params.power * 1.2; // 30-150 km/h
+    const speed = speedKmh / 3.6;
+    
+    const angleRad = params.racketAngle * Math.PI / 180;
+    const dirRad = params.direction * Math.PI / 180;
+    
+    shuttle = {
+        x: 1,
+        y: params.hitHeight,
+        z: COURT.width / 2,
+        vx: speed * Math.cos(angleRad) * Math.cos(dirRad),
+        vy: speed * Math.sin(angleRad),
+        vz: speed * Math.cos(angleRad) * Math.sin(dirRad),
+        active: true
+    };
+    
+    trajectory = [{ x: shuttle.x, y: shuttle.y, z: shuttle.z }];
+    animating = true;
+    
+    document.getElementById('statSpeed').textContent = speedKmh.toFixed(0) + ' km/h';
+}
+
+function simulateStep(dt) {
+    if (!shuttle.active) return;
+    
+    // 计算速度大小
+    const v = Math.sqrt(shuttle.vx**2 + shuttle.vy**2 + shuttle.vz**2);
+    
+    // 空气阻力（羽毛球的高阻力特性）
+    const dragForce = 0.5 * AIR_DENSITY * SHUTTLE.Cd * SHUTTLE.area * v * v;
+    const dragAcc = dragForce / SHUTTLE.mass;
+    
+    // 阻力方向与速度相反
+    if (v > 0.01) {
+        shuttle.vx -= (shuttle.vx / v) * dragAcc * dt;
+        shuttle.vy -= (shuttle.vy / v) * dragAcc * dt;
+        shuttle.vz -= (shuttle.vz / v) * dragAcc * dt;
+    }
+    
+    // 重力
+    shuttle.vy -= GRAVITY * dt;
+    
+    // 风的影响
+    shuttle.vx += params.wind * 0.1 * dt;
+    
+    // 旋转效应（马格努斯力简化）
+    if (params.spinType === 'topspin') shuttle.vy -= 0.5 * dt;
+    else if (params.spinType === 'backspin') shuttle.vy += 0.3 * dt;
+    else if (params.spinType === 'sidespin') shuttle.vz += 0.4 * dt;
+    
+    // 更新位置
+    shuttle.x += shuttle.vx * dt;
+    shuttle.y += shuttle.vy * dt;
+    shuttle.z += shuttle.vz * dt;
+    
+    trajectory.push({ x: shuttle.x, y: shuttle.y, z: shuttle.z });
+    
+    // 边界检测
+    if (shuttle.y <= 0) {
+        shuttle.y = 0;
+        shuttle.active = false;
+        animating = false;
+        
+        // 更新统计
+        const maxH = Math.max(...trajectory.map(p => p.y));
+        const dist = shuttle.x;
+        const time = trajectory.length * dt;
+        const endSpeed = v * 3.6;
+        updateStats(null, maxH, time, dist, endSpeed);
+    }
+    
+    // 出界检测
+    if (shuttle.x > COURT.length || shuttle.x < 0 || 
+        shuttle.z < 0 || shuttle.z > COURT.width) {
+        shuttle.active = false;
+        animating = false;
+    }
+}
+
+function updateStats(speed, maxH, time, dist, endSpeed) {
+    if (speed !== null) document.getElementById('statSpeed').textContent = speed.toFixed(0) + ' km/h';
+    document.getElementById('statMaxH').textContent = maxH.toFixed(2) + ' m';
+    document.getElementById('statTime').textContent = time.toFixed(2) + ' s';
+    document.getElementById('statDist').textContent = dist.toFixed(2) + ' m';
+    document.getElementById('statEndSpeed').textContent = endSpeed.toFixed(0) + ' km/h';
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const offsetX = 50;
+    const offsetY = canvas.height - 100;
+    
+    // 绘制球场（侧视图）
+    ctx.strokeStyle = '#3a5a3a';
+    ctx.lineWidth = 2;
+    
+    // 地面
+    ctx.beginPath();
+    ctx.moveTo(offsetX, offsetY);
+    ctx.lineTo(offsetX + COURT.length * SCALE, offsetY);
+    ctx.stroke();
+    
+    // 球网
+    const netX = offsetX + (COURT.length / 2) * SCALE;
+    ctx.strokeStyle = '#7fff7f';
+    ctx.beginPath();
+    ctx.moveTo(netX, offsetY);
+    ctx.lineTo(netX, offsetY - COURT.netHeight * SCALE);
+    ctx.stroke();
+    
+    // 网顶标记
+    ctx.fillStyle = '#7fff7f';
+    ctx.fillRect(netX - 3, offsetY - COURT.netHeight * SCALE - 5, 6, 10);
+    
+    // 场地标记
+    ctx.fillStyle = '#4a6a4a';
+    ctx.font = '12px Arial';
+    ctx.fillText('发球区', offsetX + 20, offsetY + 20);
+    ctx.fillText('对方场地', offsetX + COURT.length * SCALE - 80, offsetY + 20);
+    ctx.fillText('网 (1.55m)', netX + 10, offsetY - COURT.netHeight * SCALE);
+    
+    // 绘制轨迹
+    if (trajectory.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(127,255,127,0.6)';
+        ctx.lineWidth = 2;
+        
+        trajectory.forEach((p, i) => {
+            const px = offsetX + p.x * SCALE;
+            const py = offsetY - p.y * SCALE;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        
+        // 轨迹点
+        trajectory.forEach((p, i) => {
+            if (i % 5 === 0) {
+                const px = offsetX + p.x * SCALE;
+                const py = offsetY - p.y * SCALE;
+                ctx.fillStyle = `rgba(127,255,127,${0.3 + (i/trajectory.length)*0.7})`;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+    
+    // 绘制羽毛球
+    if (shuttle) {
+        const sx = offsetX + shuttle.x * SCALE;
+        const sy = offsetY - shuttle.y * SCALE;
+        
+        // 羽毛球形状
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 羽毛尾部
+        ctx.strokeStyle = '#ccc';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx - Math.cos(angle) * 12, sy - Math.sin(angle) * 6 - 8);
+            ctx.stroke();
+        }
+        
+        // 速度向量
+        if (shuttle.active) {
+            const vScale = 3;
+            ctx.strokeStyle = '#ff7f7f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx + shuttle.vx * vScale, sy - shuttle.vy * vScale);
+            ctx.stroke();
+        }
+    }
+    
+    // 落点标记
+    if (!shuttle.active && trajectory.length > 0) {
+        const last = trajectory[trajectory.length - 1];
+        const lx = offsetX + last.x * SCALE;
+        const ly = offsetY - last.y * SCALE;
+        
+        ctx.strokeStyle = '#ff7f7f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(lx - 10, ly);
+        ctx.lineTo(lx + 10, ly);
+        ctx.moveTo(lx, ly - 10);
+        ctx.lineTo(lx, ly + 10);
+        ctx.stroke();
+        
+        // 判断是否过网
+        const overNet = last.x > COURT.length / 2;
+        const inBounds = last.x <= COURT.length && last.x >= 0;
+        
+        ctx.fillStyle = overNet && inBounds ? '#7fff7f' : '#ff7f7f';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText(overNet && inBounds ? '✓ 有效' : '✗ 出界/未过网', lx + 20, ly);
+    }
+    
+    // 信息显示
+    document.getElementById('trajInfo').innerHTML = shuttle.active ? 
+        `位置: (${shuttle.x.toFixed(2)}m, ${shuttle.y.toFixed(2)}m)<br>速度: ${(Math.sqrt(shuttle.vx**2+shuttle.vy**2)*3.6).toFixed(0)} km/h` :
+        '点击"击球"开始模拟';
+}
+
+function animate() {
+    if (animating) {
+        for (let i = 0; i < 3; i++) {
+            simulateStep(0.01);
+        }
+    }
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能通勤路线规划</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .map-section {
+            flex: 1;
+            position: relative;
+        }
+
+        #mapCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(26, 26, 46, 0.9);
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .map-legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .time-display {
+            position: absolute;
+            top: 15px;
+            right: 320px;
+            background: rgba(26, 26, 46, 0.9);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+
+        .time-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .time-label {
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        .control-panel {
+            width: 300px;
+            background: rgba(26, 26, 46, 0.98);
+            border-left: 1px solid #333;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 1em;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            font-size: 0.75em;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .location-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .location-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+        }
+
+        .location-icon.start { background: #4caf50; }
+        .location-icon.end { background: #f44336; }
+
+        .location-text {
+            flex: 1;
+            font-size: 0.85em;
+            color: #ccc;
+        }
+
+        .transport-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .transport-btn {
+            padding: 12px 8px;
+            background: #2a2a4a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .transport-btn:hover {
+            background: #3a3a5a;
+        }
+
+        .transport-btn.selected {
+            background: #4fc3f7;
+            color: #000;
+            border-color: #4fc3f7;
+        }
+
+        .transport-btn .icon {
+            font-size: 1.5em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .transport-btn .name {
+            font-size: 0.7em;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        .control-value {
+            color: #4fc3f7;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #4fc3f7;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #2a2a4a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+
+        .results-card {
+            background: #2a2a4a;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .result-icon {
+            font-size: 1.5em;
+        }
+
+        .result-title {
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .result-item {
+            text-align: center;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+        }
+
+        .result-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .result-label {
+            font-size: 0.7em;
+            color: #888;
+        }
+
+        .comparison-bar {
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .comparison-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 15px rgba(79, 195, 247, 0.4);
+        }
+
+        .btn-secondary {
+            background: #2a2a4a;
+            color: #fff;
+            border: 1px solid #444;
+        }
+
+        .recommendation {
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .recommendation-title {
+            font-size: 0.8em;
+            color: #a5d6a7;
+            margin-bottom: 5px;
+        }
+
+        .recommendation-text {
+            font-size: 0.9em;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .stat-label {
+            font-size: 0.7em;
+            color: #888;
+        }
+
+        .traffic-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .traffic-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .traffic-dot.green { background: #4caf50; }
+        .traffic-dot.yellow { background: #ffeb3b; }
+        .traffic-dot.red { background: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-section">
+            <canvas id="mapCanvas"></canvas>
+            <div class="map-overlay">
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#4caf50"></div>
+                        <span>起点</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#f44336"></div>
+                        <span>终点</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#4fc3f7"></div>
+                        <span>路线</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#ff9800"></div>
+                        <span>拥堵</span>
+                    </div>
+                </div>
+            </div>
+            <div class="time-display">
+                <div class="time-value" id="currentTime">08:00</div>
+                <div class="time-label">当前时间</div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="panel-title">🚗 通勤路线规划</div>
+
+            <div class="section">
+                <div class="section-label">起点/终点 (点击地图设置)</div>
+                <div class="location-input">
+                    <div class="location-icon start">🏠</div>
+                    <div class="location-text" id="startText">点击地图设置起点</div>
+                </div>
+                <div class="location-input">
+                    <div class="location-icon end">🏢</div>
+                    <div class="location-text" id="endText">点击地图设置终点</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">交通方式</div>
+                <div class="transport-options">
+                    <div class="transport-btn selected" data-mode="car">
+                        <span class="icon">🚗</span>
+                        <span class="name">自驾</span>
+                    </div>
+                    <div class="transport-btn" data-mode="bus">
+                        <span class="icon">🚌</span>
+                        <span class="name">公交</span>
+                    </div>
+                    <div class="transport-btn" data-mode="subway">
+                        <span class="icon">🚇</span>
+                        <span class="name">地铁</span>
+                    </div>
+                    <div class="transport-btn" data-mode="bike">
+                        <span class="icon">🚲</span>
+                        <span class="name">骑行</span>
+                    </div>
+                    <div class="transport-btn" data-mode="walk">
+                        <span class="icon">🚶</span>
+                        <span class="name">步行</span>
+                    </div>
+                    <div class="transport-btn" data-mode="mixed">
+                        <span class="icon">🔄</span>
+                        <span class="name">混合</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">参数设置</div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>出发时间</span>
+                        <span class="control-value" id="departTimeVal">08:00</span>
+                    </div>
+                    <input type="range" id="departTime" min="360" max="600" value="480">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>油耗 (L/100km)</span>
+                        <span class="control-value" id="fuelVal">8.0</span>
+                    </div>
+                    <input type="range" id="fuelConsumption" min="50" max="150" value="80">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>油价 (元/L)</span>
+                        <span class="control-value" id="fuelPriceVal">8.0</span>
+                    </div>
+                    <input type="range" id="fuelPrice" min="60" max="100" value="80">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>时间价值 (元/小时)</span>
+                        <span class="control-value" id="timeValueVal">50</span>
+                    </div>
+                    <input type="range" id="timeValue" min="0" max="200" value="50">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>天气条件</span></div>
+                    <select id="weather">
+                        <option value="sunny">☀️ 晴天</option>
+                        <option value="rainy">🌧️ 雨天</option>
+                        <option value="snowy">❄️ 雪天</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">交通状况</div>
+                <div class="traffic-indicator">
+                    <div class="traffic-dot" id="trafficDot"></div>
+                    <span id="trafficText">畅通</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">路线分析</div>
+                <div id="routeResults"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">智能推荐</div>
+                <div class="recommendation" id="recommendation">
+                    <div class="recommendation-title">💡 最佳方案</div>
+                    <div class="recommendation-text">设置起点和终点后获取推荐</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">长期统计</div>
+                <div class="stats-summary">
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthlyCost">¥0</div>
+                        <div class="stat-label">月通勤费用</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthlyTime">0h</div>
+                        <div class="stat-label">月通勤时间</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthlyCarbon">0kg</div>
+                        <div class="stat-label">月碳排放</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthlyCalories">0</div>
+                        <div class="stat-label">月消耗卡路里</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="compareBtn">📊 多方式对比</button>
+            <button class="btn btn-secondary" id="resetBtn">↺ 重置</button>
+        </div>
+    </div>
+
+    <script>
+
+        // ==================== 交通方式数据 ====================
+        const TransportModes = {
+            car: {
+                name: '自驾',
+                icon: '🚗',
+                speed: 30, // km/h 城市平均
+                costPerKm: 0, // 动态计算
+                carbonPerKm: 0.21, // kg CO2
+                caloriesPerKm: 0,
+                parkingCost: 20,
+                color: '#4fc3f7'
+            },
+            bus: {
+                name: '公交',
+                icon: '🚌',
+                speed: 18,
+                costPerKm: 0.1,
+                carbonPerKm: 0.089,
+                caloriesPerKm: 0,
+                ticketCost: 2,
+                waitTime: 8, // 分钟
+                color: '#66bb6a'
+            },
+            subway: {
+                name: '地铁',
+                icon: '🚇',
+                speed: 35,
+                costPerKm: 0.15,
+                carbonPerKm: 0.035,
+                caloriesPerKm: 0,
+                ticketCost: 3,
+                waitTime: 5,
+                walkToStation: 8, // 分钟
+                color: '#ab47bc'
+            },
+            bike: {
+                name: '骑行',
+                icon: '🚲',
+                speed: 15,
+                costPerKm: 0,
+                carbonPerKm: 0,
+                caloriesPerKm: 30,
+                color: '#ff7043'
+            },
+            walk: {
+                name: '步行',
+                icon: '🚶',
+                speed: 5,
+                costPerKm: 0,
+                carbonPerKm: 0,
+                caloriesPerKm: 60,
+                color: '#78909c'
+            },
+            mixed: {
+                name: '混合',
+                icon: '🔄',
+                color: '#ffd54f'
+            }
+        };
+
+        // ==================== 地图引擎 ====================
+        class MapEngine {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.resize();
+                
+                this.startPoint = null;
+                this.endPoint = null;
+                this.routes = [];
+                this.vehicles = [];
+                this.time = 0;
+                
+                // 城市元素
+                this.roads = [];
+                this.buildings = [];
+                this.subwayLines = [];
+                
+                this.generateCity();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                this.canvas.width = this.canvas.parentElement.clientWidth;
+                this.canvas.height = this.canvas.parentElement.clientHeight;
+            }
+
+            generateCity() {
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                // 生成主要道路网格
+                this.roads = [];
+                const gridSize = 100;
+                
+                // 横向道路
+                for (let y = gridSize; y < h; y += gridSize) {
+                    this.roads.push({
+                        type: 'horizontal',
+                        y: y,
+                        x1: 50,
+                        x2: w - 50,
+                        traffic: Math.random()
+                    });
+                }
+                
+                // 纵向道路
+                for (let x = gridSize; x < w - 50; x += gridSize) {
+                    this.roads.push({
+                        type: 'vertical',
+                        x: x,
+                        y1: 50,
+                        y2: h - 50,
+                        traffic: Math.random()
+                    });
+                }
+
+                // 生成建筑物
+                this.buildings = [];
+                for (let i = 0; i < 30; i++) {
+                    this.buildings.push({
+                        x: 80 + Math.random() * (w - 160),
+                        y: 80 + Math.random() * (h - 160),
+                        width: 30 + Math.random() * 40,
+                        height: 30 + Math.random() * 40,
+                        type: Math.random() > 0.7 ? 'commercial' : 'residential'
+                    });
+                }
+
+                // 地铁线路
+                this.subwayLines = [
+                    { points: [[100, h/2], [w/2, h/2], [w-100, h/3]], color: '#e53935' },
+                    { points: [[w/2, 100], [w/2, h/2], [w/2, h-100]], color: '#1e88e5' }
+                ];
+            }
+
+            setPoint(type, x, y) {
+                if (type === 'start') {
+                    this.startPoint = { x, y };
+                } else {
+                    this.endPoint = { x, y };
+                }
+            }
+
+            calculateRoute(mode) {
+                if (!this.startPoint || !this.endPoint) return null;
+
+                const dx = this.endPoint.x - this.startPoint.x;
+                const dy = this.endPoint.y - this.startPoint.y;
+                const distance = Math.sqrt(dx * dx + dy * dy) / 50; // 转换为km
+
+                // 简化路径：直线 + 曼哈顿距离混合
+                const points = [
+                    { ...this.startPoint },
+                    { x: this.startPoint.x + dx * 0.3, y: this.startPoint.y },
+                    { x: this.startPoint.x + dx * 0.3, y: this.endPoint.y },
+                    { ...this.endPoint }
+                ];
+
+                return { mode, points, distance };
+            }
+
+            draw(currentMode, trafficLevel, isNight) {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                // 背景（日夜变化）
+                const bgColor = isNight ? '#0d1117' : '#1a1a2e';
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, w, h);
+
+                // 绘制道路
+                this.roads.forEach(road => {
+                    const congestion = road.traffic * trafficLevel;
+                    const roadColor = congestion > 0.7 ? '#f44336' : 
+                                     congestion > 0.4 ? '#ff9800' : '#333';
+                    
+                    ctx.strokeStyle = roadColor;
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    
+                    if (road.type === 'horizontal') {
+                        ctx.moveTo(road.x1, road.y);
+                        ctx.lineTo(road.x2, road.y);
+                    } else {
+                        ctx.moveTo(road.x, road.y1);
+                        ctx.lineTo(road.x, road.y2);
+                    }
+                    ctx.stroke();
+
+                    // 道路中线
+                    ctx.strokeStyle = '#555';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([10, 10]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+
+                // 绘制地铁线路
+                this.subwayLines.forEach(line => {
+                    ctx.strokeStyle = line.color;
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    line.points.forEach((p, i) => {
+                        if (i === 0) ctx.moveTo(p[0], p[1]);
+                        else ctx.lineTo(p[0], p[1]);
+                    });
+                    ctx.stroke();
+
+                    // 站点
+                    line.points.forEach(p => {
+                        ctx.beginPath();
+                        ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+                        ctx.fillStyle = '#fff';
+                        ctx.fill();
+                        ctx.strokeStyle = line.color;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    });
+                });
+
+                // 绘制建筑物
+                this.buildings.forEach(b => {
+                    ctx.fillStyle = b.type === 'commercial' ? '#3949ab' : '#455a64';
+                    ctx.fillRect(b.x, b.y, b.width, b.height);
+                    
+                    // 窗户灯光
+                    if (isNight) {
+                        for (let wx = b.x + 5; wx < b.x + b.width - 5; wx += 8) {
+                            for (let wy = b.y + 5; wy < b.y + b.height - 5; wy += 8) {
+                                if (Math.random() > 0.5) {
+                                    ctx.fillStyle = 'rgba(255, 235, 59, 0.8)';
+                                    ctx.fillRect(wx, wy, 4, 4);
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 绘制路线
+                if (this.startPoint && this.endPoint && currentMode) {
+                    const route = this.calculateRoute(currentMode);
+                    if (route) {
+                        ctx.strokeStyle = TransportModes[currentMode].color;
+                        ctx.lineWidth = 4;
+                        ctx.setLineDash([8, 4]);
+                        ctx.beginPath();
+                        route.points.forEach((p, i) => {
+                            if (i === 0) ctx.moveTo(p.x, p.y);
+                            else ctx.lineTo(p.x, p.y);
+                        });
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        // 移动的通勤者
+                        this.drawCommuter(route, currentMode);
+                    }
+                }
+
+                // 绘制起点终点
+                if (this.startPoint) {
+                    ctx.beginPath();
+                    ctx.arc(this.startPoint.x, this.startPoint.y, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = '#4caf50';
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🏠', this.startPoint.x, this.startPoint.y + 5);
+                }
+
+                if (this.endPoint) {
+                    ctx.beginPath();
+                    ctx.arc(this.endPoint.x, this.endPoint.y, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f44336';
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('🏢', this.endPoint.x, this.endPoint.y + 5);
+                }
+
+                // 绘制交通流
+                this.drawTrafficFlow();
+            }
+
+            drawCommuter(route, mode) {
+                const ctx = this.ctx;
+                const progress = (this.time % 200) / 200;
+                
+                // 计算当前位置
+                const totalLength = route.points.length - 1;
+                const segment = Math.floor(progress * totalLength);
+                const segmentProgress = (progress * totalLength) % 1;
+                
+                if (segment < totalLength) {
+                    const p1 = route.points[segment];
+                    const p2 = route.points[segment + 1];
+                    const x = p1.x + (p2.x - p1.x) * segmentProgress;
+                    const y = p1.y + (p2.y - p1.y) * segmentProgress;
+
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(TransportModes[mode].icon, x, y + 7);
+                }
+            }
+
+            drawTrafficFlow() {
+                const ctx = this.ctx;
+                
+                // 模拟车辆流动
+                for (let i = 0; i < 10; i++) {
+                    const road = this.roads[Math.floor(Math.random() * this.roads.length)];
+                    const progress = (this.time * 0.5 + i * 50) % 100 / 100;
+                    
+                    let x, y;
+                    if (road.type === 'horizontal') {
+                        x = road.x1 + (road.x2 - road.x1) * progress;
+                        y = road.y;
+                    } else {
+                        x = road.x;
+                        y = road.y1 + (road.y2 - road.y1) * progress;
+                    }
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.fillRect(x - 3, y - 2, 6, 4);
+                }
+            }
+
+            update() {
+                this.time++;
+            }
+        }
+
+        // ==================== 路径计算器 ====================
+        class RouteCalculator {
+            constructor() {
+                this.params = {
+                    departTime: 480, // 分钟
+                    fuelConsumption: 8, // L/100km
+                    fuelPrice: 8, // 元/L
+                    timeValue: 50, // 元/小时
+                    weather: 'sunny'
+                };
+            }
+
+            getTrafficMultiplier(time) {
+                // 高峰时段：7-9, 17-19
+                const hour = time / 60;
+                if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)) {
+                    return 1.5; // 拥堵
+                } else if (hour >= 10 && hour <= 16) {
+                    return 1.0; // 正常
+                }
+                return 0.8; // 畅通
+            }
+
+            getWeatherMultiplier() {
+                const multipliers = {
+                    sunny: 1.0,
+                    rainy: 1.3,
+                    snowy: 1.6
+                };
+                return multipliers[this.params.weather];
+            }
+
+            calculate(mode, distance) {
+                const trafficMult = this.getTrafficMultiplier(this.params.departTime);
+                const weatherMult = this.getWeatherMultiplier();
+                const modeData = TransportModes[mode];
+
+                let time, cost, carbon, calories;
+
+                if (mode === 'car') {
+                    const speed = modeData.speed / trafficMult / weatherMult;
+                    time = (distance / speed) * 60; // 分钟
+                    const fuelCost = distance * (this.params.fuelConsumption / 100) * this.params.fuelPrice;
+                    cost = fuelCost + modeData.parkingCost;
+                    carbon = distance * modeData.carbonPerKm;
+                    calories = 0;
+                } else if (mode === 'bus') {
+                    const speed = modeData.speed / trafficMult / weatherMult;
+                    time = (distance / speed) * 60 + modeData.waitTime;
+                    cost = Math.max(modeData.ticketCost, distance * modeData.costPerKm);
+                    carbon = distance * modeData.carbonPerKm;
+                    calories = 0;
+                } else if (mode === 'subway') {
+                    time = (distance / modeData.speed) * 60 + modeData.waitTime + modeData.walkToStation * 2;
+                    cost = Math.max(modeData.ticketCost, distance * modeData.costPerKm);
+                    carbon = distance * modeData.carbonPerKm;
+                    calories = modeData.walkToStation * 2 * 5; // 步行消耗
+                } else if (mode === 'bike') {
+                    const speed = modeData.speed / weatherMult;
+                    time = (distance / speed) * 60;
+                    cost = 0;
+                    carbon = 0;
+                    calories = distance * modeData.caloriesPerKm;
+                } else if (mode === 'walk') {
+                    time = (distance / modeData.speed) * 60;
+                    cost = 0;
+                    carbon = 0;
+                    calories = distance * modeData.caloriesPerKm;
+                } else if (mode === 'mixed') {
+                    // 混合：地铁 + 步行
+                    const subwayDist = distance * 0.7;
+                    const walkDist = distance * 0.3;
+                    time = (subwayDist / TransportModes.subway.speed) * 60 + 
+                           (walkDist / TransportModes.walk.speed) * 60 + 10;
+                    cost = Math.max(3, subwayDist * 0.15);
+                    carbon = subwayDist * TransportModes.subway.carbonPerKm;
+                    calories = walkDist * TransportModes.walk.caloriesPerKm;
+                }
+
+                // 时间成本
+                const timeCost = (time / 60) * this.params.timeValue;
+                const totalCost = cost + timeCost;
+
+                return {
+                    mode,
+                    distance: distance.toFixed(1),
+                    time: Math.round(time),
+                    cost: cost.toFixed(1),
+                    totalCost: totalCost.toFixed(1),
+                    carbon: carbon.toFixed(2),
+                    calories: Math.round(calories)
+                };
+            }
+
+            compareAll(distance) {
+                const modes = ['car', 'bus', 'subway', 'bike', 'walk', 'mixed'];
+                return modes.map(mode => this.calculate(mode, distance));
+            }
+
+            getBestOption(distance) {
+                const results = this.compareAll(distance);
+                
+                // 综合评分：时间40%，成本30%，环保20%，健康10%
+                const scored = results.map(r => {
+                    const timeScore = 100 - Math.min(100, r.time);
+                    const costScore = 100 - Math.min(100, parseFloat(r.totalCost));
+                    const ecoScore = 100 - Math.min(100, parseFloat(r.carbon) * 100);
+                    const healthScore = Math.min(100, r.calories / 3);
+                    
+                    return {
+                        ...r,
+                        score: timeScore * 0.4 + costScore * 0.3 + ecoScore * 0.2 + healthScore * 0.1
+                    };
+                });
+
+                return scored.sort((a, b) => b.score - a.score)[0];
+            }
+        }
+
+
+        // ==================== 主应用 ====================
+        class CommuteApp {
+            constructor() {
+                this.map = new MapEngine(document.getElementById('mapCanvas'));
+                this.calculator = new RouteCalculator();
+                this.currentMode = 'car';
+                this.settingPoint = 'start';
+                
+                this.initControls();
+                this.animate();
+            }
+
+            initControls() {
+                // 地图点击
+                this.map.canvas.addEventListener('click', (e) => {
+                    const rect = this.map.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    this.map.setPoint(this.settingPoint, x, y);
+                    
+                    if (this.settingPoint === 'start') {
+                        document.getElementById('startText').textContent = `位置: (${Math.round(x)}, ${Math.round(y)})`;
+                        this.settingPoint = 'end';
+                    } else {
+                        document.getElementById('endText').textContent = `位置: (${Math.round(x)}, ${Math.round(y)})`;
+                        this.settingPoint = 'start';
+                    }
+
+                    this.updateResults();
+                });
+
+                // 交通方式选择
+                document.querySelectorAll('.transport-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.transport-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        this.currentMode = btn.dataset.mode;
+                        this.updateResults();
+                    });
+                });
+
+                // 参数滑块
+                document.getElementById('departTime').addEventListener('input', (e) => {
+                    const mins = parseInt(e.target.value);
+                    const hours = Math.floor(mins / 60);
+                    const minutes = mins % 60;
+                    const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    document.getElementById('departTimeVal').textContent = timeStr;
+                    document.getElementById('currentTime').textContent = timeStr;
+                    this.calculator.params.departTime = mins;
+                    this.updateResults();
+                });
+
+                document.getElementById('fuelConsumption').addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value) / 10;
+                    document.getElementById('fuelVal').textContent = val.toFixed(1);
+                    this.calculator.params.fuelConsumption = val;
+                    this.updateResults();
+                });
+
+                document.getElementById('fuelPrice').addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value) / 10;
+                    document.getElementById('fuelPriceVal').textContent = val.toFixed(1);
+                    this.calculator.params.fuelPrice = val;
+                    this.updateResults();
+                });
+
+                document.getElementById('timeValue').addEventListener('input', (e) => {
+                    document.getElementById('timeValueVal').textContent = e.target.value;
+                    this.calculator.params.timeValue = parseInt(e.target.value);
+                    this.updateResults();
+                });
+
+                document.getElementById('weather').addEventListener('change', (e) => {
+                    this.calculator.params.weather = e.target.value;
+                    this.updateResults();
+                });
+
+                // 按钮
+                document.getElementById('compareBtn').addEventListener('click', () => this.showComparison());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+            }
+
+            updateResults() {
+                if (!this.map.startPoint || !this.map.endPoint) return;
+
+                const route = this.map.calculateRoute(this.currentMode);
+                if (!route) return;
+
+                const result = this.calculator.calculate(this.currentMode, route.distance);
+                
+                // 更新交通状况
+                const trafficMult = this.calculator.getTrafficMultiplier(this.calculator.params.departTime);
+                const trafficDot = document.getElementById('trafficDot');
+                const trafficText = document.getElementById('trafficText');
+                
+                if (trafficMult > 1.3) {
+                    trafficDot.className = 'traffic-dot red';
+                    trafficText.textContent = '拥堵';
+                } else if (trafficMult > 1.0) {
+                    trafficDot.className = 'traffic-dot yellow';
+                    trafficText.textContent = '缓行';
+                } else {
+                    trafficDot.className = 'traffic-dot green';
+                    trafficText.textContent = '畅通';
+                }
+
+                // 更新结果卡片
+                const modeData = TransportModes[this.currentMode];
+                document.getElementById('routeResults').innerHTML = `
+                    <div class="results-card">
+                        <div class="result-header">
+                            <span class="result-icon">${modeData.icon}</span>
+                            <span class="result-title">${modeData.name}</span>
+                        </div>
+                        <div class="result-grid">
+                            <div class="result-item">
+                                <div class="result-value">${result.time}分</div>
+                                <div class="result-label">预计时间</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-value">¥${result.cost}</div>
+                                <div class="result-label">直接费用</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-value">${result.carbon}kg</div>
+                                <div class="result-label">碳排放</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-value">${result.calories}卡</div>
+                                <div class="result-label">消耗热量</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;font-size:0.8em;color:#888">
+                            距离: ${result.distance}km | 综合成本: ¥${result.totalCost}
+                        </div>
+                    </div>
+                `;
+
+                // 更新推荐
+                const best = this.calculator.getBestOption(route.distance);
+                document.getElementById('recommendation').innerHTML = `
+                    <div class="recommendation-title">💡 最佳方案</div>
+                    <div class="recommendation-text">
+                        推荐 <strong>${TransportModes[best.mode].icon} ${TransportModes[best.mode].name}</strong>：
+                        ${best.time}分钟，¥${best.cost}，碳排放${best.carbon}kg
+                    </div>
+                `;
+
+                // 更新长期统计（假设每月22个工作日，往返）
+                const monthlyTrips = 22 * 2;
+                document.getElementById('monthlyCost').textContent = '¥' + Math.round(parseFloat(result.cost) * monthlyTrips);
+                document.getElementById('monthlyTime').textContent = Math.round(result.time * monthlyTrips / 60) + 'h';
+                document.getElementById('monthlyCarbon').textContent = (parseFloat(result.carbon) * monthlyTrips).toFixed(1) + 'kg';
+                document.getElementById('monthlyCalories').textContent = result.calories * monthlyTrips;
+            }
+
+            showComparison() {
+                if (!this.map.startPoint || !this.map.endPoint) {
+                    alert('请先设置起点和终点');
+                    return;
+                }
+
+                const route = this.map.calculateRoute(this.currentMode);
+                const results = this.calculator.compareAll(route.distance);
+                
+                let html = '<div style="font-size:0.85em">';
+                results.forEach(r => {
+                    const mode = TransportModes[r.mode];
+                    html += `
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #333">
+                            <span style="font-size:1.2em">${mode.icon}</span>
+                            <span style="flex:1">${mode.name}</span>
+                            <span>${r.time}分</span>
+                            <span>¥${r.cost}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                document.getElementById('routeResults').innerHTML = html;
+            }
+
+            reset() {
+                this.map.startPoint = null;
+                this.map.endPoint = null;
+                this.settingPoint = 'start';
+                document.getElementById('startText').textContent = '点击地图设置起点';
+                document.getElementById('endText').textContent = '点击地图设置终点';
+                document.getElementById('routeResults').innerHTML = '';
+            }
+
+            animate() {
+                const trafficMult = this.calculator.getTrafficMultiplier(this.calculator.params.departTime);
+                const hour = this.calculator.params.departTime / 60;
+                const isNight = hour < 6 || hour > 19;
+                
+                this.map.update();
+                this.map.draw(this.currentMode, trafficMult - 0.5, isNight);
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 启动应用
+        new CommuteApp();
+    </script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人体生理系统模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫀</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a1628 0%, #1a0a28 100%);
+            min-height: 100vh;
+            color: #a0c0e0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .body-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .body-model {
+            width: 300px;
+            height: 500px;
+            position: relative;
+        }
+        .right-panel {
+            width: 350px;
+            background: rgba(10,20,40,0.95);
+            border-left: 2px solid #2a4a6a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 350px;
+            height: 120px;
+            background: rgba(10,20,40,0.95);
+            border-top: 2px solid #2a4a6a;
+            display: flex;
+            padding: 10px;
+            gap: 10px;
+        }
+        .vital-card {
+            flex: 1;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #2a4a6a;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .vital-icon { font-size: 1.5em; margin-bottom: 5px; }
+        .vital-value { font-size: 1.8em; font-weight: bold; }
+        .vital-label { font-size: 0.75em; color: #6080a0; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="body-area">
+        <canvas id="bodyCanvas" width="400" height="550"></canvas>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<div class="bottom-panel" id="bottomPanel"></div>
+<script>
+const canvas = document.getElementById('bodyCanvas');
+const ctx = canvas.getContext('2d');
+
+// 生理参数
+let physiology = {
+    heartRate: 72,
+    bloodPressure: { systolic: 120, diastolic: 80 },
+    temperature: 36.6,
+    oxygenSat: 98,
+    bloodSugar: 90,
+    respirationRate: 16,
+    metabolicRate: 1800
+};
+
+// 控制参数
+let controls = {
+    activity: 0.2,      // 0=睡眠, 0.5=静息, 1=极限运动
+    stress: 0.3,        // 0=放松, 1=极度压力
+    temperature: 22,    // 环境温度
+    hydration: 0.7,     // 0=脱水, 1=过度水合
+    food: { carbs: 50, protein: 30, fat: 20 }
+};
+
+let selectedSystem = 'circulatory';
+let time = 0;
+let particles = [];
+
+const systems = {
+    circulatory: { name: '循环系统', color: '#ff4444', icon: '❤️' },
+    respiratory: { name: '呼吸系统', color: '#44aaff', icon: '🫁' },
+    digestive: { name: '消化系统', color: '#ffaa44', icon: '🍽️' },
+    nervous: { name: '神经系统', color: '#aa44ff', icon: '🧠' }
+};
+
+function init() {
+    renderRightPanel();
+    renderBottomPanel();
+    
+    // 初始化血液粒子
+    for (let i = 0; i < 100; i++) {
+        particles.push(createBloodParticle());
+    }
+    
+    setInterval(simulate, 100);
+    animate();
+}
+
+function createBloodParticle() {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 50 + Math.random() * 80;
+    return {
+        x: 200 + Math.cos(angle) * radius,
+        y: 180 + Math.sin(angle) * radius * 0.6,
+        vx: 0,
+        vy: 0,
+        phase: Math.random() * Math.PI * 2,
+        type: Math.random() > 0.3 ? 'red' : 'blue'
+    };
+}
+
+function simulate() {
+    time += 0.1;
+    
+    // 活动影响
+    const activityEffect = controls.activity * 2;
+    const stressEffect = controls.stress * 1.5;
+    
+    // 心率计算
+    const baseHR = 60;
+    physiology.heartRate = baseHR + activityEffect * 80 + stressEffect * 30;
+    physiology.heartRate += Math.sin(time * 0.5) * 3; // 自然波动
+    
+    // 血压
+    physiology.bloodPressure.systolic = 110 + activityEffect * 40 + stressEffect * 20;
+    physiology.bloodPressure.diastolic = 70 + activityEffect * 20 + stressEffect * 10;
+    
+    // 呼吸率
+    physiology.respirationRate = 12 + activityEffect * 20;
+    
+    // 体温
+    const envTempEffect = (controls.temperature - 22) * 0.02;
+    physiology.temperature = 36.5 + activityEffect * 1.5 + envTempEffect;
+    
+    // 血氧
+    physiology.oxygenSat = 98 - activityEffect * 3;
+    if (controls.activity > 0.8) physiology.oxygenSat -= 2;
+    
+    // 血糖
+    const carbEffect = controls.food.carbs / 100;
+    physiology.bloodSugar = 80 + carbEffect * 40 - activityEffect * 20;
+    
+    // 代谢率
+    physiology.metabolicRate = 1500 + activityEffect * 3000 + stressEffect * 500;
+    
+    // 限制范围
+    physiology.heartRate = Math.max(40, Math.min(200, physiology.heartRate));
+    physiology.oxygenSat = Math.max(85, Math.min(100, physiology.oxygenSat));
+    physiology.bloodSugar = Math.max(50, Math.min(200, physiology.bloodSugar));
+    physiology.temperature = Math.max(35, Math.min(42, physiology.temperature));
+    
+    renderBottomPanel();
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 1em; color: #4a8ac0; border-bottom: 1px solid #2a4a6a; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #2a4a6a; }
+            .system-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; margin: 4px 0; background: rgba(255,255,255,0.03); border: 1px solid #2a4a6a; border-radius: 6px; color: #a0c0e0; cursor: pointer; }
+            .system-btn:hover { background: rgba(255,255,255,0.08); }
+            .system-btn.active { border-color: #4a8ac0; background: rgba(74,138,192,0.2); }
+            .slider-group { margin: 12px 0; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #6080a0; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #2a4a6a; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #4a8ac0; cursor: pointer; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#4a8ac0;font-size:1.2em;">🫀 人体生理模拟器</h2>
+            <p style="color:#4a6080;font-size:0.75em;">多系统协调仿真</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔬 系统选择</div>
+            ${Object.entries(systems).map(([k, s]) => `
+                <button class="system-btn ${selectedSystem === k ? 'active' : ''}" onclick="selectSystem('${k}')">
+                    <span style="font-size:1.5em">${s.icon}</span>
+                    <span>${s.name}</span>
+                </button>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 生理控制</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🏃 活动水平</span><span>${getActivityLabel()}</span></div>
+                <input type="range" min="0" max="100" value="${controls.activity * 100}" 
+                       oninput="controls.activity=this.value/100;renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>😰 压力水平</span><span>${getStressLabel()}</span></div>
+                <input type="range" min="0" max="100" value="${controls.stress * 100}"
+                       oninput="controls.stress=this.value/100;renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🌡️ 环境温度</span><span>${controls.temperature}°C</span></div>
+                <input type="range" min="0" max="45" value="${controls.temperature}"
+                       oninput="controls.temperature=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>💧 水分状态</span><span>${getHydrationLabel()}</span></div>
+                <input type="range" min="0" max="100" value="${controls.hydration * 100}"
+                       oninput="controls.hydration=this.value/100;renderRightPanel()">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🍽️ 营养摄入</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🍞 碳水化合物</span><span>${controls.food.carbs}%</span></div>
+                <input type="range" min="0" max="100" value="${controls.food.carbs}"
+                       oninput="controls.food.carbs=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🥩 蛋白质</span><span>${controls.food.protein}%</span></div>
+                <input type="range" min="0" max="100" value="${controls.food.protein}"
+                       oninput="controls.food.protein=parseInt(this.value);renderRightPanel()">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🥑 脂肪</span><span>${controls.food.fat}%</span></div>
+                <input type="range" min="0" max="100" value="${controls.food.fat}"
+                       oninput="controls.food.fat=parseInt(this.value);renderRightPanel()">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 系统状态</div>
+            <div style="font-size:0.8em;color:#6080a0;line-height:1.8;">
+                ${getSystemInfo()}
+            </div>
+        </div>
+    `;
+}
+
+function getActivityLabel() {
+    if (controls.activity < 0.1) return '睡眠';
+    if (controls.activity < 0.3) return '静息';
+    if (controls.activity < 0.5) return '轻度活动';
+    if (controls.activity < 0.7) return '中度运动';
+    if (controls.activity < 0.9) return '剧烈运动';
+    return '极限运动';
+}
+
+function getStressLabel() {
+    if (controls.stress < 0.2) return '放松';
+    if (controls.stress < 0.4) return '轻度';
+    if (controls.stress < 0.6) return '中度';
+    if (controls.stress < 0.8) return '高度';
+    return '极度压力';
+}
+
+function getHydrationLabel() {
+    if (controls.hydration < 0.3) return '脱水';
+    if (controls.hydration < 0.5) return '轻度缺水';
+    if (controls.hydration < 0.7) return '正常';
+    if (controls.hydration < 0.9) return '充足';
+    return '过度水合';
+}
+
+function getSystemInfo() {
+    const info = {
+        circulatory: `心脏每分钟泵血约${(physiology.heartRate * 70 / 1000).toFixed(1)}升<br>血液循环一周约需60秒<br>当前心输出量: ${(physiology.heartRate * 70 / 1000 * 60).toFixed(0)} L/min`,
+        respiratory: `每分钟呼吸${physiology.respirationRate.toFixed(0)}次<br>潮气量约500ml<br>每分钟通气量: ${(physiology.respirationRate * 0.5).toFixed(1)} L`,
+        digestive: `基础代谢率: ${physiology.metabolicRate.toFixed(0)} kcal/天<br>碳水提供${controls.food.carbs}%能量<br>消化一餐约需4-6小时`,
+        nervous: `神经信号传导速度: 120m/s<br>大脑消耗约20%能量<br>压力激活交感神经系统`
+    };
+    return info[selectedSystem];
+}
+
+function selectSystem(sys) {
+    selectedSystem = sys;
+    renderRightPanel();
+}
+
+function renderBottomPanel() {
+    const panel = document.getElementById('bottomPanel');
+    
+    const vitals = [
+        { icon: '❤️', label: '心率', value: physiology.heartRate.toFixed(0), unit: 'BPM', color: getVitalColor('hr', physiology.heartRate) },
+        { icon: '🩸', label: '血压', value: `${physiology.bloodPressure.systolic.toFixed(0)}/${physiology.bloodPressure.diastolic.toFixed(0)}`, unit: 'mmHg', color: getVitalColor('bp', physiology.bloodPressure.systolic) },
+        { icon: '🌡️', label: '体温', value: physiology.temperature.toFixed(1), unit: '°C', color: getVitalColor('temp', physiology.temperature) },
+        { icon: '💨', label: '血氧', value: physiology.oxygenSat.toFixed(0), unit: '%', color: getVitalColor('o2', physiology.oxygenSat) },
+        { icon: '🍬', label: '血糖', value: physiology.bloodSugar.toFixed(0), unit: 'mg/dL', color: getVitalColor('sugar', physiology.bloodSugar) },
+        { icon: '🫁', label: '呼吸', value: physiology.respirationRate.toFixed(0), unit: '次/分', color: '#44aaff' },
+        { icon: '🔥', label: '代谢', value: physiology.metabolicRate.toFixed(0), unit: 'kcal', color: '#ffaa44' }
+    ];
+    
+    panel.innerHTML = vitals.map(v => `
+        <div class="vital-card">
+            <div class="vital-icon">${v.icon}</div>
+            <div class="vital-value" style="color:${v.color}">${v.value}</div>
+            <div class="vital-label">${v.label} (${v.unit})</div>
+        </div>
+    `).join('');
+}
+
+function getVitalColor(type, value) {
+    switch(type) {
+        case 'hr':
+            if (value < 60 || value > 100) return '#ffaa44';
+            if (value > 150) return '#ff4444';
+            return '#44ff88';
+        case 'bp':
+            if (value > 140) return '#ff4444';
+            if (value > 130) return '#ffaa44';
+            return '#44ff88';
+        case 'temp':
+            if (value < 36 || value > 37.5) return '#ffaa44';
+            if (value > 38) return '#ff4444';
+            return '#44ff88';
+        case 'o2':
+            if (value < 95) return '#ffaa44';
+            if (value < 90) return '#ff4444';
+            return '#44ff88';
+        case 'sugar':
+            if (value < 70 || value > 140) return '#ffaa44';
+            if (value < 50 || value > 180) return '#ff4444';
+            return '#44ff88';
+        default:
+            return '#44aaff';
+    }
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制人体轮廓
+    drawBody();
+    
+    // 绘制选中的系统
+    if (selectedSystem === 'circulatory') drawCirculatorySystem();
+    else if (selectedSystem === 'respiratory') drawRespiratorySystem();
+    else if (selectedSystem === 'digestive') drawDigestiveSystem();
+    else if (selectedSystem === 'nervous') drawNervousSystem();
+    
+    // 更新粒子
+    updateParticles();
+}
+
+function drawBody() {
+    ctx.strokeStyle = 'rgba(74,138,192,0.3)';
+    ctx.lineWidth = 2;
+    
+    // 头
+    ctx.beginPath();
+    ctx.ellipse(200, 60, 35, 45, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // 躯干
+    ctx.beginPath();
+    ctx.moveTo(165, 100);
+    ctx.lineTo(150, 280);
+    ctx.lineTo(170, 280);
+    ctx.lineTo(200, 320);
+    ctx.lineTo(230, 280);
+    ctx.lineTo(250, 280);
+    ctx.lineTo(235, 100);
+    ctx.closePath();
+    ctx.stroke();
+    
+    // 手臂
+    ctx.beginPath();
+    ctx.moveTo(150, 110);
+    ctx.lineTo(100, 220);
+    ctx.moveTo(250, 110);
+    ctx.lineTo(300, 220);
+    ctx.stroke();
+    
+    // 腿
+    ctx.beginPath();
+    ctx.moveTo(170, 280);
+    ctx.lineTo(160, 450);
+    ctx.moveTo(230, 280);
+    ctx.lineTo(240, 450);
+    ctx.stroke();
+}
+
+function drawCirculatorySystem() {
+    const heartBeat = Math.sin(time * physiology.heartRate / 30) * 0.1 + 1;
+    
+    // 心脏
+    ctx.save();
+    ctx.translate(200, 180);
+    ctx.scale(heartBeat, heartBeat);
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.moveTo(0, -15);
+    ctx.bezierCurveTo(-20, -30, -30, 0, 0, 20);
+    ctx.bezierCurveTo(30, 0, 20, -30, 0, -15);
+    ctx.fill();
+    ctx.restore();
+    
+    // 主要血管
+    ctx.strokeStyle = '#ff6666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(200, 165);
+    ctx.lineTo(200, 100);
+    ctx.lineTo(200, 60);
+    ctx.stroke();
+    
+    ctx.strokeStyle = '#6666ff';
+    ctx.beginPath();
+    ctx.moveTo(200, 195);
+    ctx.lineTo(200, 280);
+    ctx.stroke();
+    
+    // 绘制血液粒子
+    particles.forEach(p => {
+        ctx.fillStyle = p.type === 'red' ? '#ff4444' : '#4444ff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawRespiratorySystem() {
+    const breathPhase = Math.sin(time * physiology.respirationRate / 30);
+    const lungSize = 1 + breathPhase * 0.1;
+    
+    // 气管
+    ctx.strokeStyle = '#44aaff';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(200, 100);
+    ctx.lineTo(200, 150);
+    ctx.stroke();
+    
+    // 左肺
+    ctx.save();
+    ctx.translate(160, 200);
+    ctx.scale(lungSize, lungSize);
+    ctx.fillStyle = 'rgba(68,170,255,0.3)';
+    ctx.strokeStyle = '#44aaff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 30, 50, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    
+    // 右肺
+    ctx.save();
+    ctx.translate(240, 200);
+    ctx.scale(lungSize, lungSize);
+    ctx.fillStyle = 'rgba(68,170,255,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 30, 50, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    
+    // O2/CO2 标签
+    ctx.fillStyle = '#44ff88';
+    ctx.font = '12px Arial';
+    ctx.fillText('O₂ ↓', 180, 130);
+    ctx.fillStyle = '#ff8844';
+    ctx.fillText('CO₂ ↑', 200, 130);
+}
+
+function drawDigestiveSystem() {
+    // 胃
+    ctx.fillStyle = 'rgba(255,170,68,0.3)';
+    ctx.strokeStyle = '#ffaa44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(180, 220, 25, 35, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // 小肠
+    ctx.strokeStyle = '#ffaa44';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+        const y = 270 + i * 15;
+        ctx.moveTo(160, y);
+        ctx.bezierCurveTo(180, y - 10, 220, y + 10, 240, y);
+    }
+    ctx.stroke();
+    
+    // 肝脏
+    ctx.fillStyle = 'rgba(139,69,19,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(230, 200, 30, 20, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8b4513';
+    ctx.stroke();
+}
+
+function drawNervousSystem() {
+    // 大脑
+    ctx.fillStyle = 'rgba(170,68,255,0.3)';
+    ctx.strokeStyle = '#aa44ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(200, 55, 30, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // 脊髓
+    ctx.strokeStyle = '#aa44ff';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(200, 80);
+    ctx.lineTo(200, 280);
+    ctx.stroke();
+    
+    // 神经信号
+    const signalY = 80 + ((time * 50) % 200);
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(200, signalY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 神经分支
+    ctx.strokeStyle = 'rgba(170,68,255,0.5)';
+    ctx.lineWidth = 1;
+    for (let y = 120; y < 280; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(200, y);
+        ctx.lineTo(150, y + 20);
+        ctx.moveTo(200, y);
+        ctx.lineTo(250, y + 20);
+        ctx.stroke();
+    }
+}
+
+function updateParticles() {
+    const speed = physiology.heartRate / 72;
+    
+    particles.forEach(p => {
+        p.phase += 0.02 * speed;
+        const angle = p.phase;
+        const radius = 50 + Math.sin(p.phase * 0.5) * 30;
+        
+        p.x = 200 + Math.cos(angle) * radius;
+        p.y = 180 + Math.sin(angle) * radius * 0.6;
+    });
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

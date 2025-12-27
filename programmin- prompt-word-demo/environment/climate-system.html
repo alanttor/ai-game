@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地球气候系统模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a1020 0%, #001030 100%);
+            min-height: 100vh;
+            color: #a0c0e0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .main-area { flex: 1; display: flex; flex-direction: column; }
+        .earth-area { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+        .timeline-bar {
+            height: 80px;
+            background: rgba(10,20,40,0.95);
+            border-top: 1px solid #2a4a6a;
+            padding: 10px 20px;
+        }
+        .right-panel {
+            width: 320px;
+            background: rgba(10,20,40,0.95);
+            border-left: 2px solid #2a4a6a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="main-area">
+        <div class="earth-area">
+            <canvas id="earthCanvas"></canvas>
+        </div>
+        <div class="timeline-bar" id="timelineBar"></div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('earthCanvas');
+const ctx = canvas.getContext('2d');
+
+// 时间设置
+let currentYear = 2024;
+const timePresets = [
+    { year: -20000000, name: '中新世', temp: 4, co2: 400, ice: 0.1 },
+    { year: -20000, name: '末次冰盛期', temp: -6, co2: 180, ice: 0.4 },
+    { year: -6000, name: '全新世最适期', temp: 1, co2: 280, ice: 0.15 },
+    { year: 1850, name: '工业革命前', temp: 0, co2: 280, ice: 0.18 },
+    { year: 2024, name: '当前', temp: 1.2, co2: 420, ice: 0.12 },
+    { year: 2100, name: '未来预测', temp: 2.5, co2: 560, ice: 0.05 }
+];
+
+// 气候参数
+let climate = {
+    co2: 420,
+    temperature: 1.2,  // 相对于工业革命前
+    seaLevel: 0.2,     // 米
+    iceExtent: 0.12,   // 比例
+    albedo: 0.3
+};
+
+// 排放情景
+let scenario = 'current';
+const scenarios = {
+    ssp126: { name: 'SSP1-2.6 (可持续)', co2_2100: 400, temp_2100: 1.8 },
+    ssp245: { name: 'SSP2-4.5 (中等)', co2_2100: 550, temp_2100: 2.7 },
+    ssp585: { name: 'SSP5-8.5 (高排放)', co2_2100: 1100, temp_2100: 4.4 },
+    current: { name: '当前趋势', co2_2100: 700, temp_2100: 3.2 }
+};
+
+let rotation = 0;
+let simRunning = true;
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    renderTimelineBar();
+    renderRightPanel();
+    
+    setInterval(simulate, 100);
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+}
+
+function simulate() {
+    if (!simRunning) return;
+    
+    rotation += 0.005;
+    
+    // 简化气候模型
+    // 辐射强迫: ΔF = 5.35 * ln(C/C0)
+    const C0 = 280; // 工业革命前CO2
+    const deltaF = 5.35 * Math.log(climate.co2 / C0);
+    
+    // 气候敏感度 (简化)
+    const sensitivity = 0.8; // °C per W/m²
+    const targetTemp = deltaF * sensitivity;
+    
+    // 温度响应 (有惯性)
+    climate.temperature += (targetTemp - climate.temperature) * 0.01;
+    
+    // 海平面上升
+    climate.seaLevel = climate.temperature * 0.3; // 简化关系
+    
+    // 冰盖变化
+    climate.iceExtent = Math.max(0, 0.18 - climate.temperature * 0.03);
+    
+    // 反照率反馈
+    climate.albedo = 0.3 - climate.iceExtent * 0.1 + climate.iceExtent * 0.2;
+}
+
+function setYear(year) {
+    currentYear = year;
+    
+    // 找到最近的预设
+    let preset = timePresets[0];
+    for (const p of timePresets) {
+        if (Math.abs(p.year - year) < Math.abs(preset.year - year)) {
+            preset = p;
+        }
+    }
+    
+    // 插值计算
+    if (year >= 1850 && year <= 2100) {
+        const progress = (year - 1850) / (2100 - 1850);
+        const sc = scenarios[scenario];
+        climate.co2 = 280 + progress * (sc.co2_2100 - 280);
+        climate.temperature = progress * sc.temp_2100;
+    } else {
+        climate.co2 = preset.co2;
+        climate.temperature = preset.temp;
+        climate.iceExtent = preset.ice;
+    }
+    
+    renderTimelineBar();
+    renderRightPanel();
+}
+
+function renderTimelineBar() {
+    const bar = document.getElementById('timelineBar');
+    bar.innerHTML = `
+        <style>
+            .timeline-container { display: flex; flex-direction: column; height: 100%; }
+            .timeline-labels { display: flex; justify-content: space-between; font-size: 0.7em; color: #6080a0; margin-bottom: 5px; }
+            .timeline-slider { flex: 1; display: flex; align-items: center; }
+            .timeline-slider input { width: 100%; }
+            .preset-btns { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+            .preset-btn { padding: 4px 10px; background: rgba(40,80,120,0.3); border: 1px solid #2a4a6a; border-radius: 4px; color: #a0c0e0; cursor: pointer; font-size: 0.7em; }
+            .preset-btn:hover { background: rgba(40,80,120,0.5); }
+            .preset-btn.active { background: #2a4a6a; }
+        </style>
+        <div class="timeline-container">
+            <div class="timeline-labels">
+                <span>2000万年前</span>
+                <span>2万年前</span>
+                <span>1850</span>
+                <span>2024</span>
+                <span>2100</span>
+            </div>
+            <div class="timeline-slider">
+                <input type="range" min="-20000000" max="2100" value="${currentYear}" 
+                       oninput="setYear(parseInt(this.value))">
+            </div>
+            <div class="preset-btns">
+                ${timePresets.map(p => `
+                    <button class="preset-btn ${currentYear === p.year ? 'active' : ''}" onclick="setYear(${p.year})">
+                        ${p.name}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 0.95em; color: #4a8ac0; border-bottom: 1px solid #2a4a6a; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #2a4a6a; }
+            .stat-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 0.85em; }
+            .stat-value { font-weight: bold; }
+            .slider-group { margin: 10px 0; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.8em; color: #6080a0; margin-bottom: 4px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #2a4a6a; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #4a8ac0; cursor: pointer; }
+            select { width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid #2a4a6a; border-radius: 4px; color: #a0c0e0; }
+            .impact-item { padding: 8px; margin: 5px 0; background: rgba(255,255,255,0.03); border-radius: 4px; border-left: 3px solid; font-size: 0.8em; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#4a8ac0;font-size:1.1em;">🌍 地球气候模拟器</h2>
+            <p style="color:#4a6080;font-size:0.75em;">从冰河期到未来</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📅 当前时间: ${formatYear(currentYear)}</div>
+            <div class="stat-row">
+                <span>CO₂ 浓度</span>
+                <span class="stat-value" style="color:#ffaa44">${climate.co2.toFixed(0)} ppm</span>
+            </div>
+            <div class="stat-row">
+                <span>温度变化</span>
+                <span class="stat-value" style="color:${climate.temperature > 0 ? '#ff6644' : '#44aaff'}">
+                    ${climate.temperature > 0 ? '+' : ''}${climate.temperature.toFixed(2)}°C
+                </span>
+            </div>
+            <div class="stat-row">
+                <span>海平面上升</span>
+                <span class="stat-value" style="color:#44aaff">+${(climate.seaLevel * 100).toFixed(0)} cm</span>
+            </div>
+            <div class="stat-row">
+                <span>冰盖覆盖</span>
+                <span class="stat-value" style="color:#aaddff">${(climate.iceExtent * 100).toFixed(1)}%</span>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 排放情景 (2100年)</div>
+            <select onchange="scenario=this.value;setYear(currentYear)">
+                ${Object.entries(scenarios).map(([k, s]) => `
+                    <option value="${k}" ${scenario === k ? 'selected' : ''}>${s.name}</option>
+                `).join('')}
+            </select>
+            <div style="margin-top:10px;font-size:0.8em;color:#6080a0;">
+                预计2100年: +${scenarios[scenario].temp_2100}°C, ${scenarios[scenario].co2_2100} ppm
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 参数调整</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>CO₂ 浓度</span><span>${climate.co2.toFixed(0)} ppm</span></div>
+                <input type="range" min="180" max="1000" value="${climate.co2}" 
+                       oninput="climate.co2=parseInt(this.value);renderRightPanel()">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚠️ 气候影响</div>
+            ${getImpacts()}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 知识点</div>
+            <div style="font-size:0.75em;color:#6080a0;line-height:1.6;">
+                ${getKnowledge()}
+            </div>
+        </div>
+    `;
+}
+
+function formatYear(year) {
+    if (year < -10000) return `${Math.abs(year/1000000).toFixed(0)}百万年前`;
+    if (year < 0) return `${Math.abs(year/1000).toFixed(0)}千年前`;
+    return `${year}年`;
+}
+
+function getImpacts() {
+    const impacts = [];
+    
+    if (climate.temperature > 1.5) {
+        impacts.push({ color: '#ffaa44', text: '珊瑚礁大规模白化' });
+    }
+    if (climate.temperature > 2) {
+        impacts.push({ color: '#ff6644', text: '极端天气事件增加' });
+    }
+    if (climate.seaLevel > 0.5) {
+        impacts.push({ color: '#44aaff', text: '沿海城市面临洪水风险' });
+    }
+    if (climate.iceExtent < 0.1) {
+        impacts.push({ color: '#aaddff', text: '北极夏季无冰' });
+    }
+    if (climate.temperature > 3) {
+        impacts.push({ color: '#ff4444', text: '大规模物种灭绝风险' });
+    }
+    
+    if (impacts.length === 0) {
+        impacts.push({ color: '#44ff88', text: '气候相对稳定' });
+    }
+    
+    return impacts.map(i => `
+        <div class="impact-item" style="border-color:${i.color}">
+            ${i.text}
+        </div>
+    `).join('');
+}
+
+function getKnowledge() {
+    if (currentYear < -10000) {
+        return '地质时期的气候变化主要由米兰科维奇周期（地球轨道变化）驱动，周期约为10万年。';
+    } else if (currentYear < 1850) {
+        return '全新世（约1万年前至今）气候相对稳定，使人类文明得以发展。';
+    } else if (currentYear <= 2024) {
+        return '自工业革命以来，人类活动排放的温室气体导致全球平均温度上升约1.2°C。';
+    } else {
+        return '未来气候取决于人类的排放选择。《巴黎协定》目标是将升温控制在1.5-2°C以内。';
+    }
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) * 0.35;
+    
+    // 绘制太空背景
+    drawStars();
+    
+    // 绘制地球
+    drawEarth(cx, cy, radius);
+    
+    // 绘制大气层
+    drawAtmosphere(cx, cy, radius);
+    
+    // 绘制信息
+    drawInfo();
+}
+
+function drawStars() {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 100; i++) {
+        const x = (Math.sin(i * 123.456) * 0.5 + 0.5) * canvas.width;
+        const y = (Math.cos(i * 789.012) * 0.5 + 0.5) * canvas.height;
+        const size = Math.random() * 1.5 + 0.5;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawEarth(cx, cy, radius) {
+    // 地球渐变
+    const earthGrad = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, 0, cx, cy, radius);
+    earthGrad.addColorStop(0, '#4488cc');
+    earthGrad.addColorStop(0.5, '#2266aa');
+    earthGrad.addColorStop(1, '#113366');
+    
+    ctx.fillStyle = earthGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 大陆
+    ctx.fillStyle = '#44aa44';
+    drawContinent(cx, cy, radius, rotation);
+    
+    // 冰盖
+    const iceRadius = radius * climate.iceExtent * 2;
+    
+    // 北极冰盖
+    ctx.fillStyle = 'rgba(220,240,255,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - radius * 0.7, iceRadius, iceRadius * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 南极冰盖
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + radius * 0.75, iceRadius * 1.2, iceRadius * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 温度热力图叠加
+    if (climate.temperature > 0) {
+        const heatGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        heatGrad.addColorStop(0, `rgba(255,100,50,${climate.temperature * 0.1})`);
+        heatGrad.addColorStop(1, 'rgba(255,100,50,0)');
+        ctx.fillStyle = heatGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // 地球边缘高光
+    ctx.strokeStyle = 'rgba(100,150,200,0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+function drawContinent(cx, cy, radius, rot) {
+    // 简化的大陆形状
+    const continents = [
+        { x: 0.1, y: 0.2, w: 0.15, h: 0.25 },  // 北美
+        { x: 0.15, y: 0.5, w: 0.1, h: 0.3 },   // 南美
+        { x: 0.4, y: 0.15, w: 0.2, h: 0.2 },   // 欧洲
+        { x: 0.45, y: 0.35, w: 0.25, h: 0.35 }, // 非洲
+        { x: 0.6, y: 0.1, w: 0.3, h: 0.3 },    // 亚洲
+        { x: 0.75, y: 0.6, w: 0.15, h: 0.15 }  // 澳洲
+    ];
+    
+    continents.forEach(c => {
+        const x = cx + (c.x - 0.5 + Math.sin(rot) * 0.1) * radius * 2;
+        const y = cy + (c.y - 0.5) * radius * 2;
+        
+        // 只绘制在地球范围内的部分
+        const dist = Math.hypot(x - cx, y - cy);
+        if (dist < radius * 0.9) {
+            ctx.beginPath();
+            ctx.ellipse(x, y, c.w * radius, c.h * radius, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+}
+
+function drawAtmosphere(cx, cy, radius) {
+    // CO2浓度影响大气层厚度
+    const atmoThickness = 10 + (climate.co2 - 280) / 50;
+    
+    const atmoGrad = ctx.createRadialGradient(cx, cy, radius, cx, cy, radius + atmoThickness);
+    atmoGrad.addColorStop(0, 'rgba(100,150,255,0.3)');
+    atmoGrad.addColorStop(0.5, 'rgba(100,150,255,0.1)');
+    atmoGrad.addColorStop(1, 'rgba(100,150,255,0)');
+    
+    ctx.fillStyle = atmoGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + atmoThickness, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 温室效应可视化
+    if (climate.co2 > 350) {
+        ctx.strokeStyle = `rgba(255,150,50,${(climate.co2 - 350) / 1000})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 10]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+}
+
+function drawInfo() {
+    // 年份显示
+    ctx.fillStyle = '#4a8ac0';
+    ctx.font = 'bold 24px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(formatYear(currentYear), canvas.width / 2, 40);
+    
+    // 温度指示
+    const tempColor = climate.temperature > 0 ? '#ff6644' : '#44aaff';
+    ctx.fillStyle = tempColor;
+    ctx.font = '18px Segoe UI';
+    ctx.fillText(`${climate.temperature > 0 ? '+' : ''}${climate.temperature.toFixed(1)}°C`, canvas.width / 2, 70);
+    
+    // CO2指示
+    ctx.fillStyle = '#ffaa44';
+    ctx.font = '14px Segoe UI';
+    ctx.fillText(`CO₂: ${climate.co2.toFixed(0)} ppm`, canvas.width / 2, 95);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

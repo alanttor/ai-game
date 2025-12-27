@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排序算法舞蹈派对</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕺</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 15px;
+        }
+        header {
+            text-align: center;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+        h1 {
+            font-size: 1.8em;
+            background: linear-gradient(90deg, #ff00ff, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: glow 2s ease-in-out infinite;
+        }
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 10px #ff00ff); }
+            50% { filter: drop-shadow(0 0 20px #00ffff); }
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>🎵 排序算法舞蹈派对 🕺</h1>
+        <p style="color:#aaa;margin-top:5px;">让数字跳起来！可视化学习排序算法</p>
+    </header>
+    <div class="main-content" id="mainContent"></div>
+</div>
+<script>
+// 音频上下文
+let audioCtx = null;
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+// 播放音符
+function playNote(freq, duration = 0.1) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+// 游戏状态
+const state = {
+    array: [],
+    size: 20,
+    speed: 50,
+    algorithm: 'bubble',
+    sorting: false,
+    paused: false,
+    comparisons: 0,
+    swaps: 0,
+    steps: [],
+    stepIndex: 0,
+    highlighted: [],
+    sorted: [],
+    distribution: 'random',
+    soundEnabled: true
+};
+
+// 算法配置
+const ALGORITHMS = {
+    bubble: { name: '冒泡排序', complexity: 'O(n²)', icon: '🫧', color: '#ff6b6b' },
+    selection: { name: '选择排序', complexity: 'O(n²)', icon: '👆', color: '#4ecdc4' },
+    insertion: { name: '插入排序', complexity: 'O(n²)', icon: '📥', color: '#45b7d1' },
+    quick: { name: '快速排序', complexity: 'O(n log n)', icon: '⚡', color: '#f9ca24' },
+    merge: { name: '归并排序', complexity: 'O(n log n)', icon: '🔀', color: '#6c5ce7' },
+    heap: { name: '堆排序', complexity: 'O(n log n)', icon: '⛰️', color: '#fd79a8' }
+};
+
+// 初始化
+function init() {
+    renderUI();
+    generateArray();
+}
+
+// 渲染UI
+function renderUI() {
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `
+        <style>
+            .main-content { display: flex; gap: 15px; flex: 1; min-height: 0; }
+            .stage-area { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+            .dance-floor {
+                flex: 1; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+                border-radius: 15px; border: 2px solid #0ff3; position: relative;
+                overflow: hidden; display: flex; align-items: flex-end;
+                justify-content: center; padding: 20px; gap: 3px;
+            }
+            .disco-lights {
+                position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                background: radial-gradient(circle at 30% 20%, #ff00ff20 0%, transparent 30%),
+                            radial-gradient(circle at 70% 30%, #00ffff20 0%, transparent 30%),
+                            radial-gradient(circle at 50% 80%, #ffff0020 0%, transparent 30%);
+                pointer-events: none; animation: discoMove 5s ease-in-out infinite;
+            }
+            @keyframes discoMove {
+                0%, 100% { opacity: 0.5; }
+                50% { opacity: 1; }
+            }
+            .dancer {
+                display: flex; flex-direction: column; align-items: center;
+                transition: all 0.3s ease; position: relative; z-index: 1;
+            }
+            .dancer-bar {
+                width: 100%; border-radius: 8px 8px 0 0;
+                transition: all 0.3s ease; position: relative;
+                display: flex; align-items: flex-end; justify-content: center;
+            }
+            .dancer-face {
+                position: absolute; top: 5px; font-size: 1.2em;
+                animation: bounce 0.5s ease-in-out infinite;
+            }
+            .dancer.comparing .dancer-bar { box-shadow: 0 0 20px #fff, 0 0 40px #ff0; }
+            .dancer.swapping { animation: swap 0.3s ease-in-out; }
+            .dancer.sorted .dancer-bar { box-shadow: 0 0 15px #0f0; }
+            .dancer-value {
+                font-size: 0.7em; color: #fff; font-weight: bold;
+                text-shadow: 0 0 5px #000; margin-top: 3px;
+            }
+            @keyframes bounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-3px); }
+            }
+            @keyframes swap {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.2) rotate(10deg); }
+            }
+            .control-panel {
+                width: 280px; background: rgba(0,0,0,0.4);
+                border-radius: 15px; padding: 15px; display: flex;
+                flex-direction: column; gap: 12px; border: 1px solid #0ff3;
+            }
+            .panel-section { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; }
+            .section-title { color: #0ff; font-size: 0.9em; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+            .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .algo-btn {
+                background: rgba(255,255,255,0.1); border: 2px solid transparent;
+                border-radius: 8px; padding: 10px 8px; cursor: pointer;
+                transition: all 0.3s; text-align: center; color: #fff;
+            }
+            .algo-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.02); }
+            .algo-btn.active { border-color: var(--color); box-shadow: 0 0 15px var(--color); }
+            .algo-icon { font-size: 1.5em; display: block; margin-bottom: 3px; }
+            .algo-name { font-size: 0.75em; }
+            .algo-complexity { font-size: 0.65em; color: #aaa; }
+            .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .stat-box { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; text-align: center; }
+            .stat-value { font-size: 1.3em; color: #0ff; font-weight: bold; }
+            .stat-label { font-size: 0.7em; color: #888; }
+            .slider-group { margin-bottom: 10px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.85em; color: #aaa; margin-bottom: 5px; }
+            input[type="range"] {
+                width: 100%; height: 6px; border-radius: 3px;
+                background: #333; outline: none; -webkit-appearance: none;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none; width: 16px; height: 16px;
+                border-radius: 50%; background: #0ff; cursor: pointer;
+            }
+            .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+            .ctrl-btn {
+                flex: 1; min-width: 70px; padding: 10px; border: none;
+                border-radius: 8px; cursor: pointer; font-size: 0.9em;
+                transition: all 0.3s; display: flex; align-items: center;
+                justify-content: center; gap: 5px;
+            }
+            .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+            .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+            .btn-success { background: linear-gradient(135deg, #11998e, #38ef7d); color: #fff; }
+            .btn-warning { background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff; }
+            .ctrl-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+            .ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+            .dist-btns { display: flex; gap: 5px; }
+            .dist-btn {
+                flex: 1; padding: 8px 5px; background: rgba(255,255,255,0.1);
+                border: 1px solid transparent; border-radius: 6px;
+                color: #fff; font-size: 0.75em; cursor: pointer; transition: all 0.3s;
+            }
+            .dist-btn.active { border-color: #0ff; background: rgba(0,255,255,0.1); }
+            .info-box {
+                background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;
+                font-size: 0.8em; line-height: 1.5; color: #aaa;
+                border-left: 3px solid var(--algo-color, #0ff);
+            }
+            .celebration {
+                position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                font-size: 4em; animation: celebrate 1s ease-out forwards;
+                pointer-events: none; z-index: 100;
+            }
+            @keyframes celebrate {
+                0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+                50% { transform: translate(-50%, -50%) scale(1.5); }
+                100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+            }
+        </style>
+        <div class="stage-area">
+            <div class="dance-floor" id="danceFloor">
+                <div class="disco-lights"></div>
+            </div>
+        </div>
+        <div class="control-panel">
+            <div class="panel-section">
+                <div class="section-title">🎭 选择算法</div>
+                <div class="algo-grid" id="algoGrid"></div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">📊 统计数据</div>
+                <div class="stats-grid">
+                    <div class="stat-box"><div class="stat-value" id="comparisons">0</div><div class="stat-label">比较次数</div></div>
+                    <div class="stat-box"><div class="stat-value" id="swaps">0</div><div class="stat-label">交换次数</div></div>
+                </div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">⚙️ 设置</div>
+                <div class="slider-group">
+                    <div class="slider-label"><span>数组大小</span><span id="sizeVal">${state.size}</span></div>
+                    <input type="range" id="sizeSlider" min="5" max="50" value="${state.size}">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label"><span>排序速度</span><span id="speedVal">${state.speed}%</span></div>
+                    <input type="range" id="speedSlider" min="1" max="100" value="${state.speed}">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label"><span>数据分布</span></div>
+                    <div class="dist-btns">
+                        <button class="dist-btn ${state.distribution==='random'?'active':''}" data-dist="random">随机</button>
+                        <button class="dist-btn ${state.distribution==='sorted'?'active':''}" data-dist="sorted">已排序</button>
+                        <button class="dist-btn ${state.distribution==='reversed'?'active':''}" data-dist="reversed">逆序</button>
+                        <button class="dist-btn ${state.distribution==='nearly'?'active':''}" data-dist="nearly">近似</button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">🎮 控制</div>
+                <div class="btn-group">
+                    <button class="ctrl-btn btn-success" id="startBtn" onclick="startSort()">▶️ 开始</button>
+                    <button class="ctrl-btn btn-secondary" id="pauseBtn" onclick="togglePause()" disabled>⏸️</button>
+                    <button class="ctrl-btn btn-warning" id="resetBtn" onclick="resetArray()">🔄</button>
+                </div>
+                <div class="btn-group" style="margin-top:8px;">
+                    <button class="ctrl-btn btn-secondary" id="stepBtn" onclick="stepSort()" disabled>⏭️ 单步</button>
+                    <button class="ctrl-btn btn-secondary" onclick="toggleSound()">${state.soundEnabled?'🔊':'🔇'} 音效</button>
+                </div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">💡 算法说明</div>
+                <div class="info-box" id="infoBox">选择一个算法开始学习！</div>
+            </div>
+        </div>
+    `;
+    
+    // 渲染算法按钮
+    const algoGrid = document.getElementById('algoGrid');
+    Object.entries(ALGORITHMS).forEach(([key, algo]) => {
+        const btn = document.createElement('button');
+        btn.className = `algo-btn ${state.algorithm === key ? 'active' : ''}`;
+        btn.style.setProperty('--color', algo.color);
+        btn.innerHTML = `
+            <span class="algo-icon">${algo.icon}</span>
+            <span class="algo-name">${algo.name}</span>
+            <span class="algo-complexity">${algo.complexity}</span>
+        `;
+        btn.onclick = () => selectAlgorithm(key);
+        algoGrid.appendChild(btn);
+    });
+    
+    // 绑定事件
+    document.getElementById('sizeSlider').oninput = (e) => {
+        state.size = parseInt(e.target.value);
+        document.getElementById('sizeVal').textContent = state.size;
+        if (!state.sorting) generateArray();
+    };
+    document.getElementById('speedSlider').oninput = (e) => {
+        state.speed = parseInt(e.target.value);
+        document.getElementById('speedVal').textContent = state.speed + '%';
+    };
+    document.querySelectorAll('.dist-btn').forEach(btn => {
+        btn.onclick = () => {
+            state.distribution = btn.dataset.dist;
+            document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (!state.sorting) generateArray();
+        };
+    });
+    
+    updateAlgoInfo();
+}
+
+// 生成数组
+function generateArray() {
+    state.array = [];
+    for (let i = 1; i <= state.size; i++) {
+        state.array.push(i);
+    }
+    
+    switch (state.distribution) {
+        case 'random':
+            for (let i = state.array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [state.array[i], state.array[j]] = [state.array[j], state.array[i]];
+            }
+            break;
+        case 'reversed':
+            state.array.reverse();
+            break;
+        case 'nearly':
+            // 近似排序：随机交换几对
+            for (let i = 0; i < Math.floor(state.size / 5); i++) {
+                const a = Math.floor(Math.random() * state.size);
+                const b = Math.floor(Math.random() * state.size);
+                [state.array[a], state.array[b]] = [state.array[b], state.array[a]];
+            }
+            break;
+    }
+    
+    state.highlighted = [];
+    state.sorted = [];
+    state.comparisons = 0;
+    state.swaps = 0;
+    renderDancers();
+    updateStats();
+}
+
+// 渲染舞者
+function renderDancers() {
+    const floor = document.getElementById('danceFloor');
+    const lights = floor.querySelector('.disco-lights');
+    floor.innerHTML = '';
+    floor.appendChild(lights);
+    
+    const maxVal = state.size;
+    const barWidth = Math.max(10, Math.min(40, (floor.clientWidth - 40) / state.size - 3));
+    const maxHeight = floor.clientHeight - 60;
+    
+    state.array.forEach((val, idx) => {
+        const dancer = document.createElement('div');
+        dancer.className = 'dancer';
+        if (state.highlighted.includes(idx)) dancer.classList.add('comparing');
+        if (state.sorted.includes(idx)) dancer.classList.add('sorted');
+        
+        const height = (val / maxVal) * maxHeight;
+        const hue = (val / maxVal) * 280;
+        const color = `hsl(${hue}, 80%, 60%)`;
+        
+        dancer.innerHTML = `
+            <div class="dancer-bar" style="width:${barWidth}px;height:${height}px;background:linear-gradient(180deg,${color},${color}88);">
+                <span class="dancer-face">${getFace(val, idx)}</span>
+            </div>
+            <div class="dancer-value">${val}</div>
+        `;
+        dancer.dataset.index = idx;
+        floor.appendChild(dancer);
+    });
+}
+
+// 获取表情
+function getFace(val, idx) {
+    if (state.sorted.includes(idx)) return '😎';
+    if (state.highlighted.includes(idx)) return '😮';
+    const faces = ['😊', '🙂', '😄', '😁', '🤗'];
+    return faces[val % faces.length];
+}
+
+// 选择算法
+function selectAlgorithm(algo) {
+    if (state.sorting) return;
+    state.algorithm = algo;
+    document.querySelectorAll('.algo-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.algo-btn:nth-child(${Object.keys(ALGORITHMS).indexOf(algo) + 1})`).classList.add('active');
+    updateAlgoInfo();
+}
+
+// 更新算法信息
+function updateAlgoInfo() {
+    const algo = ALGORITHMS[state.algorithm];
+    const descriptions = {
+        bubble: '相邻元素两两比较，较大的元素"冒泡"到后面。简单但效率较低，适合小数据集或教学演示。',
+        selection: '每次从未排序部分选择最小元素，放到已排序部分末尾。比较次数固定，交换次数少。',
+        insertion: '将元素逐个插入到已排序序列的正确位置。对近似有序数据效率很高。',
+        quick: '选择基准元素，将数组分为两部分递归排序。平均性能最好，但最坏情况O(n²)。',
+        merge: '分治策略，将数组分成两半分别排序后合并。稳定排序，需要额外空间。',
+        heap: '利用堆数据结构，每次取出最大元素。原地排序，不稳定。'
+    };
+    
+    document.getElementById('infoBox').innerHTML = `
+        <div style="color:${algo.color};margin-bottom:5px;">${algo.icon} ${algo.name}</div>
+        <div>${descriptions[state.algorithm]}</div>
+        <div style="margin-top:5px;color:#0ff;">时间复杂度: ${algo.complexity}</div>
+    `;
+    document.getElementById('infoBox').style.setProperty('--algo-color', algo.color);
+}
+
+// 更新统计
+function updateStats() {
+    document.getElementById('comparisons').textContent = state.comparisons;
+    document.getElementById('swaps').textContent = state.swaps;
+}
+
+// 延迟函数
+function delay() {
+    return new Promise(resolve => setTimeout(resolve, Math.max(10, 500 - state.speed * 4.5)));
+}
+
+// 高亮元素
+async function highlight(indices, isSwap = false) {
+    state.highlighted = indices;
+    renderDancers();
+    
+    if (state.soundEnabled && indices.length > 0) {
+        const freq = 200 + state.array[indices[0]] * 20;
+        playNote(freq, 0.1);
+    }
+    
+    if (isSwap) {
+        const dancers = document.querySelectorAll('.dancer');
+        indices.forEach(i => dancers[i]?.classList.add('swapping'));
+    }
+    
+    await delay();
+}
+
+// 交换元素
+async function swap(i, j) {
+    [state.array[i], state.array[j]] = [state.array[j], state.array[i]];
+    state.swaps++;
+    updateStats();
+    await highlight([i, j], true);
+}
+
+// 标记已排序
+function markSorted(indices) {
+    indices.forEach(i => {
+        if (!state.sorted.includes(i)) state.sorted.push(i);
+    });
+    renderDancers();
+}
+
+// 开始排序
+async function startSort() {
+    if (state.sorting) return;
+    initAudio();
+    
+    state.sorting = true;
+    state.paused = false;
+    state.comparisons = 0;
+    state.swaps = 0;
+    state.sorted = [];
+    updateStats();
+    
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('pauseBtn').disabled = false;
+    document.getElementById('sizeSlider').disabled = true;
+    
+    try {
+        switch (state.algorithm) {
+            case 'bubble': await bubbleSort(); break;
+            case 'selection': await selectionSort(); break;
+            case 'insertion': await insertionSort(); break;
+            case 'quick': await quickSort(0, state.array.length - 1); break;
+            case 'merge': await mergeSort(0, state.array.length - 1); break;
+            case 'heap': await heapSort(); break;
+        }
+        
+        // 排序完成
+        state.sorted = state.array.map((_, i) => i);
+        state.highlighted = [];
+        renderDancers();
+        celebrate();
+    } catch (e) {
+        if (e.message !== 'paused') console.error(e);
+    }
+    
+    state.sorting = false;
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('pauseBtn').disabled = true;
+    document.getElementById('sizeSlider').disabled = false;
+}
+
+// 检查暂停
+async function checkPause() {
+    while (state.paused) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    if (!state.sorting) throw new Error('stopped');
+}
+
+// 冒泡排序
+async function bubbleSort() {
+    const n = state.array.length;
+    for (let i = 0; i < n - 1; i++) {
+        for (let j = 0; j < n - i - 1; j++) {
+            await checkPause();
+            state.comparisons++;
+            await highlight([j, j + 1]);
+            
+            if (state.array[j] > state.array[j + 1]) {
+                await swap(j, j + 1);
+            }
+        }
+        markSorted([n - i - 1]);
+    }
+    markSorted([0]);
+}
+
+// 选择排序
+async function selectionSort() {
+    const n = state.array.length;
+    for (let i = 0; i < n - 1; i++) {
+        let minIdx = i;
+        for (let j = i + 1; j < n; j++) {
+            await checkPause();
+            state.comparisons++;
+            await highlight([minIdx, j]);
+            
+            if (state.array[j] < state.array[minIdx]) {
+                minIdx = j;
+            }
+        }
+        if (minIdx !== i) {
+            await swap(i, minIdx);
+        }
+        markSorted([i]);
+    }
+    markSorted([n - 1]);
+}
+
+// 插入排序
+async function insertionSort() {
+    const n = state.array.length;
+    markSorted([0]);
+    
+    for (let i = 1; i < n; i++) {
+        let j = i;
+        while (j > 0) {
+            await checkPause();
+            state.comparisons++;
+            await highlight([j - 1, j]);
+            
+            if (state.array[j - 1] > state.array[j]) {
+                await swap(j - 1, j);
+                j--;
+            } else {
+                break;
+            }
+        }
+        markSorted([i]);
+    }
+}
+
+// 快速排序
+async function quickSort(low, high) {
+    if (low < high) {
+        const pi = await partition(low, high);
+        markSorted([pi]);
+        await quickSort(low, pi - 1);
+        await quickSort(pi + 1, high);
+    } else if (low === high) {
+        markSorted([low]);
+    }
+}
+
+async function partition(low, high) {
+    const pivot = state.array[high];
+    let i = low - 1;
+    
+    for (let j = low; j < high; j++) {
+        await checkPause();
+        state.comparisons++;
+        await highlight([j, high]);
+        
+        if (state.array[j] < pivot) {
+            i++;
+            if (i !== j) await swap(i, j);
+        }
+    }
+    
+    if (i + 1 !== high) await swap(i + 1, high);
+    return i + 1;
+}
+
+// 归并排序
+async function mergeSort(left, right) {
+    if (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        await mergeSort(left, mid);
+        await mergeSort(mid + 1, right);
+        await merge(left, mid, right);
+    }
+}
+
+async function merge(left, mid, right) {
+    const leftArr = state.array.slice(left, mid + 1);
+    const rightArr = state.array.slice(mid + 1, right + 1);
+    
+    let i = 0, j = 0, k = left;
+    
+    while (i < leftArr.length && j < rightArr.length) {
+        await checkPause();
+        state.comparisons++;
+        await highlight([left + i, mid + 1 + j]);
+        
+        if (leftArr[i] <= rightArr[j]) {
+            state.array[k] = leftArr[i];
+            i++;
+        } else {
+            state.array[k] = rightArr[j];
+            j++;
+        }
+        state.swaps++;
+        updateStats();
+        renderDancers();
+        await delay();
+        k++;
+    }
+    
+    while (i < leftArr.length) {
+        state.array[k] = leftArr[i];
+        i++; k++;
+        renderDancers();
+        await delay();
+    }
+    
+    while (j < rightArr.length) {
+        state.array[k] = rightArr[j];
+        j++; k++;
+        renderDancers();
+        await delay();
+    }
+    
+    for (let x = left; x <= right; x++) {
+        markSorted([x]);
+    }
+}
+
+// 堆排序
+async function heapSort() {
+    const n = state.array.length;
+    
+    // 构建最大堆
+    for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+        await heapify(n, i);
+    }
+    
+    // 逐个提取元素
+    for (let i = n - 1; i > 0; i--) {
+        await swap(0, i);
+        markSorted([i]);
+        await heapify(i, 0);
+    }
+    markSorted([0]);
+}
+
+async function heapify(n, i) {
+    let largest = i;
+    const left = 2 * i + 1;
+    const right = 2 * i + 2;
+    
+    if (left < n) {
+        await checkPause();
+        state.comparisons++;
+        await highlight([largest, left]);
+        if (state.array[left] > state.array[largest]) {
+            largest = left;
+        }
+    }
+    
+    if (right < n) {
+        await checkPause();
+        state.comparisons++;
+        await highlight([largest, right]);
+        if (state.array[right] > state.array[largest]) {
+            largest = right;
+        }
+    }
+    
+    if (largest !== i) {
+        await swap(i, largest);
+        await heapify(n, largest);
+    }
+}
+
+// 暂停/继续
+function togglePause() {
+    state.paused = !state.paused;
+    document.getElementById('pauseBtn').textContent = state.paused ? '▶️' : '⏸️';
+    document.getElementById('stepBtn').disabled = !state.paused;
+}
+
+// 单步执行
+function stepSort() {
+    if (state.paused) {
+        state.paused = false;
+        setTimeout(() => { state.paused = true; }, 50);
+    }
+}
+
+// 重置数组
+function resetArray() {
+    state.sorting = false;
+    state.paused = false;
+    generateArray();
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('pauseBtn').disabled = true;
+    document.getElementById('pauseBtn').textContent = '⏸️';
+    document.getElementById('sizeSlider').disabled = false;
+}
+
+// 切换音效
+function toggleSound() {
+    state.soundEnabled = !state.soundEnabled;
+    if (state.soundEnabled) initAudio();
+    renderUI();
+    generateArray();
+}
+
+// 庆祝动画
+function celebrate() {
+    const floor = document.getElementById('danceFloor');
+    const emojis = ['🎉', '🎊', '✨', '🌟', '💫'];
+    
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+            const cele = document.createElement('div');
+            cele.className = 'celebration';
+            cele.textContent = emojis[i];
+            cele.style.left = (20 + i * 15) + '%';
+            floor.appendChild(cele);
+            setTimeout(() => cele.remove(), 1000);
+            
+            if (state.soundEnabled) {
+                playNote(400 + i * 100, 0.3);
+            }
+        }, i * 200);
+    }
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>

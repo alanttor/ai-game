@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟智能花园</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(180deg, #87ceeb 0%, #98fb98 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .garden-section {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sky {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            background: linear-gradient(180deg, #87ceeb 0%, #b0e0e6 100%);
+            transition: background 1s;
+        }
+
+        .sky.night {
+            background: linear-gradient(180deg, #1a1a2e 0%, #2d3748 100%);
+        }
+
+        .sun {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #ffeb3b 0%, #ff9800 100%);
+            border-radius: 50%;
+            top: 50px;
+            left: 100px;
+            box-shadow: 0 0 50px rgba(255, 235, 59, 0.8);
+            transition: all 1s;
+        }
+
+        .sun.dim {
+            opacity: 0.3;
+            box-shadow: none;
+        }
+
+        .ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60%;
+            background: linear-gradient(180deg, #8fbc8f 0%, #6b8e23 50%, #556b2f 100%);
+        }
+
+        .garden-area {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            right: 50px;
+            height: 300px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-content: flex-end;
+        }
+
+        .pot-slot {
+            width: 100px;
+            height: 150px;
+            background: rgba(139, 69, 19, 0.3);
+            border: 2px dashed rgba(139, 69, 19, 0.5);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .pot-slot:hover {
+            background: rgba(139, 69, 19, 0.5);
+            border-style: solid;
+        }
+
+        .pot-slot.occupied {
+            border: none;
+            background: transparent;
+        }
+
+        .plant-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pot {
+            width: 60px;
+            height: 50px;
+            background: linear-gradient(180deg, #d2691e 0%, #8b4513 100%);
+            border-radius: 5px 5px 15px 15px;
+            position: relative;
+        }
+
+        .pot.small { width: 50px; height: 40px; }
+        .pot.large { width: 80px; height: 60px; }
+
+        .pot::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            height: 10px;
+            background: #8b4513;
+            border-radius: 5px;
+        }
+
+        .plant {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform-origin: bottom center;
+            transition: transform 0.5s;
+        }
+
+        .plant-icon {
+            font-size: 2em;
+            transition: all 0.5s;
+        }
+
+        .plant-icon.small { font-size: 1.5em; }
+        .plant-icon.medium { font-size: 2.5em; }
+        .plant-icon.large { font-size: 3.5em; }
+
+        .plant.unhealthy .plant-icon {
+            filter: grayscale(50%) brightness(0.7);
+        }
+
+        .plant.wilting {
+            transform: rotate(-15deg);
+        }
+
+        .health-bar {
+            width: 50px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: #4caf50;
+            transition: width 0.5s, background 0.5s;
+        }
+
+        .health-fill.warning { background: #ff9800; }
+        .health-fill.danger { background: #f44336; }
+
+        /* 水滴动画 */
+        .water-drop {
+            position: absolute;
+            width: 8px;
+            height: 12px;
+            background: radial-gradient(ellipse, #4fc3f7 0%, #29b6f6 100%);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            animation: drop 0.8s ease-in forwards;
+            pointer-events: none;
+        }
+
+        @keyframes drop {
+            0% { transform: translateY(-50px); opacity: 1; }
+            100% { transform: translateY(50px); opacity: 0; }
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.95);
+            border-left: 1px solid #ddd;
+            padding: 15px;
+            overflow-y: auto;
+            color: #333;
+        }
+
+        .panel-title {
+            font-size: 1.1em;
+            color: #2e7d32;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4caf50;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .env-meters {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .env-meter {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .env-icon {
+            font-size: 1.5em;
+        }
+
+        .env-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+        .env-label {
+            font-size: 0.7em;
+            color: #888;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .control-value {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4caf50;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9em;
+            background: #fff;
+        }
+
+        .plant-library {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .plant-item {
+            padding: 8px;
+            background: #f0f7f0;
+            border: 1px solid #c8e6c9;
+            border-radius: 8px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .plant-item:hover {
+            background: #c8e6c9;
+            transform: scale(1.05);
+        }
+
+        .plant-item.dragging {
+            opacity: 0.5;
+        }
+
+        .plant-item .icon {
+            font-size: 1.5em;
+        }
+
+        .plant-item .name {
+            font-size: 0.6em;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #66bb6a, #43a047);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+
+        .btn-water {
+            background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+            color: #fff;
+        }
+
+        /* 植物详情弹窗 */
+        .plant-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            min-width: 320px;
+            color: #333;
+        }
+
+        .plant-popup.show {
+            display: block;
+        }
+
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .popup-overlay.show {
+            display: block;
+        }
+
+        .popup-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .popup-icon {
+            font-size: 3em;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .care-tips {
+            background: #f0f7f0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .care-tip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+            font-size: 0.85em;
+        }
+
+        .diagnosis {
+            background: #fff3e0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 3px solid #ff9800;
+        }
+
+        .time-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .time-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+        .speed-btns {
+            display: flex;
+            gap: 5px;
+        }
+
+        .speed-btn {
+            padding: 5px 10px;
+            border: 1px solid #4caf50;
+            background: transparent;
+            color: #4caf50;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+        }
+
+        .speed-btn.active {
+            background: #4caf50;
+            color: #fff;
+        }
+
+        .reminders {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .reminder {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 0.8em;
+        }
+
+        .reminder.urgent {
+            background: #ffebee;
+            border-left: 3px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="garden-section">
+            <div class="sky" id="sky">
+                <div class="sun" id="sun"></div>
+            </div>
+            <div class="ground"></div>
+            <div class="garden-area" id="gardenArea"></div>
+        </div>
+
+        <div class="control-panel">
+            <div class="panel-title">🌱 虚拟智能花园</div>
+
+            <div class="time-control">
+                <span>📅</span>
+                <span class="time-display" id="dayDisplay">第 1 天</span>
+                <div class="speed-btns">
+                    <button class="speed-btn" data-speed="0">⏸</button>
+                    <button class="speed-btn active" data-speed="1">1x</button>
+                    <button class="speed-btn" data-speed="10">10x</button>
+                    <button class="speed-btn" data-speed="60">60x</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">环境状态</div>
+                <div class="env-meters">
+                    <div class="env-meter">
+                        <div class="env-icon">☀️</div>
+                        <div class="env-value" id="lightValue">70%</div>
+                        <div class="env-label">光照</div>
+                    </div>
+                    <div class="env-meter">
+                        <div class="env-icon">🌡️</div>
+                        <div class="env-value" id="tempValue">22°C</div>
+                        <div class="env-label">温度</div>
+                    </div>
+                    <div class="env-meter">
+                        <div class="env-icon">💧</div>
+                        <div class="env-value" id="humidValue">50%</div>
+                        <div class="env-label">湿度</div>
+                    </div>
+                    <div class="env-meter">
+                        <div class="env-icon">🌍</div>
+                        <div class="env-value" id="soilValue">60%</div>
+                        <div class="env-label">土壤湿度</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">环境控制</div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>☀️ 光照强度</span>
+                        <span class="control-value" id="lightVal">70%</span>
+                    </div>
+                    <input type="range" id="lightSlider" min="0" max="100" value="70">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>🌡️ 环境温度</span>
+                        <span class="control-value" id="tempVal">22°C</span>
+                    </div>
+                    <input type="range" id="tempSlider" min="10" max="35" value="22">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>💧 环境湿度</span>
+                        <span class="control-value" id="humidVal">50%</span>
+                    </div>
+                    <input type="range" id="humidSlider" min="20" max="90" value="50">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>🍂 季节</span></div>
+                    <select id="seasonSelect">
+                        <option value="spring">🌸 春季</option>
+                        <option value="summer">☀️ 夏季</option>
+                        <option value="autumn">🍁 秋季</option>
+                        <option value="winter">❄️ 冬季</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">植物库 (拖拽到花园)</div>
+                <div class="plant-library" id="plantLibrary"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-label">养护提醒</div>
+                <div class="reminders" id="reminders">
+                    <div class="reminder">暂无提醒，添加植物开始养护</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="btn-group">
+                    <button class="btn btn-water" id="waterAllBtn">💧 全部浇水</button>
+                    <button class="btn btn-secondary" id="fertilizeBtn">🌿 施肥</button>
+                    <button class="btn btn-secondary" id="clearBtn">🗑️ 清空</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popupOverlay"></div>
+    <div class="plant-popup" id="plantPopup">
+        <button class="popup-close" id="popupClose">×</button>
+        <div class="popup-header">
+            <span class="popup-icon" id="popupIcon">🌱</span>
+            <div>
+                <h3 id="popupName">植物名称</h3>
+                <p style="color:#666;font-size:0.9em" id="popupStage">生长阶段</p>
+            </div>
+        </div>
+        <div id="popupStats"></div>
+        <div class="care-tips" id="careTips"></div>
+        <div class="diagnosis" id="diagnosis" style="display:none"></div>
+    </div>
+
+    <script>
+
+        // ==================== 植物数据库 ====================
+        const PlantDatabase = [
+            // 观叶植物
+            { id: 'pothos', name: '绿萝', icon: '🌿', category: 'foliage', light: [30, 70], temp: [15, 28], water: 3, difficulty: 1 },
+            { id: 'monstera', name: '龟背竹', icon: '🌴', category: 'foliage', light: [40, 80], temp: [18, 30], water: 4, difficulty: 2 },
+            { id: 'fern', name: '蕨类', icon: '🌿', category: 'foliage', light: [20, 50], temp: [15, 25], water: 2, difficulty: 3 },
+            { id: 'palm', name: '散尾葵', icon: '🌴', category: 'foliage', light: [50, 80], temp: [18, 28], water: 3, difficulty: 2 },
+            { id: 'ivy', name: '常春藤', icon: '🍀', category: 'foliage', light: [30, 70], temp: [10, 25], water: 3, difficulty: 1 },
+            { id: 'bamboo', name: '富贵竹', icon: '🎋', category: 'foliage', light: [30, 60], temp: [18, 28], water: 2, difficulty: 1 },
+            { id: 'dracaena', name: '龙血树', icon: '🌲', category: 'foliage', light: [40, 70], temp: [18, 30], water: 5, difficulty: 1 },
+            { id: 'philodendron', name: '喜林芋', icon: '🌿', category: 'foliage', light: [30, 70], temp: [18, 28], water: 4, difficulty: 2 },
+            
+            // 多肉植物
+            { id: 'succulent', name: '多肉', icon: '🪴', category: 'succulent', light: [60, 100], temp: [15, 30], water: 10, difficulty: 1 },
+            { id: 'cactus', name: '仙人掌', icon: '🌵', category: 'succulent', light: [70, 100], temp: [15, 35], water: 14, difficulty: 1 },
+            { id: 'aloe', name: '芦荟', icon: '🌱', category: 'succulent', light: [60, 90], temp: [15, 30], water: 7, difficulty: 1 },
+            { id: 'echeveria', name: '石莲花', icon: '🪷', category: 'succulent', light: [70, 100], temp: [10, 28], water: 10, difficulty: 2 },
+            { id: 'jade', name: '玉树', icon: '🌳', category: 'succulent', light: [60, 90], temp: [15, 28], water: 10, difficulty: 1 },
+            
+            // 开花植物
+            { id: 'orchid', name: '兰花', icon: '🌸', category: 'flowering', light: [40, 70], temp: [18, 28], water: 5, difficulty: 4, flower: true },
+            { id: 'rose', name: '玫瑰', icon: '🌹', category: 'flowering', light: [60, 90], temp: [15, 28], water: 2, difficulty: 3, flower: true },
+            { id: 'lily', name: '百合', icon: '🌷', category: 'flowering', light: [50, 80], temp: [15, 25], water: 3, difficulty: 3, flower: true },
+            { id: 'jasmine', name: '茉莉', icon: '🌼', category: 'flowering', light: [60, 90], temp: [18, 30], water: 2, difficulty: 2, flower: true },
+            { id: 'hibiscus', name: '木槿', icon: '🌺', category: 'flowering', light: [70, 100], temp: [18, 32], water: 2, difficulty: 2, flower: true },
+            { id: 'petunia', name: '矮牵牛', icon: '💐', category: 'flowering', light: [60, 90], temp: [15, 28], water: 2, difficulty: 2, flower: true },
+            { id: 'geranium', name: '天竺葵', icon: '🌸', category: 'flowering', light: [60, 80], temp: [15, 25], water: 3, difficulty: 2, flower: true },
+            
+            // 香草植物
+            { id: 'basil', name: '罗勒', icon: '🌿', category: 'herb', light: [60, 90], temp: [18, 30], water: 2, difficulty: 2 },
+            { id: 'mint', name: '薄荷', icon: '🍃', category: 'herb', light: [50, 80], temp: [15, 28], water: 2, difficulty: 1 },
+            { id: 'rosemary', name: '迷迭香', icon: '🌿', category: 'herb', light: [60, 90], temp: [15, 28], water: 5, difficulty: 2 },
+            { id: 'lavender', name: '薰衣草', icon: '💜', category: 'herb', light: [70, 100], temp: [15, 28], water: 5, difficulty: 3, flower: true },
+            { id: 'chive', name: '韭菜', icon: '🌱', category: 'herb', light: [50, 80], temp: [15, 25], water: 3, difficulty: 1 },
+            
+            // 果蔬
+            { id: 'tomato', name: '番茄', icon: '🍅', category: 'vegetable', light: [70, 100], temp: [18, 30], water: 2, difficulty: 3 },
+            { id: 'pepper', name: '辣椒', icon: '🌶️', category: 'vegetable', light: [70, 100], temp: [20, 32], water: 2, difficulty: 3 },
+            { id: 'strawberry', name: '草莓', icon: '🍓', category: 'fruit', light: [60, 90], temp: [15, 25], water: 2, difficulty: 3 },
+            { id: 'lemon', name: '柠檬', icon: '🍋', category: 'fruit', light: [70, 100], temp: [18, 30], water: 3, difficulty: 4 }
+        ];
+
+        const SeasonMultipliers = {
+            spring: { growth: 1.2, water: 1.0 },
+            summer: { growth: 1.5, water: 1.5 },
+            autumn: { growth: 0.8, water: 0.8 },
+            winter: { growth: 0.3, water: 0.5 }
+        };
+
+        // ==================== 植物类 ====================
+        class Plant {
+            constructor(data, slotIndex) {
+                this.data = data;
+                this.slotIndex = slotIndex;
+                this.health = 100;
+                this.growth = 0; // 0-100
+                this.stage = 'seedling'; // seedling, growing, mature, flowering
+                this.daysSinceWater = 0;
+                this.daysSinceFertilize = 0;
+                this.soilMoisture = 70;
+                this.age = 0;
+                this.isFlowering = false;
+            }
+
+            update(env, season) {
+                const seasonMult = SeasonMultipliers[season];
+                
+                // 土壤湿度自然下降
+                this.soilMoisture -= 5 * seasonMult.water;
+                this.soilMoisture = Math.max(0, this.soilMoisture);
+                this.daysSinceWater++;
+                this.daysSinceFertilize++;
+                this.age++;
+
+                // 计算环境适宜度
+                const lightScore = this.getScore(env.light, this.data.light);
+                const tempScore = this.getScore(env.temp, this.data.temp);
+                const waterScore = this.soilMoisture > 20 ? 1 : this.soilMoisture / 20;
+                
+                const envScore = (lightScore + tempScore + waterScore) / 3;
+
+                // 健康度变化
+                if (envScore > 0.7) {
+                    this.health = Math.min(100, this.health + 2);
+                } else if (envScore < 0.4) {
+                    this.health = Math.max(0, this.health - 5);
+                } else {
+                    this.health = Math.max(0, this.health - 1);
+                }
+
+                // 生长
+                if (this.health > 50) {
+                    this.growth += 2 * envScore * seasonMult.growth;
+                    this.growth = Math.min(100, this.growth);
+                }
+
+                // 更新生长阶段
+                if (this.growth < 25) this.stage = 'seedling';
+                else if (this.growth < 60) this.stage = 'growing';
+                else if (this.growth < 90) this.stage = 'mature';
+                else {
+                    this.stage = 'mature';
+                    if (this.data.flower && this.health > 70) {
+                        this.isFlowering = true;
+                    }
+                }
+            }
+
+            getScore(value, range) {
+                if (value >= range[0] && value <= range[1]) return 1;
+                if (value < range[0]) return Math.max(0, 1 - (range[0] - value) / 30);
+                return Math.max(0, 1 - (value - range[1]) / 30);
+            }
+
+            water() {
+                this.soilMoisture = Math.min(100, this.soilMoisture + 50);
+                this.daysSinceWater = 0;
+            }
+
+            fertilize() {
+                this.health = Math.min(100, this.health + 10);
+                this.daysSinceFertilize = 0;
+            }
+
+            getProblems() {
+                const problems = [];
+                if (this.soilMoisture < 20) problems.push('土壤过干，需要浇水');
+                if (this.soilMoisture > 90) problems.push('土壤过湿，可能烂根');
+                if (this.health < 50) problems.push('植物健康状况不佳');
+                if (this.daysSinceFertilize > 30) problems.push('长时间未施肥');
+                return problems;
+            }
+
+            getSizeClass() {
+                if (this.growth < 30) return 'small';
+                if (this.growth < 70) return 'medium';
+                return 'large';
+            }
+        }
+
+        // ==================== 花园应用 ====================
+        class GardenApp {
+            constructor() {
+                this.plants = [];
+                this.slots = 8;
+                this.day = 1;
+                this.speed = 1;
+                this.lastUpdate = Date.now();
+                
+                this.env = {
+                    light: 70,
+                    temp: 22,
+                    humidity: 50
+                };
+                this.season = 'spring';
+
+                this.initGarden();
+                this.initPlantLibrary();
+                this.initControls();
+                this.animate();
+            }
+
+            initGarden() {
+                const area = document.getElementById('gardenArea');
+                area.innerHTML = '';
+                
+                for (let i = 0; i < this.slots; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'pot-slot';
+                    slot.dataset.index = i;
+                    
+                    slot.addEventListener('dragover', (e) => e.preventDefault());
+                    slot.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        const plantId = e.dataTransfer.getData('plantId');
+                        this.addPlant(plantId, i);
+                    });
+                    
+                    area.appendChild(slot);
+                }
+            }
+
+            initPlantLibrary() {
+                const library = document.getElementById('plantLibrary');
+                library.innerHTML = '';
+
+                PlantDatabase.forEach(plant => {
+                    const item = document.createElement('div');
+                    item.className = 'plant-item';
+                    item.draggable = true;
+                    item.innerHTML = `
+                        <span class="icon">${plant.icon}</span>
+                        <div class="name">${plant.name}</div>
+                    `;
+                    
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('plantId', plant.id);
+                        item.classList.add('dragging');
+                    });
+                    
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('dragging');
+                    });
+
+                    library.appendChild(item);
+                });
+            }
+
+            initControls() {
+                // 环境控制
+                document.getElementById('lightSlider').addEventListener('input', (e) => {
+                    this.env.light = parseInt(e.target.value);
+                    document.getElementById('lightVal').textContent = this.env.light + '%';
+                    this.updateEnvDisplay();
+                });
+
+                document.getElementById('tempSlider').addEventListener('input', (e) => {
+                    this.env.temp = parseInt(e.target.value);
+                    document.getElementById('tempVal').textContent = this.env.temp + '°C';
+                    this.updateEnvDisplay();
+                });
+
+                document.getElementById('humidSlider').addEventListener('input', (e) => {
+                    this.env.humidity = parseInt(e.target.value);
+                    document.getElementById('humidVal').textContent = this.env.humidity + '%';
+                    this.updateEnvDisplay();
+                });
+
+                document.getElementById('seasonSelect').addEventListener('change', (e) => {
+                    this.season = e.target.value;
+                });
+
+                // 速度控制
+                document.querySelectorAll('.speed-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.speed = parseInt(btn.dataset.speed);
+                    });
+                });
+
+                // 按钮
+                document.getElementById('waterAllBtn').addEventListener('click', () => this.waterAll());
+                document.getElementById('fertilizeBtn').addEventListener('click', () => this.fertilizeAll());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearGarden());
+
+                // 弹窗
+                document.getElementById('popupClose').addEventListener('click', () => this.hidePopup());
+                document.getElementById('popupOverlay').addEventListener('click', () => this.hidePopup());
+            }
+
+            addPlant(plantId, slotIndex) {
+                // 检查槽位是否已占用
+                if (this.plants.find(p => p.slotIndex === slotIndex)) return;
+
+                const plantData = PlantDatabase.find(p => p.id === plantId);
+                if (!plantData) return;
+
+                const plant = new Plant(plantData, slotIndex);
+                this.plants.push(plant);
+                this.renderPlants();
+            }
+
+            removePlant(slotIndex) {
+                this.plants = this.plants.filter(p => p.slotIndex !== slotIndex);
+                this.renderPlants();
+            }
+
+            renderPlants() {
+                // 重置所有槽位
+                document.querySelectorAll('.pot-slot').forEach(slot => {
+                    slot.innerHTML = '';
+                    slot.classList.remove('occupied');
+                });
+
+                // 渲染植物
+                this.plants.forEach(plant => {
+                    const slot = document.querySelector(`.pot-slot[data-index="${plant.slotIndex}"]`);
+                    if (!slot) return;
+
+                    slot.classList.add('occupied');
+                    
+                    const healthClass = plant.health > 70 ? '' : plant.health > 40 ? 'warning' : 'danger';
+                    const wiltClass = plant.health < 30 ? 'wilting' : '';
+                    const unhealthyClass = plant.health < 50 ? 'unhealthy' : '';
+                    const flowerIcon = plant.isFlowering ? '🌸' : '';
+
+                    slot.innerHTML = `
+                        <div class="plant-container">
+                            <div class="plant ${wiltClass} ${unhealthyClass}">
+                                <span class="plant-icon ${plant.getSizeClass()}">${plant.data.icon}${flowerIcon}</span>
+                            </div>
+                            <div class="health-bar">
+                                <div class="health-fill ${healthClass}" style="width:${plant.health}%"></div>
+                            </div>
+                            <div class="pot"></div>
+                        </div>
+                    `;
+
+                    slot.addEventListener('click', () => this.showPlantPopup(plant));
+                });
+            }
+
+            waterAll() {
+                this.plants.forEach(plant => {
+                    plant.water();
+                    this.showWaterAnimation(plant.slotIndex);
+                });
+                this.renderPlants();
+            }
+
+            showWaterAnimation(slotIndex) {
+                const slot = document.querySelector(`.pot-slot[data-index="${slotIndex}"]`);
+                if (!slot) return;
+
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const drop = document.createElement('div');
+                        drop.className = 'water-drop';
+                        drop.style.left = (30 + Math.random() * 40) + 'px';
+                        slot.appendChild(drop);
+                        setTimeout(() => drop.remove(), 800);
+                    }, i * 100);
+                }
+            }
+
+            fertilizeAll() {
+                this.plants.forEach(plant => plant.fertilize());
+                this.renderPlants();
+            }
+
+            clearGarden() {
+                this.plants = [];
+                this.renderPlants();
+            }
+
+            updateEnvDisplay() {
+                document.getElementById('lightValue').textContent = this.env.light + '%';
+                document.getElementById('tempValue').textContent = this.env.temp + '°C';
+                document.getElementById('humidValue').textContent = this.env.humidity + '%';
+
+                // 更新视觉效果
+                const sun = document.getElementById('sun');
+                const sky = document.getElementById('sky');
+                
+                if (this.env.light < 30) {
+                    sun.classList.add('dim');
+                    sky.classList.add('night');
+                } else {
+                    sun.classList.remove('dim');
+                    sky.classList.remove('night');
+                }
+
+                // 平均土壤湿度
+                const avgSoil = this.plants.length > 0 
+                    ? Math.round(this.plants.reduce((sum, p) => sum + p.soilMoisture, 0) / this.plants.length)
+                    : 60;
+                document.getElementById('soilValue').textContent = avgSoil + '%';
+            }
+
+            updateReminders() {
+                const reminders = [];
+                
+                this.plants.forEach(plant => {
+                    if (plant.soilMoisture < 30) {
+                        reminders.push({ urgent: true, text: `${plant.data.name} 需要浇水！` });
+                    }
+                    if (plant.daysSinceFertilize > 25) {
+                        reminders.push({ urgent: false, text: `${plant.data.name} 建议施肥` });
+                    }
+                    if (plant.health < 50) {
+                        reminders.push({ urgent: true, text: `${plant.data.name} 健康状况不佳` });
+                    }
+                });
+
+                const container = document.getElementById('reminders');
+                if (reminders.length === 0) {
+                    container.innerHTML = '<div class="reminder">✅ 所有植物状态良好</div>';
+                } else {
+                    container.innerHTML = reminders.map(r => `
+                        <div class="reminder ${r.urgent ? 'urgent' : ''}">
+                            ${r.urgent ? '⚠️' : '💡'} ${r.text}
+                        </div>
+                    `).join('');
+                }
+            }
+
+            showPlantPopup(plant) {
+                document.getElementById('popupIcon').textContent = plant.data.icon;
+                document.getElementById('popupName').textContent = plant.data.name;
+                
+                const stageNames = {
+                    seedling: '🌱 幼苗期',
+                    growing: '🌿 生长期',
+                    mature: '🌳 成熟期'
+                };
+                document.getElementById('popupStage').textContent = 
+                    stageNames[plant.stage] + (plant.isFlowering ? ' 🌸 开花中' : '');
+
+                document.getElementById('popupStats').innerHTML = `
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0">
+                        <div style="text-align:center;padding:8px;background:#f5f5f5;border-radius:6px">
+                            <div style="font-size:1.2em;font-weight:bold;color:#4caf50">${plant.health}%</div>
+                            <div style="font-size:0.75em;color:#888">健康度</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:#f5f5f5;border-radius:6px">
+                            <div style="font-size:1.2em;font-weight:bold;color:#2196f3">${Math.round(plant.growth)}%</div>
+                            <div style="font-size:0.75em;color:#888">生长度</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:#f5f5f5;border-radius:6px">
+                            <div style="font-size:1.2em;font-weight:bold;color:#03a9f4">${Math.round(plant.soilMoisture)}%</div>
+                            <div style="font-size:0.75em;color:#888">土壤湿度</div>
+                        </div>
+                        <div style="text-align:center;padding:8px;background:#f5f5f5;border-radius:6px">
+                            <div style="font-size:1.2em;font-weight:bold;color:#ff9800">${plant.age}天</div>
+                            <div style="font-size:0.75em;color:#888">种植天数</div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('careTips').innerHTML = `
+                    <div style="font-weight:bold;margin-bottom:8px">🌱 养护指南</div>
+                    <div class="care-tip">☀️ 光照需求: ${plant.data.light[0]}-${plant.data.light[1]}%</div>
+                    <div class="care-tip">🌡️ 适宜温度: ${plant.data.temp[0]}-${plant.data.temp[1]}°C</div>
+                    <div class="care-tip">💧 浇水周期: 约${plant.data.water}天一次</div>
+                    <div class="care-tip">⭐ 养护难度: ${'★'.repeat(plant.data.difficulty)}${'☆'.repeat(5-plant.data.difficulty)}</div>
+                `;
+
+                const problems = plant.getProblems();
+                const diagnosis = document.getElementById('diagnosis');
+                if (problems.length > 0) {
+                    diagnosis.style.display = 'block';
+                    diagnosis.innerHTML = `
+                        <div style="font-weight:bold;margin-bottom:8px">⚠️ 问题诊断</div>
+                        ${problems.map(p => `<div>• ${p}</div>`).join('')}
+                    `;
+                } else {
+                    diagnosis.style.display = 'none';
+                }
+
+                document.getElementById('plantPopup').classList.add('show');
+                document.getElementById('popupOverlay').classList.add('show');
+            }
+
+            hidePopup() {
+                document.getElementById('plantPopup').classList.remove('show');
+                document.getElementById('popupOverlay').classList.remove('show');
+            }
+
+            update() {
+                const now = Date.now();
+                const elapsed = now - this.lastUpdate;
+                
+                // 每秒更新一次（根据速度）
+                if (elapsed >= 1000 / this.speed && this.speed > 0) {
+                    this.day++;
+                    document.getElementById('dayDisplay').textContent = `第 ${this.day} 天`;
+                    
+                    this.plants.forEach(plant => {
+                        plant.update(this.env, this.season);
+                    });
+                    
+                    this.renderPlants();
+                    this.updateReminders();
+                    this.updateEnvDisplay();
+                    this.lastUpdate = now;
+                }
+            }
+
+            animate() {
+                this.update();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 启动应用
+        new GardenApp();
+    </script>
+</body>
+</html>

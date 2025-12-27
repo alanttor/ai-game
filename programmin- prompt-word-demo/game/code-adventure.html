@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编程语法冒险</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧙</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2a 100%);
+            min-height: 100vh;
+            color: #00ffaa;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #00aa66;
+        }
+        .game-header {
+            height: 50px;
+            background: rgba(0,20,10,0.9);
+            border-bottom: 1px solid #00aa66;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 20px;
+        }
+        .game-world {
+            flex: 1;
+            position: relative;
+            background: #050510;
+            overflow: hidden;
+        }
+        .code-panel {
+            width: 450px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0,10,5,0.95);
+        }
+        .editor-header {
+            height: 40px;
+            background: rgba(0,30,15,0.9);
+            border-bottom: 1px solid #00aa66;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 0.85em;
+        }
+        .editor-area { flex: 1; position: relative; }
+        #codeEditor {
+            width: 100%;
+            height: 100%;
+            background: #0a0a15;
+            border: none;
+            color: #00ffaa;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            padding: 15px;
+            resize: none;
+            outline: none;
+        }
+        .console-area {
+            height: 120px;
+            background: #050508;
+            border-top: 1px solid #00aa66;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 0.8em;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="game-area">
+        <div class="game-header" id="gameHeader"></div>
+        <div class="game-world" id="gameWorld"></div>
+    </div>
+    <div class="code-panel">
+        <div class="editor-header" id="editorHeader"></div>
+        <div class="editor-area">
+            <textarea id="codeEditor" spellcheck="false"></textarea>
+        </div>
+        <div class="console-area" id="consoleArea"></div>
+    </div>
+</div>
+<script>
+// 游戏状态
+let currentLevel = 0;
+let currentLang = 'python';
+let xp = 0;
+let health = 100;
+let bugs = [];
+let particles = [];
+
+const languages = {
+    python: { name: 'Python', color: '#3776ab', icon: '🐍' },
+    javascript: { name: 'JavaScript', color: '#f7df1e', icon: '🌐' },
+    java: { name: 'Java', color: '#ed8b00', icon: '☕' }
+};
+
+const levels = [
+    // Python 基础
+    {
+        lang: 'python', title: '变量山谷', desc: '学习Python变量声明',
+        task: '创建一个变量 name 并赋值为你的名字（字符串）',
+        hint: '使用 name = "你的名字"',
+        check: code => /name\s*=\s*["'][^"']+["']/.test(code),
+        template: '# 在下面声明变量\n'
+    },
+    {
+        lang: 'python', title: '数字运算', desc: '学习Python算术运算',
+        task: '计算 a=10 和 b=3 的和，存入变量 result',
+        hint: '使用 result = a + b',
+        check: code => /a\s*=\s*10/.test(code) && /b\s*=\s*3/.test(code) && /result\s*=\s*a\s*\+\s*b/.test(code),
+        template: '# 声明变量并计算\na = 10\nb = 3\n'
+    },
+    {
+        lang: 'python', title: '条件判断', desc: '学习if语句',
+        task: '如果 score >= 60，打印 "及格"',
+        hint: '使用 if score >= 60: print("及格")',
+        check: code => /if\s+score\s*>=\s*60\s*:/.test(code) && /print\s*\(\s*["']及格["']\s*\)/.test(code),
+        template: 'score = 75\n# 写条件判断\n'
+    },
+    {
+        lang: 'python', title: '循环之力', desc: '学习for循环',
+        task: '使用for循环打印1到5的数字',
+        hint: '使用 for i in range(1, 6): print(i)',
+        check: code => /for\s+\w+\s+in\s+range\s*\(\s*1\s*,\s*6\s*\)/.test(code),
+        template: '# 使用for循环\n'
+    },
+    {
+        lang: 'python', title: '函数魔法', desc: '学习定义函数',
+        task: '定义一个函数 greet(name) 返回 "Hello, " + name',
+        hint: '使用 def greet(name): return "Hello, " + name',
+        check: code => /def\s+greet\s*\(\s*name\s*\)\s*:/.test(code) && /return/.test(code),
+        template: '# 定义函数\n'
+    },
+    // JavaScript 基础
+    {
+        lang: 'javascript', title: 'JS变量', desc: '学习JavaScript变量',
+        task: '使用 let 声明变量 message 并赋值 "Hello"',
+        hint: '使用 let message = "Hello";',
+        check: code => /let\s+message\s*=\s*["']Hello["']\s*;?/.test(code),
+        template: '// 声明变量\n'
+    },
+    {
+        lang: 'javascript', title: '箭头函数', desc: '学习箭头函数',
+        task: '创建箭头函数 double，接收参数 x，返回 x*2',
+        hint: '使用 const double = x => x * 2;',
+        check: code => /const\s+double\s*=/.test(code) && /=>/.test(code),
+        template: '// 创建箭头函数\n'
+    },
+    {
+        lang: 'javascript', title: '数组方法', desc: '学习数组操作',
+        task: '使用 map 将数组 [1,2,3] 每个元素乘以2',
+        hint: '使用 arr.map(x => x * 2)',
+        check: code => /\.map\s*\(/.test(code),
+        template: 'const arr = [1, 2, 3];\n// 使用map\n'
+    },
+    // Java 基础
+    {
+        lang: 'java', title: 'Java类', desc: '学习Java类定义',
+        task: '定义一个公共类 Person，包含 String name 属性',
+        hint: '使用 public class Person { String name; }',
+        check: code => /public\s+class\s+Person/.test(code) && /String\s+name/.test(code),
+        template: '// 定义类\n'
+    },
+    {
+        lang: 'java', title: '方法定义', desc: '学习Java方法',
+        task: '在类中定义方法 sayHello() 返回 "Hello"',
+        hint: '使用 public String sayHello() { return "Hello"; }',
+        check: code => /public\s+String\s+sayHello\s*\(\s*\)/.test(code) && /return\s*["']Hello["']/.test(code),
+        template: 'public class Greeter {\n    // 定义方法\n}\n'
+    }
+];
+
+function init() {
+    renderGameHeader();
+    renderEditorHeader();
+    renderGameWorld();
+    loadLevel(currentLevel);
+    
+    document.getElementById('codeEditor').addEventListener('input', checkCode);
+    
+    setInterval(updateGame, 50);
+    animate();
+}
+
+function renderGameHeader() {
+    const header = document.getElementById('gameHeader');
+    header.innerHTML = `
+        <style>
+            .stat { display: flex; align-items: center; gap: 5px; font-size: 0.85em; }
+            .stat-bar { width: 100px; height: 8px; background: #1a1a2a; border-radius: 4px; overflow: hidden; }
+            .stat-fill { height: 100%; transition: width 0.3s; }
+            .lang-btn { padding: 5px 10px; background: rgba(0,50,25,0.5); border: 1px solid #00aa66; border-radius: 4px; color: #00ffaa; cursor: pointer; font-size: 0.8em; margin-left: 5px; }
+            .lang-btn.active { background: #00aa66; color: #000; }
+        </style>
+        <div class="stat">
+            <span>❤️</span>
+            <div class="stat-bar"><div class="stat-fill" style="width:${health}%;background:#ff6666"></div></div>
+            <span>${health}</span>
+        </div>
+        <div class="stat">
+            <span>⭐</span>
+            <span style="color:#ffaa00">${xp} XP</span>
+        </div>
+        <div class="stat">
+            <span>📊</span>
+            <span>关卡 ${currentLevel + 1}/${levels.length}</span>
+        </div>
+        <div style="flex:1"></div>
+        ${Object.entries(languages).map(([k, l]) => `
+            <button class="lang-btn ${currentLang === k ? 'active' : ''}" onclick="switchLang('${k}')">
+                ${l.icon} ${l.name}
+            </button>
+        `).join('')}
+    `;
+}
+
+function renderEditorHeader() {
+    const header = document.getElementById('editorHeader');
+    const level = levels[currentLevel];
+    header.innerHTML = `
+        <span style="color:${languages[level.lang].color}">${languages[level.lang].icon} ${languages[level.lang].name}</span>
+        <span style="margin-left:auto;color:#00aa66">📝 代码编辑器</span>
+    `;
+}
+
+function renderGameWorld() {
+    const world = document.getElementById('gameWorld');
+    const level = levels[currentLevel];
+    
+    world.innerHTML = `
+        <style>
+            .level-info { position: absolute; top: 20px; left: 20px; right: 20px; }
+            .level-title { font-size: 1.5em; color: #00ffaa; margin-bottom: 10px; }
+            .level-desc { color: #008866; font-size: 0.9em; margin-bottom: 15px; }
+            .task-box { background: rgba(0,50,25,0.5); border: 1px solid #00aa66; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+            .task-title { color: #ffaa00; font-size: 0.85em; margin-bottom: 8px; }
+            .task-content { color: #00ffaa; font-size: 0.95em; line-height: 1.5; }
+            .hint-btn { padding: 5px 15px; background: rgba(100,50,0,0.5); border: 1px solid #ffaa00; border-radius: 4px; color: #ffaa00; cursor: pointer; font-size: 0.8em; }
+            .hint-box { background: rgba(100,50,0,0.3); border: 1px solid #ffaa00; border-radius: 4px; padding: 10px; margin-top: 10px; color: #ffcc66; font-size: 0.85em; display: none; }
+            .sprite { position: absolute; font-size: 2em; transition: all 0.3s; }
+            .bug { position: absolute; font-size: 1.5em; animation: bugFloat 2s infinite; }
+            @keyframes bugFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+            .particle { position: absolute; pointer-events: none; }
+            .run-btn { position: absolute; bottom: 20px; right: 20px; padding: 12px 30px; background: linear-gradient(135deg, #00aa66, #008844); border: none; border-radius: 8px; color: #fff; font-size: 1em; cursor: pointer; font-family: inherit; }
+            .run-btn:hover { transform: scale(1.05); }
+            .progress-bar { position: absolute; bottom: 20px; left: 20px; right: 150px; height: 10px; background: #1a1a2a; border-radius: 5px; overflow: hidden; }
+            .progress-fill { height: 100%; background: linear-gradient(90deg, #00aa66, #00ffaa); transition: width 0.5s; }
+        </style>
+        <div class="level-info">
+            <div class="level-title">${languages[level.lang].icon} ${level.title}</div>
+            <div class="level-desc">${level.desc}</div>
+            <div class="task-box">
+                <div class="task-title">🎯 任务目标</div>
+                <div class="task-content">${level.task}</div>
+            </div>
+            <button class="hint-btn" onclick="showHint()">💡 显示提示</button>
+            <div class="hint-box" id="hintBox">${level.hint}</div>
+        </div>
+        <div class="sprite" id="player" style="bottom:100px;left:50px;">🧙</div>
+        <div id="bugsContainer"></div>
+        <div id="particlesContainer"></div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <button class="run-btn" onclick="runCode()">▶ 运行代码</button>
+    `;
+    
+    spawnBugs();
+}
+
+function loadLevel(index) {
+    if (index >= levels.length) {
+        showVictory();
+        return;
+    }
+    currentLevel = index;
+    const level = levels[index];
+    currentLang = level.lang;
+    
+    document.getElementById('codeEditor').value = level.template;
+    renderGameHeader();
+    renderEditorHeader();
+    renderGameWorld();
+    logConsole(`📍 进入关卡 ${index + 1}: ${level.title}`, '#00ffaa');
+}
+
+function switchLang(lang) {
+    // 找到该语言的第一个关卡
+    const levelIndex = levels.findIndex(l => l.lang === lang);
+    if (levelIndex >= 0) {
+        loadLevel(levelIndex);
+    }
+}
+
+function showHint() {
+    const hintBox = document.getElementById('hintBox');
+    hintBox.style.display = hintBox.style.display === 'none' ? 'block' : 'none';
+}
+
+function checkCode() {
+    const code = document.getElementById('codeEditor').value;
+    const level = levels[currentLevel];
+    const progress = document.getElementById('progressFill');
+    
+    // 简单的进度估算
+    const lines = code.split('\n').filter(l => l.trim() && !l.trim().startsWith('#') && !l.trim().startsWith('//'));
+    const progressPct = Math.min(100, lines.length * 20);
+    if (progress) progress.style.width = progressPct + '%';
+}
+
+function runCode() {
+    const code = document.getElementById('codeEditor').value;
+    const level = levels[currentLevel];
+    
+    logConsole('🔄 正在执行代码...', '#ffaa00');
+    
+    // 检查语法错误
+    const errors = checkSyntax(code, level.lang);
+    if (errors.length > 0) {
+        errors.forEach(err => logConsole(`❌ 语法错误: ${err}`, '#ff6666'));
+        spawnBug();
+        health = Math.max(0, health - 10);
+        renderGameHeader();
+        return;
+    }
+    
+    // 检查任务完成
+    if (level.check(code)) {
+        logConsole('✅ 代码正确！任务完成！', '#00ff00');
+        xp += 100;
+        clearBugs();
+        createSuccessParticles();
+        renderGameHeader();
+        
+        setTimeout(() => {
+            loadLevel(currentLevel + 1);
+        }, 1500);
+    } else {
+        logConsole('⚠️ 代码可以运行，但未完成任务目标', '#ffaa00');
+    }
+}
+
+function checkSyntax(code, lang) {
+    const errors = [];
+    
+    if (lang === 'python') {
+        // 检查缩进
+        const lines = code.split('\n');
+        lines.forEach((line, i) => {
+            if (line.includes('def ') && !line.endsWith(':')) {
+                errors.push(`第${i+1}行: 函数定义缺少冒号`);
+            }
+            if (line.includes('if ') && !line.includes(':') && line.trim()) {
+                errors.push(`第${i+1}行: if语句缺少冒号`);
+            }
+            if (line.includes('for ') && !line.includes(':') && line.trim()) {
+                errors.push(`第${i+1}行: for语句缺少冒号`);
+            }
+        });
+    } else if (lang === 'javascript') {
+        // 检查括号匹配
+        const opens = (code.match(/\{/g) || []).length;
+        const closes = (code.match(/\}/g) || []).length;
+        if (opens !== closes) {
+            errors.push('花括号不匹配');
+        }
+    } else if (lang === 'java') {
+        if (code.includes('class') && !code.includes('{')) {
+            errors.push('类定义缺少花括号');
+        }
+    }
+    
+    return errors;
+}
+
+function spawnBugs() {
+    bugs = [];
+    const container = document.getElementById('bugsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    for (let i = 0; i < 3; i++) {
+        const bug = {
+            x: 200 + Math.random() * 300,
+            y: 200 + Math.random() * 150,
+            type: ['🐛', '🦟', '🪲'][Math.floor(Math.random() * 3)]
+        };
+        bugs.push(bug);
+        
+        const el = document.createElement('div');
+        el.className = 'bug';
+        el.textContent = bug.type;
+        el.style.left = bug.x + 'px';
+        el.style.top = bug.y + 'px';
+        el.style.animationDelay = (i * 0.3) + 's';
+        container.appendChild(el);
+    }
+}
+
+function spawnBug() {
+    const container = document.getElementById('bugsContainer');
+    if (!container) return;
+    
+    const bug = {
+        x: 100 + Math.random() * 400,
+        y: 150 + Math.random() * 200,
+        type: '🐛'
+    };
+    bugs.push(bug);
+    
+    const el = document.createElement('div');
+    el.className = 'bug';
+    el.textContent = bug.type;
+    el.style.left = bug.x + 'px';
+    el.style.top = bug.y + 'px';
+    container.appendChild(el);
+}
+
+function clearBugs() {
+    bugs = [];
+    const container = document.getElementById('bugsContainer');
+    if (container) container.innerHTML = '';
+}
+
+function createSuccessParticles() {
+    const container = document.getElementById('particlesContainer');
+    if (!container) return;
+    
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.textContent = ['✨', '⭐', '💫', '🌟'][Math.floor(Math.random() * 4)];
+        particle.style.left = (100 + Math.random() * 400) + 'px';
+        particle.style.top = (100 + Math.random() * 200) + 'px';
+        particle.style.fontSize = (0.8 + Math.random() * 0.8) + 'em';
+        particle.style.opacity = '1';
+        particle.style.transition = 'all 1s ease-out';
+        container.appendChild(particle);
+        
+        setTimeout(() => {
+            particle.style.transform = `translateY(-${50 + Math.random() * 100}px)`;
+            particle.style.opacity = '0';
+        }, 50);
+        
+        setTimeout(() => particle.remove(), 1000);
+    }
+}
+
+function logConsole(msg, color = '#00ffaa') {
+    const console = document.getElementById('consoleArea');
+    const time = new Date().toLocaleTimeString();
+    console.innerHTML += `<div style="color:${color};margin:3px 0;"><span style="color:#666">[${time}]</span> ${msg}</div>`;
+    console.scrollTop = console.scrollHeight;
+}
+
+function showVictory() {
+    const world = document.getElementById('gameWorld');
+    world.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;">
+            <div style="font-size:4em;margin-bottom:20px;">🎉</div>
+            <div style="font-size:2em;color:#00ffaa;margin-bottom:10px;">恭喜通关！</div>
+            <div style="color:#008866;margin-bottom:20px;">你已掌握基础编程语法</div>
+            <div style="color:#ffaa00;font-size:1.2em;">总经验值: ${xp} XP</div>
+            <button onclick="restartGame()" style="margin-top:30px;padding:12px 30px;background:#00aa66;border:none;border-radius:8px;color:#fff;font-size:1em;cursor:pointer;">重新开始</button>
+        </div>
+    `;
+}
+
+function restartGame() {
+    currentLevel = 0;
+    xp = 0;
+    health = 100;
+    loadLevel(0);
+}
+
+function updateGame() {
+    // 更新玩家动画
+    const player = document.getElementById('player');
+    if (player) {
+        const t = Date.now() / 500;
+        player.style.transform = `translateY(${Math.sin(t) * 5}px)`;
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

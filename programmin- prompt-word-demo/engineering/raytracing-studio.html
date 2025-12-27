@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时光线追踪材质工作室</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💎</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a1a;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .canvas-area {
+            flex: 6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0a0a;
+        }
+        #renderCanvas { display: block; cursor: grab; }
+        .control-panel {
+            flex: 4;
+            min-width: 320px;
+            background: #1a1a1a;
+            border-left: 1px solid #333;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.9em;
+            color: #4af;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .render-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.75em;
+            font-family: monospace;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="canvas-area" style="position:relative;">
+        <canvas id="renderCanvas"></canvas>
+        <div class="render-info" id="renderInfo">采样: 0 | 时间: 0ms</div>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let imageData;
+let samples = 0;
+let rendering = false;
+let accumBuffer;
+
+// 场景
+const scene = {
+    camera: { x: 0, y: 2, z: 8, fov: 60 },
+    spheres: [
+        { x: 0, y: 1, z: 0, r: 1, material: 'metal' },
+        { x: -2.5, y: 1, z: 0, r: 1, material: 'glass' },
+        { x: 2.5, y: 1, z: 0, r: 1, material: 'matte' }
+    ],
+    lights: [
+        { x: 5, y: 10, z: 5, intensity: 1, color: { r: 255, g: 250, b: 240 } },
+        { x: -5, y: 8, z: 3, intensity: 0.5, color: { r: 200, g: 220, b: 255 } }
+    ],
+    ground: { y: 0, material: 'checker' }
+};
+
+// 材质
+const materials = {
+    metal: { name: '金属', baseColor: { r: 255, g: 215, b: 0 }, metallic: 1, roughness: 0.1, ior: 1.5 },
+    glass: { name: '玻璃', baseColor: { r: 255, g: 255, b: 255 }, metallic: 0, roughness: 0, ior: 1.5, transparent: true },
+    matte: { name: '哑光', baseColor: { r: 200, g: 50, b: 50 }, metallic: 0, roughness: 0.8, ior: 1.5 },
+    plastic: { name: '塑料', baseColor: { r: 50, g: 150, b: 255 }, metallic: 0, roughness: 0.3, ior: 1.5 },
+    mirror: { name: '镜面', baseColor: { r: 255, g: 255, b: 255 }, metallic: 1, roughness: 0, ior: 1.5 },
+    ceramic: { name: '陶瓷', baseColor: { r: 240, g: 240, b: 230 }, metallic: 0, roughness: 0.2, ior: 1.5 },
+    checker: { name: '棋盘', baseColor: { r: 200, g: 200, b: 200 }, metallic: 0, roughness: 0.5, ior: 1.5 }
+};
+
+let selectedSphere = 0;
+let rotX = 0, rotY = 0;
+let dragging = false;
+let lastX, lastY;
+
+function init() {
+    canvas = document.getElementById('renderCanvas');
+    ctx = canvas.getContext('2d');
+    
+    const area = canvas.parentElement;
+    const size = Math.min(area.clientWidth - 20, area.clientHeight - 20, 500);
+    canvas.width = size;
+    canvas.height = size;
+    
+    imageData = ctx.createImageData(canvas.width, canvas.height);
+    accumBuffer = new Float32Array(canvas.width * canvas.height * 3);
+    
+    renderControlPanel();
+    startRender();
+    
+    canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+    });
+    canvas.addEventListener('mousemove', (e) => {
+        if (dragging) {
+            rotY += (e.clientX - lastX) * 0.01;
+            rotX += (e.clientY - lastY) * 0.01;
+            rotX = Math.max(-1, Math.min(1, rotX));
+            lastX = e.clientX;
+            lastY = e.clientY;
+            resetRender();
+        }
+    });
+    canvas.addEventListener('mouseup', () => {
+        dragging = false;
+        canvas.style.cursor = 'grab';
+    });
+    canvas.addEventListener('mouseleave', () => {
+        dragging = false;
+        canvas.style.cursor = 'grab';
+    });
+}
+
+function renderControlPanel() {
+    const panel = document.getElementById('controlPanel');
+    const sphere = scene.spheres[selectedSphere];
+    const mat = materials[sphere.material];
+    
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 8px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.75em; color: #888; margin-bottom: 3px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #333; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #4af; cursor: pointer; }
+            .btn { padding: 6px 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.75em; transition: all 0.2s; margin: 2px; }
+            .btn-primary { background: linear-gradient(135deg, #4af, #28f); color: #fff; }
+            .btn-secondary { background: rgba(255,255,255,0.1); color: #aaa; }
+            .btn.active { box-shadow: 0 0 8px #4af; }
+            .btn:hover { transform: scale(1.02); }
+            .material-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+            .material-btn { padding: 8px 4px; font-size: 0.7em; text-align: center; }
+            .sphere-select { display: flex; gap: 4px; margin-bottom: 8px; }
+            .sphere-btn { flex: 1; padding: 8px; text-align: center; }
+            .color-input { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; }
+            .preview-ball { width: 60px; height: 60px; border-radius: 50%; margin: 10px auto; }
+        </style>
+        <div style="text-align:center;margin-bottom:8px;">
+            <h2 style="color:#4af;font-size:1.1em;">💎 光线追踪工作室</h2>
+            <p style="color:#666;font-size:0.7em;">拖拽旋转视角</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔮 选择物体</div>
+            <div class="sphere-select">
+                ${scene.spheres.map((s, i) => `
+                    <button class="btn sphere-btn ${selectedSphere === i ? 'btn-primary' : 'btn-secondary'}" 
+                            onclick="selectSphere(${i})">球体 ${i + 1}</button>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎨 材质类型</div>
+            <div class="material-grid">
+                ${Object.entries(materials).filter(([k]) => k !== 'checker').map(([key, m]) => `
+                    <button class="btn material-btn ${sphere.material === key ? 'btn-primary' : 'btn-secondary'}" 
+                            onclick="setMaterial('${key}')">${m.name}</button>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 材质参数</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>金属度</span><span>${(mat.metallic * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${mat.metallic * 100}" 
+                       oninput="updateMaterial('metallic', this.value / 100)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>粗糙度</span><span>${(mat.roughness * 100).toFixed(0)}%</span></div>
+                <input type="range" min="0" max="100" value="${mat.roughness * 100}" 
+                       oninput="updateMaterial('roughness', this.value / 100)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>折射率</span><span>${mat.ior.toFixed(2)}</span></div>
+                <input type="range" min="100" max="300" value="${mat.ior * 100}" 
+                       oninput="updateMaterial('ior', this.value / 100)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>基础色</span></div>
+                <input type="color" class="color-input" value="${rgbToHex(mat.baseColor)}" 
+                       oninput="updateMaterialColor(this.value)">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 光源设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>主光强度</span><span>${scene.lights[0].intensity.toFixed(1)}</span></div>
+                <input type="range" min="0" max="200" value="${scene.lights[0].intensity * 100}" 
+                       oninput="updateLight(0, 'intensity', this.value / 100)">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>补光强度</span><span>${scene.lights[1].intensity.toFixed(1)}</span></div>
+                <input type="range" min="0" max="200" value="${scene.lights[1].intensity * 100}" 
+                       oninput="updateLight(1, 'intensity', this.value / 100)">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📷 相机设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>视场角</span><span>${scene.camera.fov}°</span></div>
+                <input type="range" min="30" max="120" value="${scene.camera.fov}" 
+                       oninput="updateCamera('fov', parseInt(this.value))">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>相机高度</span><span>${scene.camera.y.toFixed(1)}</span></div>
+                <input type="range" min="5" max="100" value="${scene.camera.y * 10}" 
+                       oninput="updateCamera('y', this.value / 10)">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎬 控制</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                <button class="btn btn-primary" onclick="resetRender()">🔄 重新渲染</button>
+                <button class="btn btn-secondary" onclick="saveImage()">💾 保存</button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.7em;color:#666;line-height:1.4;">
+                基于路径追踪的实时渲染。<br>
+                <b>金属度</b>：控制反射类型<br>
+                <b>粗糙度</b>：控制表面光滑程度<br>
+                <b>折射率</b>：玻璃材质的折射效果<br>
+                采样越多，图像越清晰。
+            </div>
+        </div>
+    `;
+}
+
+function selectSphere(i) {
+    selectedSphere = i;
+    renderControlPanel();
+}
+
+function setMaterial(mat) {
+    scene.spheres[selectedSphere].material = mat;
+    renderControlPanel();
+    resetRender();
+}
+
+function updateMaterial(prop, value) {
+    const mat = materials[scene.spheres[selectedSphere].material];
+    mat[prop] = value;
+    renderControlPanel();
+    resetRender();
+}
+
+function updateMaterialColor(hex) {
+    const mat = materials[scene.spheres[selectedSphere].material];
+    mat.baseColor = hexToRgb(hex);
+    resetRender();
+}
+
+function updateLight(i, prop, value) {
+    scene.lights[i][prop] = value;
+    renderControlPanel();
+    resetRender();
+}
+
+function updateCamera(prop, value) {
+    scene.camera[prop] = value;
+    renderControlPanel();
+    resetRender();
+}
+
+function rgbToHex(c) {
+    return '#' + [c.r, c.g, c.b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 255, g: 255, b: 255 };
+}
+
+// 向量运算
+const vec3 = {
+    add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }),
+    sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }),
+    mul: (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s }),
+    dot: (a, b) => a.x * b.x + a.y * b.y + a.z * b.z,
+    cross: (a, b) => ({
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+    }),
+    length: (a) => Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z),
+    normalize: (a) => {
+        const len = vec3.length(a);
+        return len > 0 ? vec3.mul(a, 1 / len) : a;
+    },
+    reflect: (v, n) => vec3.sub(v, vec3.mul(n, 2 * vec3.dot(v, n))),
+    lerp: (a, b, t) => ({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+        z: a.z + (b.z - a.z) * t
+    })
+};
+
+// 随机数
+function random() { return Math.random(); }
+function randomInUnitSphere() {
+    while (true) {
+        const p = { x: random() * 2 - 1, y: random() * 2 - 1, z: random() * 2 - 1 };
+        if (vec3.dot(p, p) < 1) return p;
+    }
+}
+
+// 射线-球体相交
+function intersectSphere(origin, dir, sphere) {
+    const oc = vec3.sub(origin, sphere);
+    const a = vec3.dot(dir, dir);
+    const b = 2 * vec3.dot(oc, dir);
+    const c = vec3.dot(oc, oc) - sphere.r * sphere.r;
+    const discriminant = b * b - 4 * a * c;
+    
+    if (discriminant < 0) return -1;
+    return (-b - Math.sqrt(discriminant)) / (2 * a);
+}
+
+// 射线-平面相交
+function intersectPlane(origin, dir, planeY) {
+    if (Math.abs(dir.y) < 0.0001) return -1;
+    const t = (planeY - origin.y) / dir.y;
+    return t > 0 ? t : -1;
+}
+
+// 追踪射线
+function trace(origin, dir, depth) {
+    if (depth <= 0) return { r: 0, g: 0, b: 0 };
+    
+    let closest = Infinity;
+    let hitSphere = null;
+    let hitGround = false;
+    
+    // 检测球体
+    for (const sphere of scene.spheres) {
+        const t = intersectSphere(origin, dir, sphere);
+        if (t > 0.001 && t < closest) {
+            closest = t;
+            hitSphere = sphere;
+        }
+    }
+    
+    // 检测地面
+    const tGround = intersectPlane(origin, dir, scene.ground.y);
+    if (tGround > 0.001 && tGround < closest) {
+        closest = tGround;
+        hitSphere = null;
+        hitGround = true;
+    }
+    
+    // 未命中 - 天空
+    if (closest === Infinity) {
+        const t = 0.5 * (dir.y + 1);
+        return {
+            r: (1 - t) * 255 + t * 128,
+            g: (1 - t) * 255 + t * 178,
+            b: (1 - t) * 255 + t * 255
+        };
+    }
+    
+    // 计算命中点
+    const hitPoint = vec3.add(origin, vec3.mul(dir, closest));
+    let normal, mat;
+    
+    if (hitGround) {
+        normal = { x: 0, y: 1, z: 0 };
+        mat = materials.checker;
+        // 棋盘纹理
+        const checker = (Math.floor(hitPoint.x) + Math.floor(hitPoint.z)) % 2;
+        mat = {
+            ...mat,
+            baseColor: checker ? { r: 200, g: 200, b: 200 } : { r: 50, g: 50, b: 50 }
+        };
+    } else {
+        normal = vec3.normalize(vec3.sub(hitPoint, hitSphere));
+        mat = materials[hitSphere.material];
+    }
+    
+    // 光照计算
+    let color = { r: 0, g: 0, b: 0 };
+    
+    // 直接光照
+    for (const light of scene.lights) {
+        const lightDir = vec3.normalize(vec3.sub(light, hitPoint));
+        const lightDist = vec3.length(vec3.sub(light, hitPoint));
+        
+        // 阴影检测
+        let inShadow = false;
+        for (const sphere of scene.spheres) {
+            if (sphere === hitSphere) continue;
+            const t = intersectSphere(hitPoint, lightDir, sphere);
+            if (t > 0.001 && t < lightDist) {
+                inShadow = true;
+                break;
+            }
+        }
+        
+        if (!inShadow) {
+            const diff = Math.max(0, vec3.dot(normal, lightDir));
+            const halfVec = vec3.normalize(vec3.add(lightDir, vec3.mul(dir, -1)));
+            const spec = Math.pow(Math.max(0, vec3.dot(normal, halfVec)), 32 / (mat.roughness + 0.01));
+            
+            const intensity = light.intensity / (1 + lightDist * 0.01);
+            
+            color.r += (mat.baseColor.r * diff * 0.6 + light.color.r * spec * mat.metallic) * intensity;
+            color.g += (mat.baseColor.g * diff * 0.6 + light.color.g * spec * mat.metallic) * intensity;
+            color.b += (mat.baseColor.b * diff * 0.6 + light.color.b * spec * mat.metallic) * intensity;
+        }
+    }
+    
+    // 反射
+    if (mat.metallic > 0 || mat.roughness < 0.5) {
+        const reflected = vec3.reflect(dir, normal);
+        const fuzz = vec3.mul(randomInUnitSphere(), mat.roughness * 0.5);
+        const reflectDir = vec3.normalize(vec3.add(reflected, fuzz));
+        
+        const reflectColor = trace(hitPoint, reflectDir, depth - 1);
+        const reflectAmount = mat.metallic + (1 - mat.metallic) * (1 - mat.roughness) * 0.5;
+        
+        color.r = color.r * (1 - reflectAmount) + reflectColor.r * reflectAmount * mat.baseColor.r / 255;
+        color.g = color.g * (1 - reflectAmount) + reflectColor.g * reflectAmount * mat.baseColor.g / 255;
+        color.b = color.b * (1 - reflectAmount) + reflectColor.b * reflectAmount * mat.baseColor.b / 255;
+    }
+    
+    // 环境光
+    color.r += mat.baseColor.r * 0.1;
+    color.g += mat.baseColor.g * 0.1;
+    color.b += mat.baseColor.b * 0.1;
+    
+    return color;
+}
+
+// 渲染
+function resetRender() {
+    samples = 0;
+    accumBuffer.fill(0);
+}
+
+function renderFrame() {
+    const width = canvas.width;
+    const height = canvas.height;
+    const data = imageData.data;
+    
+    const aspectRatio = width / height;
+    const fovRad = scene.camera.fov * Math.PI / 180;
+    const viewportHeight = 2 * Math.tan(fovRad / 2);
+    const viewportWidth = viewportHeight * aspectRatio;
+    
+    // 相机旋转
+    const camDist = scene.camera.z;
+    const camX = Math.sin(rotY) * camDist;
+    const camZ = Math.cos(rotY) * camDist;
+    const camY = scene.camera.y + rotX * 3;
+    
+    const origin = { x: camX, y: camY, z: camZ };
+    const lookAt = { x: 0, y: 1, z: 0 };
+    const up = { x: 0, y: 1, z: 0 };
+    
+    const w = vec3.normalize(vec3.sub(origin, lookAt));
+    const u = vec3.normalize(vec3.cross(up, w));
+    const v = vec3.cross(w, u);
+    
+    const startTime = performance.now();
+    
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            // 抗锯齿采样
+            const px = (x + random()) / width;
+            const py = (y + random()) / height;
+            
+            const dirX = (px - 0.5) * viewportWidth;
+            const dirY = (0.5 - py) * viewportHeight;
+            
+            const dir = vec3.normalize({
+                x: u.x * dirX + v.x * dirY - w.x,
+                y: u.y * dirX + v.y * dirY - w.y,
+                z: u.z * dirX + v.z * dirY - w.z
+            });
+            
+            const color = trace(origin, dir, 5);
+            
+            const idx = (y * width + x) * 3;
+            accumBuffer[idx] += color.r;
+            accumBuffer[idx + 1] += color.g;
+            accumBuffer[idx + 2] += color.b;
+            
+            const pidx = (y * width + x) * 4;
+            const s = samples + 1;
+            data[pidx] = Math.min(255, accumBuffer[idx] / s);
+            data[pidx + 1] = Math.min(255, accumBuffer[idx + 1] / s);
+            data[pidx + 2] = Math.min(255, accumBuffer[idx + 2] / s);
+            data[pidx + 3] = 255;
+        }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    samples++;
+    
+    const elapsed = performance.now() - startTime;
+    document.getElementById('renderInfo').textContent = 
+        `采样: ${samples} | 时间: ${elapsed.toFixed(0)}ms`;
+}
+
+function startRender() {
+    function loop() {
+        if (samples < 100) {
+            renderFrame();
+        }
+        requestAnimationFrame(loop);
+    }
+    loop();
+}
+
+function saveImage() {
+    const link = document.createElement('a');
+    link.download = `raytracing_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+init();
+</script>
+</body>
+</html>

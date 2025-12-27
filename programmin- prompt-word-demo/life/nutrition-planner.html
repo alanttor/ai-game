@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能餐盘营养分析</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            min-height: 100vh;
+            color: #2e7d32;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 15px;
+            gap: 15px;
+        }
+
+        .left-panel {
+            flex: 6;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .right-panel {
+            flex: 4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 1em;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 餐盘区域 */
+        .plate-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 350px;
+        }
+
+        .plate {
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #fff, #f5f5f5);
+            border: 8px solid #e0e0e0;
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), inset 0 2px 10px rgba(255,255,255,0.5);
+        }
+
+        .plate-section {
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            padding: 10px;
+            gap: 5px;
+            transition: background 0.3s;
+            position: relative;
+        }
+
+        .plate-section.dragover {
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        .plate-section::before {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 0.7em;
+            color: #999;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .section-protein { border-right: 2px dashed #e0e0e0; border-bottom: 2px dashed #e0e0e0; }
+        .section-carbs { border-bottom: 2px dashed #e0e0e0; }
+        .section-veggies { border-right: 2px dashed #e0e0e0; }
+
+        .plate-food {
+            width: 40px;
+            height: 40px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            animation: float 3s ease-in-out infinite;
+            transition: transform 0.2s;
+        }
+
+        .plate-food:hover {
+            transform: scale(1.2);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .plate-label {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* 食物库 */
+        .food-library {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .food-category {
+            margin-bottom: 10px;
+        }
+
+        .category-title {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .food-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .food-item {
+            width: 50px;
+            height: 50px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            transition: all 0.2s;
+            font-size: 1.5em;
+            position: relative;
+        }
+
+        .food-item:hover {
+            background: #e8f5e9;
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .food-item:active {
+            cursor: grabbing;
+        }
+
+        .food-item .name {
+            font-size: 0.4em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .food-item.dragging {
+            opacity: 0.5;
+        }
+
+        /* 营养仪表 */
+        .nutrition-meters {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .meter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .meter-label {
+            width: 70px;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .meter-bar {
+            flex: 1;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s, background 0.3s;
+        }
+
+        .meter-fill.good { background: linear-gradient(90deg, #66bb6a, #43a047); }
+        .meter-fill.warning { background: linear-gradient(90deg, #ffb74d, #ff9800); }
+        .meter-fill.danger { background: linear-gradient(90deg, #ef5350, #e53935); }
+
+        .meter-value {
+            width: 80px;
+            text-align: right;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        /* 用户设置 */
+        .user-settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .setting-group label {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .setting-group input, .setting-group select {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9em;
+            background: #fff;
+        }
+
+        .setting-group input:focus, .setting-group select:focus {
+            outline: none;
+            border-color: #4caf50;
+        }
+
+        /* 按钮 */
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #66bb6a, #43a047);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        /* 营养详情 */
+        .nutrition-detail {
+            background: #f9fbe7;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            padding: 5px 0;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        /* 建议卡片 */
+        .suggestion-card {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+
+        .suggestion-card.warning {
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        }
+
+        .suggestion-card.success {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        }
+
+        /* 餐食列表 */
+        .meal-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .meal-tab {
+            padding: 8px 15px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .meal-tab.active {
+            background: #4caf50;
+            color: #fff;
+        }
+
+        /* 食物详情弹窗 */
+        .food-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            min-width: 300px;
+        }
+
+        .food-popup.show {
+            display: block;
+        }
+
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .popup-overlay.show {
+            display: block;
+        }
+
+        .popup-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .popup-icon {
+            font-size: 3em;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+
+        /* 一周计划 */
+        .week-plan {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            font-size: 0.75em;
+        }
+
+        .day-column {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .day-column.today {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+        }
+
+        .day-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="panel plate-area">
+                <div class="panel-title">🍽️ 我的餐盘</div>
+                <div class="meal-tabs">
+                    <button class="meal-tab active" data-meal="breakfast">早餐</button>
+                    <button class="meal-tab" data-meal="lunch">午餐</button>
+                    <button class="meal-tab" data-meal="dinner">晚餐</button>
+                    <button class="meal-tab" data-meal="snack">加餐</button>
+                </div>
+                <div class="plate" id="plate">
+                    <div class="plate-section section-protein" data-type="protein" data-label="蛋白质"></div>
+                    <div class="plate-section section-carbs" data-type="carbs" data-label="碳水"></div>
+                    <div class="plate-section section-veggies" data-type="veggies" data-label="蔬菜"></div>
+                    <div class="plate-section section-fruits" data-type="fruits" data-label="水果"></div>
+                </div>
+                <div class="plate-label">拖拽食物到餐盘 | 点击餐盘中的食物移除</div>
+            </div>
+
+            <div class="panel food-library">
+                <div class="panel-title">🥗 食物库 <span style="font-weight:normal;font-size:0.8em;color:#999">(拖拽添加)</span></div>
+                <div id="foodCategories"></div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel">
+                <div class="panel-title">👤 个人设置</div>
+                <div class="user-settings">
+                    <div class="setting-group">
+                        <label>年龄</label>
+                        <input type="number" id="userAge" value="30" min="18" max="80">
+                    </div>
+                    <div class="setting-group">
+                        <label>性别</label>
+                        <select id="userGender">
+                            <option value="male">男</option>
+                            <option value="female">女</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>身高 (cm)</label>
+                        <input type="number" id="userHeight" value="170" min="140" max="200">
+                    </div>
+                    <div class="setting-group">
+                        <label>体重 (kg)</label>
+                        <input type="number" id="userWeight" value="65" min="40" max="150">
+                    </div>
+                    <div class="setting-group">
+                        <label>活动水平</label>
+                        <select id="activityLevel">
+                            <option value="sedentary">久坐</option>
+                            <option value="light">轻度活动</option>
+                            <option value="moderate" selected>中度活动</option>
+                            <option value="heavy">重度活动</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>健康目标</label>
+                        <select id="healthGoal">
+                            <option value="maintain">维持体重</option>
+                            <option value="lose">减重</option>
+                            <option value="gain">增肌</option>
+                            <option value="lowcarb">低碳饮食</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📊 今日营养摄入</div>
+                <div class="nutrition-meters" id="nutritionMeters"></div>
+                <div class="nutrition-detail" id="nutritionDetail"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">💡 智能建议</div>
+                <div id="suggestions"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📅 一周计划</div>
+                <div class="week-plan" id="weekPlan"></div>
+            </div>
+
+            <div class="panel">
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="saveMealBtn">💾 保存餐食</button>
+                    <button class="btn btn-secondary" id="clearPlateBtn">🗑️ 清空餐盘</button>
+                    <button class="btn btn-secondary" id="shoppingListBtn">🛒 购物清单</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popupOverlay"></div>
+    <div class="food-popup" id="foodPopup">
+        <button class="popup-close" id="popupClose">×</button>
+        <div class="popup-header">
+            <span class="popup-icon" id="popupIcon">🍎</span>
+            <div>
+                <h3 id="popupName">食物名称</h3>
+                <p style="color:#666;font-size:0.9em" id="popupCategory">类别</p>
+            </div>
+        </div>
+        <div id="popupNutrition"></div>
+        <div style="margin-top:15px">
+            <label style="font-size:0.85em;color:#666">份量调整</label>
+            <input type="range" id="portionSlider" min="50" max="200" value="100" style="width:100%">
+            <div style="text-align:center;font-size:0.85em" id="portionValue">100%</div>
+        </div>
+    </div>
+
+    <script>
+
+        // ==================== 食物数据库 ====================
+        const FoodDatabase = {
+            protein: [
+                { id: 'chicken', name: '鸡胸肉', icon: '🍗', cal: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0 },
+                { id: 'beef', name: '牛肉', icon: '🥩', cal: 250, protein: 26, carbs: 0, fat: 15, fiber: 0 },
+                { id: 'pork', name: '猪肉', icon: '🥓', cal: 242, protein: 27, carbs: 0, fat: 14, fiber: 0 },
+                { id: 'fish', name: '鱼肉', icon: '🐟', cal: 206, protein: 22, carbs: 0, fat: 12, fiber: 0 },
+                { id: 'shrimp', name: '虾', icon: '🦐', cal: 99, protein: 24, carbs: 0, fat: 0.3, fiber: 0 },
+                { id: 'egg', name: '鸡蛋', icon: '🥚', cal: 155, protein: 13, carbs: 1, fat: 11, fiber: 0 },
+                { id: 'tofu', name: '豆腐', icon: '🧈', cal: 76, protein: 8, carbs: 2, fat: 4.8, fiber: 0.3 },
+                { id: 'milk', name: '牛奶', icon: '🥛', cal: 42, protein: 3.4, carbs: 5, fat: 1, fiber: 0 },
+                { id: 'cheese', name: '奶酪', icon: '🧀', cal: 402, protein: 25, carbs: 1.3, fat: 33, fiber: 0 },
+                { id: 'yogurt', name: '酸奶', icon: '🥄', cal: 59, protein: 10, carbs: 3.6, fat: 0.7, fiber: 0 }
+            ],
+            carbs: [
+                { id: 'rice', name: '米饭', icon: '🍚', cal: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4 },
+                { id: 'noodles', name: '面条', icon: '🍜', cal: 138, protein: 5, carbs: 25, fat: 2, fiber: 1 },
+                { id: 'bread', name: '面包', icon: '🍞', cal: 265, protein: 9, carbs: 49, fat: 3.2, fiber: 2.7 },
+                { id: 'potato', name: '土豆', icon: '🥔', cal: 77, protein: 2, carbs: 17, fat: 0.1, fiber: 2.2 },
+                { id: 'corn', name: '玉米', icon: '🌽', cal: 86, protein: 3.2, carbs: 19, fat: 1.2, fiber: 2.7 },
+                { id: 'oats', name: '燕麦', icon: '🥣', cal: 389, protein: 17, carbs: 66, fat: 7, fiber: 11 },
+                { id: 'sweetpotato', name: '红薯', icon: '🍠', cal: 86, protein: 1.6, carbs: 20, fat: 0.1, fiber: 3 },
+                { id: 'quinoa', name: '藜麦', icon: '🌾', cal: 120, protein: 4.4, carbs: 21, fat: 1.9, fiber: 2.8 }
+            ],
+            veggies: [
+                { id: 'broccoli', name: '西兰花', icon: '🥦', cal: 34, protein: 2.8, carbs: 7, fat: 0.4, fiber: 2.6 },
+                { id: 'carrot', name: '胡萝卜', icon: '🥕', cal: 41, protein: 0.9, carbs: 10, fat: 0.2, fiber: 2.8 },
+                { id: 'spinach', name: '菠菜', icon: '🥬', cal: 23, protein: 2.9, carbs: 3.6, fat: 0.4, fiber: 2.2 },
+                { id: 'tomato', name: '番茄', icon: '🍅', cal: 18, protein: 0.9, carbs: 3.9, fat: 0.2, fiber: 1.2 },
+                { id: 'cucumber', name: '黄瓜', icon: '🥒', cal: 15, protein: 0.7, carbs: 3.6, fat: 0.1, fiber: 0.5 },
+                { id: 'lettuce', name: '生菜', icon: '🥗', cal: 15, protein: 1.4, carbs: 2.9, fat: 0.2, fiber: 1.3 },
+                { id: 'pepper', name: '青椒', icon: '🫑', cal: 20, protein: 0.9, carbs: 4.6, fat: 0.2, fiber: 1.7 },
+                { id: 'mushroom', name: '蘑菇', icon: '🍄', cal: 22, protein: 3.1, carbs: 3.3, fat: 0.3, fiber: 1 },
+                { id: 'onion', name: '洋葱', icon: '🧅', cal: 40, protein: 1.1, carbs: 9.3, fat: 0.1, fiber: 1.7 },
+                { id: 'garlic', name: '大蒜', icon: '🧄', cal: 149, protein: 6.4, carbs: 33, fat: 0.5, fiber: 2.1 },
+                { id: 'eggplant', name: '茄子', icon: '🍆', cal: 25, protein: 1, carbs: 6, fat: 0.2, fiber: 3 },
+                { id: 'cabbage', name: '卷心菜', icon: '🥬', cal: 25, protein: 1.3, carbs: 6, fat: 0.1, fiber: 2.5 }
+            ],
+            fruits: [
+                { id: 'apple', name: '苹果', icon: '🍎', cal: 52, protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4 },
+                { id: 'banana', name: '香蕉', icon: '🍌', cal: 89, protein: 1.1, carbs: 23, fat: 0.3, fiber: 2.6 },
+                { id: 'orange', name: '橙子', icon: '🍊', cal: 47, protein: 0.9, carbs: 12, fat: 0.1, fiber: 2.4 },
+                { id: 'grape', name: '葡萄', icon: '🍇', cal: 69, protein: 0.7, carbs: 18, fat: 0.2, fiber: 0.9 },
+                { id: 'strawberry', name: '草莓', icon: '🍓', cal: 32, protein: 0.7, carbs: 7.7, fat: 0.3, fiber: 2 },
+                { id: 'watermelon', name: '西瓜', icon: '🍉', cal: 30, protein: 0.6, carbs: 7.6, fat: 0.2, fiber: 0.4 },
+                { id: 'peach', name: '桃子', icon: '🍑', cal: 39, protein: 0.9, carbs: 10, fat: 0.3, fiber: 1.5 },
+                { id: 'pear', name: '梨', icon: '🍐', cal: 57, protein: 0.4, carbs: 15, fat: 0.1, fiber: 3.1 },
+                { id: 'cherry', name: '樱桃', icon: '🍒', cal: 50, protein: 1, carbs: 12, fat: 0.3, fiber: 1.6 },
+                { id: 'kiwi', name: '猕猴桃', icon: '🥝', cal: 61, protein: 1.1, carbs: 15, fat: 0.5, fiber: 3 },
+                { id: 'mango', name: '芒果', icon: '🥭', cal: 60, protein: 0.8, carbs: 15, fat: 0.4, fiber: 1.6 },
+                { id: 'pineapple', name: '菠萝', icon: '🍍', cal: 50, protein: 0.5, carbs: 13, fat: 0.1, fiber: 1.4 }
+            ]
+        };
+
+        const CategoryNames = {
+            protein: '🥩 蛋白质',
+            carbs: '🍚 碳水化合物',
+            veggies: '🥦 蔬菜',
+            fruits: '🍎 水果'
+        };
+
+        // ==================== 营养计算器 ====================
+        class NutritionCalculator {
+            constructor() {
+                this.userParams = {
+                    age: 30,
+                    gender: 'male',
+                    height: 170,
+                    weight: 65,
+                    activity: 'moderate',
+                    goal: 'maintain'
+                };
+            }
+
+            // Harris-Benedict公式计算基础代谢率
+            calculateBMR() {
+                const { age, gender, height, weight } = this.userParams;
+                if (gender === 'male') {
+                    return 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+                } else {
+                    return 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+                }
+            }
+
+            // 计算每日总能量消耗
+            calculateTDEE() {
+                const bmr = this.calculateBMR();
+                const activityMultipliers = {
+                    sedentary: 1.2,
+                    light: 1.375,
+                    moderate: 1.55,
+                    heavy: 1.725
+                };
+                return bmr * activityMultipliers[this.userParams.activity];
+            }
+
+            // 获取推荐营养摄入
+            getRecommendedIntake() {
+                let tdee = this.calculateTDEE();
+                const { goal } = this.userParams;
+
+                // 根据目标调整
+                if (goal === 'lose') tdee *= 0.8;
+                else if (goal === 'gain') tdee *= 1.15;
+
+                // 宏量营养素分配
+                let proteinRatio = 0.25, carbsRatio = 0.45, fatRatio = 0.30;
+                if (goal === 'gain') {
+                    proteinRatio = 0.30; carbsRatio = 0.45; fatRatio = 0.25;
+                } else if (goal === 'lowcarb') {
+                    proteinRatio = 0.30; carbsRatio = 0.20; fatRatio = 0.50;
+                }
+
+                return {
+                    calories: Math.round(tdee),
+                    protein: Math.round((tdee * proteinRatio) / 4), // 4 cal/g
+                    carbs: Math.round((tdee * carbsRatio) / 4),
+                    fat: Math.round((tdee * fatRatio) / 9), // 9 cal/g
+                    fiber: 25 // 固定推荐
+                };
+            }
+
+            // 计算食物总营养
+            calculateTotal(foods) {
+                const total = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+                foods.forEach(food => {
+                    const portion = food.portion || 100;
+                    const factor = portion / 100;
+                    total.calories += food.cal * factor;
+                    total.protein += food.protein * factor;
+                    total.carbs += food.carbs * factor;
+                    total.fat += food.fat * factor;
+                    total.fiber += food.fiber * factor;
+                });
+                return {
+                    calories: Math.round(total.calories),
+                    protein: Math.round(total.protein),
+                    carbs: Math.round(total.carbs),
+                    fat: Math.round(total.fat),
+                    fiber: Math.round(total.fiber * 10) / 10
+                };
+            }
+        }
+
+        // ==================== 主应用 ====================
+        class NutritionApp {
+            constructor() {
+                this.calculator = new NutritionCalculator();
+                this.currentMeal = 'breakfast';
+                this.meals = {
+                    breakfast: [],
+                    lunch: [],
+                    dinner: [],
+                    snack: []
+                };
+                this.weekPlan = {};
+                
+                this.initFoodLibrary();
+                this.initDragDrop();
+                this.initControls();
+                this.initWeekPlan();
+                this.update();
+            }
+
+            initFoodLibrary() {
+                const container = document.getElementById('foodCategories');
+                container.innerHTML = '';
+
+                Object.entries(FoodDatabase).forEach(([category, foods]) => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'food-category';
+                    categoryDiv.innerHTML = `
+                        <div class="category-title">${CategoryNames[category]}</div>
+                        <div class="food-grid">
+                            ${foods.map(food => `
+                                <div class="food-item" draggable="true" 
+                                     data-id="${food.id}" data-category="${category}"
+                                     title="${food.name}: ${food.cal}卡">
+                                    <span>${food.icon}</span>
+                                    <span class="name">${food.name}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    container.appendChild(categoryDiv);
+                });
+            }
+
+            initDragDrop() {
+                // 食物项拖拽
+                document.querySelectorAll('.food-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('foodId', item.dataset.id);
+                        e.dataTransfer.setData('category', item.dataset.category);
+                        item.classList.add('dragging');
+                    });
+
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('dragging');
+                    });
+
+                    item.addEventListener('click', () => {
+                        this.showFoodPopup(item.dataset.id, item.dataset.category);
+                    });
+                });
+
+                // 餐盘区域接收
+                document.querySelectorAll('.plate-section').forEach(section => {
+                    section.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        section.classList.add('dragover');
+                    });
+
+                    section.addEventListener('dragleave', () => {
+                        section.classList.remove('dragover');
+                    });
+
+                    section.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        section.classList.remove('dragover');
+                        
+                        const foodId = e.dataTransfer.getData('foodId');
+                        const category = e.dataTransfer.getData('category');
+                        this.addFoodToPlate(foodId, category);
+                    });
+                });
+            }
+
+            initControls() {
+                // 用户设置
+                ['userAge', 'userGender', 'userHeight', 'userWeight', 'activityLevel', 'healthGoal'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', (e) => {
+                        const param = id.replace('user', '').toLowerCase()
+                            .replace('activitylevel', 'activity')
+                            .replace('healthgoal', 'goal');
+                        this.calculator.userParams[param] = e.target.value;
+                        this.update();
+                    });
+                });
+
+                // 餐食标签
+                document.querySelectorAll('.meal-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.meal-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        this.currentMeal = tab.dataset.meal;
+                        this.renderPlate();
+                    });
+                });
+
+                // 按钮
+                document.getElementById('clearPlateBtn').addEventListener('click', () => {
+                    this.meals[this.currentMeal] = [];
+                    this.renderPlate();
+                    this.update();
+                });
+
+                document.getElementById('saveMealBtn').addEventListener('click', () => {
+                    this.saveMeal();
+                });
+
+                document.getElementById('shoppingListBtn').addEventListener('click', () => {
+                    this.showShoppingList();
+                });
+
+                // 弹窗
+                document.getElementById('popupClose').addEventListener('click', () => this.hidePopup());
+                document.getElementById('popupOverlay').addEventListener('click', () => this.hidePopup());
+
+                document.getElementById('portionSlider').addEventListener('input', (e) => {
+                    document.getElementById('portionValue').textContent = e.target.value + '%';
+                });
+            }
+
+            initWeekPlan() {
+                const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+                const today = new Date().getDay();
+                const todayIndex = today === 0 ? 6 : today - 1;
+
+                const container = document.getElementById('weekPlan');
+                container.innerHTML = days.map((day, i) => `
+                    <div class="day-column ${i === todayIndex ? 'today' : ''}">
+                        <div class="day-name">${day}</div>
+                        <div style="font-size:0.9em;color:#666">--</div>
+                    </div>
+                `).join('');
+            }
+
+            addFoodToPlate(foodId, category) {
+                const food = FoodDatabase[category].find(f => f.id === foodId);
+                if (food) {
+                    this.meals[this.currentMeal].push({ ...food, category, portion: 100 });
+                    this.renderPlate();
+                    this.update();
+                }
+            }
+
+            removeFoodFromPlate(index) {
+                this.meals[this.currentMeal].splice(index, 1);
+                this.renderPlate();
+                this.update();
+            }
+
+            renderPlate() {
+                // 清空所有区域
+                document.querySelectorAll('.plate-section').forEach(section => {
+                    const label = section.dataset.label;
+                    section.innerHTML = '';
+                });
+
+                // 添加食物到对应区域
+                this.meals[this.currentMeal].forEach((food, index) => {
+                    const section = document.querySelector(`.plate-section[data-type="${food.category === 'protein' ? 'protein' : food.category === 'carbs' ? 'carbs' : food.category === 'veggies' ? 'veggies' : 'fruits'}"]`);
+                    if (section) {
+                        const foodEl = document.createElement('div');
+                        foodEl.className = 'plate-food';
+                        foodEl.textContent = food.icon;
+                        foodEl.title = food.name;
+                        foodEl.style.animationDelay = (index * 0.1) + 's';
+                        foodEl.addEventListener('click', () => this.removeFoodFromPlate(index));
+                        section.appendChild(foodEl);
+                    }
+                });
+            }
+
+            update() {
+                this.updateNutritionMeters();
+                this.updateSuggestions();
+            }
+
+            updateNutritionMeters() {
+                const allFoods = Object.values(this.meals).flat();
+                const total = this.calculator.calculateTotal(allFoods);
+                const recommended = this.calculator.getRecommendedIntake();
+
+                const nutrients = [
+                    { key: 'calories', label: '热量', unit: '卡', color: 'cal' },
+                    { key: 'protein', label: '蛋白质', unit: 'g', color: 'protein' },
+                    { key: 'carbs', label: '碳水', unit: 'g', color: 'carbs' },
+                    { key: 'fat', label: '脂肪', unit: 'g', color: 'fat' },
+                    { key: 'fiber', label: '纤维', unit: 'g', color: 'fiber' }
+                ];
+
+                const container = document.getElementById('nutritionMeters');
+                container.innerHTML = nutrients.map(n => {
+                    const percent = Math.min(150, (total[n.key] / recommended[n.key]) * 100);
+                    const status = percent < 80 ? 'good' : percent < 110 ? 'good' : percent < 130 ? 'warning' : 'danger';
+                    return `
+                        <div class="meter">
+                            <span class="meter-label">${n.label}</span>
+                            <div class="meter-bar">
+                                <div class="meter-fill ${status}" style="width:${Math.min(100, percent)}%"></div>
+                            </div>
+                            <span class="meter-value">${total[n.key]}/${recommended[n.key]}${n.unit}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                // 详细信息
+                document.getElementById('nutritionDetail').innerHTML = `
+                    <div class="detail-row"><span>基础代谢率 (BMR)</span><span>${Math.round(this.calculator.calculateBMR())} 卡</span></div>
+                    <div class="detail-row"><span>每日总消耗 (TDEE)</span><span>${Math.round(this.calculator.calculateTDEE())} 卡</span></div>
+                    <div class="detail-row"><span>今日已摄入</span><span>${total.calories} 卡</span></div>
+                    <div class="detail-row"><span>剩余可摄入</span><span>${Math.max(0, recommended.calories - total.calories)} 卡</span></div>
+                `;
+            }
+
+            updateSuggestions() {
+                const allFoods = Object.values(this.meals).flat();
+                const total = this.calculator.calculateTotal(allFoods);
+                const recommended = this.calculator.getRecommendedIntake();
+                const suggestions = [];
+
+                // 分析营养平衡
+                if (total.protein < recommended.protein * 0.5) {
+                    suggestions.push({ type: 'warning', text: '蛋白质摄入不足，建议添加鸡胸肉、鱼肉或豆腐' });
+                }
+                if (total.fiber < 15) {
+                    suggestions.push({ type: 'warning', text: '膳食纤维偏低，建议多吃蔬菜和全谷物' });
+                }
+                if (total.calories > recommended.calories * 1.2) {
+                    suggestions.push({ type: 'warning', text: '热量摄入偏高，建议减少高热量食物' });
+                }
+                if (total.fat > recommended.fat * 1.3) {
+                    suggestions.push({ type: 'warning', text: '脂肪摄入过多，建议选择低脂食物' });
+                }
+
+                // 正面反馈
+                const proteinPercent = total.protein / recommended.protein;
+                const carbsPercent = total.carbs / recommended.carbs;
+                if (proteinPercent >= 0.8 && proteinPercent <= 1.2 && carbsPercent >= 0.8 && carbsPercent <= 1.2) {
+                    suggestions.push({ type: 'success', text: '营养搭配均衡，继续保持！' });
+                }
+
+                if (suggestions.length === 0) {
+                    suggestions.push({ type: '', text: '开始添加食物到餐盘，获取个性化建议' });
+                }
+
+                document.getElementById('suggestions').innerHTML = suggestions.map(s => `
+                    <div class="suggestion-card ${s.type}">${s.text}</div>
+                `).join('');
+            }
+
+            showFoodPopup(foodId, category) {
+                const food = FoodDatabase[category].find(f => f.id === foodId);
+                if (!food) return;
+
+                document.getElementById('popupIcon').textContent = food.icon;
+                document.getElementById('popupName').textContent = food.name;
+                document.getElementById('popupCategory').textContent = CategoryNames[category];
+                document.getElementById('popupNutrition').innerHTML = `
+                    <div class="detail-row"><span>热量</span><span>${food.cal} 卡/100g</span></div>
+                    <div class="detail-row"><span>蛋白质</span><span>${food.protein} g</span></div>
+                    <div class="detail-row"><span>碳水化合物</span><span>${food.carbs} g</span></div>
+                    <div class="detail-row"><span>脂肪</span><span>${food.fat} g</span></div>
+                    <div class="detail-row"><span>膳食纤维</span><span>${food.fiber} g</span></div>
+                `;
+
+                document.getElementById('foodPopup').classList.add('show');
+                document.getElementById('popupOverlay').classList.add('show');
+            }
+
+            hidePopup() {
+                document.getElementById('foodPopup').classList.remove('show');
+                document.getElementById('popupOverlay').classList.remove('show');
+            }
+
+            saveMeal() {
+                const mealNames = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' };
+                const foods = this.meals[this.currentMeal];
+                if (foods.length === 0) {
+                    alert('餐盘是空的，请先添加食物');
+                    return;
+                }
+                alert(`${mealNames[this.currentMeal]}已保存！共${foods.length}种食物`);
+            }
+
+            showShoppingList() {
+                const allFoods = Object.values(this.meals).flat();
+                if (allFoods.length === 0) {
+                    alert('请先添加食物到餐盘');
+                    return;
+                }
+
+                const foodCounts = {};
+                allFoods.forEach(food => {
+                    foodCounts[food.name] = (foodCounts[food.name] || 0) + 1;
+                });
+
+                const list = Object.entries(foodCounts)
+                    .map(([name, count]) => `${name} x${count}`)
+                    .join('\n');
+
+                alert('🛒 购物清单：\n\n' + list);
+            }
+        }
+
+        // 启动应用
+        new NutritionApp();
+    </script>
+</body>
+</html>

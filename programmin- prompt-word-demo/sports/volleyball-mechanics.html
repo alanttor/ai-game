@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排球生物力学模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏐</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d2e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container { display: flex; height: 100vh; }
+        .court-area { flex: 1; position: relative; }
+        .right-panel {
+            width: 320px;
+            background: rgba(0,0,0,0.4);
+            border-left: 1px solid #ffd700;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        #courtCanvas { width: 100%; height: 100%; }
+        .panel-title {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,215,0,0.3);
+        }
+        .tech-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+        .tech-btn {
+            padding: 8px 12px;
+            background: rgba(255,215,0,0.1);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 6px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .tech-btn:hover { background: rgba(255,215,0,0.2); }
+        .tech-btn.active { background: #ffd700; color: #000; }
+        .control-group { margin-bottom: 15px; }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        .control-value { color: #ffd700; }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #1a1a3e;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            background: #ffd700;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .stats-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+        }
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .physics-info {
+            background: rgba(255,215,0,0.1);
+            border-left: 3px solid #ffd700;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="court-area">
+        <canvas id="courtCanvas"></canvas>
+    </div>
+    <div class="right-panel">
+        <div class="panel-title">🏐 击球技术</div>
+        <div class="tech-btns" id="techBtns"></div>
+
+        <div class="control-group">
+            <div class="control-label"><span>击球力量</span><span class="control-value" id="powerVal">70%</span></div>
+            <input type="range" id="power" min="20" max="100" value="70">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>击球角度</span><span class="control-value" id="angleVal">-20°</span></div>
+            <input type="range" id="angle" min="-45" max="45" value="-20">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>击球高度</span><span class="control-value" id="heightVal">2.8m</span></div>
+            <input type="range" id="hitHeight" min="200" max="350" value="280">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>旋转类型</span></div>
+            <select id="spinType" style="width:100%;padding:8px;background:#1a1a3e;border:1px solid rgba(255,215,0,0.3);color:#fff;border-radius:5px;">
+                <option value="topspin">上旋（扣球）</option>
+                <option value="float">飘球（无旋）</option>
+                <option value="sidespin">侧旋</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>击球位置X</span><span class="control-value" id="posXVal">3m</span></div>
+            <input type="range" id="posX" min="0" max="90" value="30">
+        </div>
+        
+        <button class="action-btn" onclick="hitBall()">🏐 击球</button>
+        <button class="action-btn" style="background:linear-gradient(135deg,#4a6a8a,#2a4a6a);color:#fff;" onclick="resetBall()">🔄 重置</button>
+        
+        <div class="stats-box">
+            <div class="panel-title" style="margin-bottom:10px;">📊 飞行数据</div>
+            <div class="stat-row"><span>初速度</span><span id="statSpeed">0 km/h</span></div>
+            <div class="stat-row"><span>最大高度</span><span id="statMaxH">0 m</span></div>
+            <div class="stat-row"><span>飞行时间</span><span id="statTime">0 s</span></div>
+            <div class="stat-row"><span>落点距离</span><span id="statDist">0 m</span></div>
+            <div class="stat-row"><span>过网高度</span><span id="statNetH">0 m</span></div>
+        </div>
+        
+        <div class="physics-info" id="physicsInfo">
+            选择技术类型查看物理原理说明
+        </div>
+    </div>
+</div>
+<script>
+const canvas = document.getElementById('courtCanvas');
+const ctx = canvas.getContext('2d');
+
+// 排球场参数（米）
+const COURT = { length: 18, width: 9, netHeight: 2.43 }; // 男子网高
+const BALL = { radius: 0.105, mass: 0.27 }; // 标准排球
+const GRAVITY = 9.81;
+const AIR_DENSITY = 1.225;
+
+// 技术类型
+const techniques = [
+    { id: 'spike', name: '扣球', power: 90, angle: -25, height: 3.0, spin: 'topspin',
+      desc: '扣球利用上旋产生马格努斯力，使球快速下坠。击球点越高，下压角度越大。' },
+    { id: 'serve_jump', name: '跳发', power: 85, angle: -10, height: 3.2, spin: 'topspin',
+      desc: '跳发球结合高击球点和强力上旋，是最具威胁的发球方式。' },
+    { id: 'serve_float', name: '飘球', power: 60, angle: 5, height: 2.5, spin: 'float',
+      desc: '飘球无旋转，在临界雷诺数下产生不规则摆动，难以预判。' },
+    { id: 'set', name: '二传', power: 40, angle: 45, height: 2.8, spin: 'float',
+      desc: '二传需要精确控制出球高度和位置，为攻手创造最佳击球条件。' },
+    { id: 'dig', name: '垫球', power: 50, angle: 60, height: 1.5, spin: 'float',
+      desc: '垫球通过手臂平面反弹来球，角度控制是关键。' },
+    { id: 'tip', name: '吊球', power: 30, angle: 15, height: 2.9, spin: 'float',
+      desc: '吊球轻触过网，利用对方防守空当得分。' }
+];
+
+let currentTech = 'spike';
+let ball = null;
+let trajectory = [];
+let animating = false;
+
+let params = {
+    power: 70,
+    angle: -20,
+    hitHeight: 2.8,
+    spinType: 'topspin',
+    posX: 3
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    renderTechniques();
+    setupControls();
+    resetBall();
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function renderTechniques() {
+    const container = document.getElementById('techBtns');
+    container.innerHTML = techniques.map(t => `
+        <button class="tech-btn ${t.id === currentTech ? 'active' : ''}" 
+                onclick="selectTech('${t.id}')">${t.name}</button>
+    `).join('');
+}
+
+function selectTech(id) {
+    currentTech = id;
+    const tech = techniques.find(t => t.id === id);
+    if (tech) {
+        document.getElementById('power').value = tech.power;
+        document.getElementById('angle').value = tech.angle;
+        document.getElementById('hitHeight').value = tech.height * 100;
+        document.getElementById('spinType').value = tech.spin;
+        
+        params.power = tech.power;
+        params.angle = tech.angle;
+        params.hitHeight = tech.height;
+        params.spinType = tech.spin;
+        
+        document.getElementById('physicsInfo').innerHTML = `<strong>${tech.name}原理：</strong><br>${tech.desc}`;
+        updateDisplays();
+    }
+    renderTechniques();
+    resetBall();
+}
+
+function setupControls() {
+    document.getElementById('power').addEventListener('input', (e) => {
+        params.power = parseFloat(e.target.value);
+        updateDisplays();
+    });
+    document.getElementById('angle').addEventListener('input', (e) => {
+        params.angle = parseFloat(e.target.value);
+        updateDisplays();
+    });
+    document.getElementById('hitHeight').addEventListener('input', (e) => {
+        params.hitHeight = parseFloat(e.target.value) / 100;
+        updateDisplays();
+    });
+    document.getElementById('spinType').addEventListener('change', (e) => {
+        params.spinType = e.target.value;
+    });
+    document.getElementById('posX').addEventListener('input', (e) => {
+        params.posX = parseFloat(e.target.value) / 10;
+        updateDisplays();
+    });
+}
+
+function updateDisplays() {
+    document.getElementById('powerVal').textContent = params.power + '%';
+    document.getElementById('angleVal').textContent = params.angle + '°';
+    document.getElementById('heightVal').textContent = params.hitHeight.toFixed(1) + 'm';
+    document.getElementById('posXVal').textContent = params.posX.toFixed(1) + 'm';
+}
+
+function resetBall() {
+    ball = {
+        x: params.posX,
+        y: params.hitHeight,
+        vx: 0, vy: 0,
+        spin: 0,
+        active: false
+    };
+    trajectory = [];
+    animating = false;
+    
+    document.getElementById('statSpeed').textContent = '0 km/h';
+    document.getElementById('statMaxH').textContent = '0 m';
+    document.getElementById('statTime').textContent = '0 s';
+    document.getElementById('statDist').textContent = '0 m';
+    document.getElementById('statNetH').textContent = '0 m';
+}
+
+function hitBall() {
+    // 计算初速度（排球最高可达130km/h）
+    const speedKmh = 30 + params.power * 1.0;
+    const speed = speedKmh / 3.6;
+    
+    const angleRad = params.angle * Math.PI / 180;
+    
+    ball = {
+        x: params.posX,
+        y: params.hitHeight,
+        vx: speed * Math.cos(angleRad),
+        vy: speed * Math.sin(angleRad),
+        spin: params.spinType === 'topspin' ? 50 : params.spinType === 'sidespin' ? 30 : 0,
+        spinType: params.spinType,
+        active: true
+    };
+    
+    trajectory = [{ x: ball.x, y: ball.y }];
+    animating = true;
+    
+    document.getElementById('statSpeed').textContent = speedKmh.toFixed(0) + ' km/h';
+}
+
+function simulateStep(dt) {
+    if (!ball.active) return;
+    
+    const v = Math.sqrt(ball.vx**2 + ball.vy**2);
+    
+    // 空气阻力
+    const Cd = ball.spinType === 'float' ? 0.5 : 0.4; // 飘球阻力略大
+    const area = Math.PI * BALL.radius * BALL.radius;
+    const dragForce = 0.5 * AIR_DENSITY * Cd * area * v * v;
+    const dragAcc = dragForce / BALL.mass;
+    
+    if (v > 0.1) {
+        ball.vx -= (ball.vx / v) * dragAcc * dt;
+        ball.vy -= (ball.vy / v) * dragAcc * dt;
+    }
+    
+    // 重力
+    ball.vy -= GRAVITY * dt;
+    
+    // 旋转效应
+    if (ball.spinType === 'topspin') {
+        // 上旋产生向下的马格努斯力
+        ball.vy -= ball.spin * 0.002 * dt;
+    } else if (ball.spinType === 'float') {
+        // 飘球的不规则摆动
+        if (v > 10 && v < 20) { // 临界速度范围
+            ball.vx += (Math.random() - 0.5) * 2 * dt;
+            ball.vy += (Math.random() - 0.5) * 1 * dt;
+        }
+    } else if (ball.spinType === 'sidespin') {
+        // 侧旋产生水平偏移（简化为2D中的速度变化）
+        ball.vx += ball.spin * 0.001 * dt;
+    }
+    
+    // 更新位置
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    
+    trajectory.push({ x: ball.x, y: ball.y });
+    
+    // 检测过网高度
+    if (trajectory.length > 1) {
+        const prev = trajectory[trajectory.length - 2];
+        if (prev.x < COURT.length / 2 && ball.x >= COURT.length / 2) {
+            // 插值计算过网高度
+            const t = (COURT.length / 2 - prev.x) / (ball.x - prev.x);
+            const netY = prev.y + t * (ball.y - prev.y);
+            document.getElementById('statNetH').textContent = netY.toFixed(2) + ' m';
+        }
+    }
+    
+    // 落地检测
+    if (ball.y <= BALL.radius) {
+        ball.y = BALL.radius;
+        ball.active = false;
+        animating = false;
+        
+        const maxH = Math.max(...trajectory.map(p => p.y));
+        const time = trajectory.length * dt;
+        const dist = ball.x;
+        
+        document.getElementById('statMaxH').textContent = maxH.toFixed(2) + ' m';
+        document.getElementById('statTime').textContent = time.toFixed(2) + ' s';
+        document.getElementById('statDist').textContent = dist.toFixed(2) + ' m';
+    }
+    
+    // 出界检测
+    if (ball.x > COURT.length || ball.x < 0) {
+        ball.active = false;
+        animating = false;
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const scale = 35;
+    const offsetX = 50;
+    const offsetY = canvas.height - 100;
+    
+    // 绘制地板
+    ctx.fillStyle = '#4a3020';
+    ctx.fillRect(0, offsetY, canvas.width, 100);
+    
+    // 场地线
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(offsetX, offsetY);
+    ctx.lineTo(offsetX + COURT.length * scale, offsetY);
+    ctx.stroke();
+    
+    // 中线
+    ctx.strokeStyle = '#ffd700';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(offsetX + (COURT.length / 2) * scale, offsetY);
+    ctx.lineTo(offsetX + (COURT.length / 2) * scale, offsetY - 150);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // 三米线
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(offsetX + 3 * scale, offsetY);
+    ctx.lineTo(offsetX + 3 * scale, offsetY - 50);
+    ctx.moveTo(offsetX + (COURT.length - 3) * scale, offsetY);
+    ctx.lineTo(offsetX + (COURT.length - 3) * scale, offsetY - 50);
+    ctx.stroke();
+    
+    // 球网
+    const netX = offsetX + (COURT.length / 2) * scale;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(netX, offsetY);
+    ctx.lineTo(netX, offsetY - COURT.netHeight * scale);
+    ctx.stroke();
+    
+    // 网顶
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(netX - 20, offsetY - COURT.netHeight * scale - 3, 40, 6);
+    
+    ctx.fillStyle = '#888';
+    ctx.font = '12px Arial';
+    ctx.fillText('网高 ' + COURT.netHeight + 'm', netX + 25, offsetY - COURT.netHeight * scale);
+    
+    // 绘制轨迹
+    if (trajectory.length > 1) {
+        // 轨迹线
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,215,0,0.6)';
+        ctx.lineWidth = 2;
+        
+        trajectory.forEach((p, i) => {
+            const px = offsetX + p.x * scale;
+            const py = offsetY - p.y * scale;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        
+        // 速度渐变点
+        trajectory.forEach((p, i) => {
+            if (i % 3 === 0) {
+                const px = offsetX + p.x * scale;
+                const py = offsetY - p.y * scale;
+                const alpha = 0.3 + (i / trajectory.length) * 0.7;
+                ctx.fillStyle = `rgba(255,215,0,${alpha})`;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+    
+    // 绘制排球
+    if (ball) {
+        const bx = offsetX + ball.x * scale;
+        const by = offsetY - ball.y * scale;
+        
+        // 球体
+        const gradient = ctx.createRadialGradient(bx - 2, by - 2, 0, bx, by, BALL.radius * scale * 1.5);
+        gradient.addColorStop(0, '#fff');
+        gradient.addColorStop(0.5, '#ffe066');
+        gradient.addColorStop(1, '#cc9900');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL.radius * scale * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 球纹
+        ctx.strokeStyle = '#0066cc';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL.radius * scale * 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 旋转指示
+        if (ball.active && ball.spinType !== 'float') {
+            ctx.strokeStyle = ball.spinType === 'topspin' ? '#ff4444' : '#44ff44';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(bx, by, BALL.radius * scale * 2, 0, Math.PI);
+            ctx.stroke();
+        }
+    }
+    
+    // 落点判断
+    if (!ball.active && trajectory.length > 0) {
+        const last = trajectory[trajectory.length - 1];
+        const lx = offsetX + last.x * scale;
+        const ly = offsetY;
+        
+        const inBounds = last.x > COURT.length / 2 && last.x <= COURT.length;
+        const overNet = trajectory.some((p, i) => {
+            if (i === 0) return false;
+            const prev = trajectory[i - 1];
+            if (prev.x < COURT.length / 2 && p.x >= COURT.length / 2) {
+                const t = (COURT.length / 2 - prev.x) / (p.x - prev.x);
+                const netY = prev.y + t * (p.y - prev.y);
+                return netY > COURT.netHeight;
+            }
+            return false;
+        });
+        
+        ctx.fillStyle = inBounds && overNet ? '#4caf50' : '#f44336';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText(inBounds && overNet ? '✓ 有效球' : '✗ 出界/触网', lx, ly + 30);
+    }
+}
+
+function animate() {
+    if (animating) {
+        for (let i = 0; i < 2; i++) {
+            simulateStep(0.016);
+        }
+    }
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

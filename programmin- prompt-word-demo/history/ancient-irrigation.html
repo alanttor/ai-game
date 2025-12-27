@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>古代农业水利工程模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SimSun', serif;
+            background: #1a2a1a;
+            min-height: 100vh;
+            color: #c4d4a8;
+            overflow: hidden;
+        }
+        .container { display: flex; flex-direction: column; height: 100vh; }
+        .main-area { display: flex; flex: 1; }
+        .map-area {
+            flex: 1;
+            position: relative;
+            background: #2a3a2a;
+        }
+        #mapCanvas { display: block; width: 100%; height: 100%; }
+        .side-panel {
+            width: 280px;
+            background: rgba(20,30,20,0.95);
+            border-left: 1px solid #3a4a3a;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .bottom-panel {
+            height: 80px;
+            background: rgba(20,30,20,0.95);
+            border-top: 1px solid #3a4a3a;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .panel-title {
+            font-size: 0.9em;
+            color: #8ac060;
+            border-bottom: 1px solid #3a4a3a;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .tool-btn {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #3a4a3a;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: #c4d4a8;
+        }
+        .tool-btn:hover { border-color: #8ac060; }
+        .tool-btn.active { border-color: #8ac060; background: rgba(138,192,96,0.2); }
+        .tool-icon { font-size: 1.5em; }
+        .tool-name { font-size: 0.65em; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="main-area">
+        <div class="map-area">
+            <canvas id="mapCanvas"></canvas>
+        </div>
+        <div class="side-panel" id="sidePanel"></div>
+    </div>
+    <div class="bottom-panel" id="bottomPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+const GRID_SIZE = 40;
+let gridW, gridH;
+let grid = [];
+let selectedTool = null;
+let year = 0;
+let season = 0; // 0-3: 春夏秋冬
+let paused = false;
+
+// 文明配置
+const civilizations = {
+    mesopotamia: { name: '美索不达米亚', river: '幼发拉底河', challenge: '盐碱化' },
+    egypt: { name: '古埃及', river: '尼罗河', challenge: '洪水周期' },
+    indus: { name: '印度河谷', river: '印度河', challenge: '季风变化' },
+    china: { name: '古代中国', river: '黄河', challenge: '水患治理' }
+};
+
+let currentCiv = 'egypt';
+
+// 统计数据
+let stats = {
+    population: 1000,
+    food: 500,
+    water: 100,
+    happiness: 50
+};
+
+// 工具
+const tools = [
+    { id: 'canal', name: '水渠', icon: '🌊', cost: 50 },
+    { id: 'dam', name: '水坝', icon: '🧱', cost: 100 },
+    { id: 'farm', name: '农田', icon: '🌾', cost: 30 },
+    { id: 'village', name: '村庄', icon: '🏘️', cost: 80 },
+    { id: 'well', name: '水井', icon: '⛲', cost: 40 }
+];
+
+// 格子类型
+const CELL_TYPES = {
+    empty: { color: '#c4b090', name: '荒地' },
+    river: { color: '#4a90c4', name: '河流' },
+    canal: { color: '#6ab0d4', name: '水渠' },
+    dam: { color: '#8a7a60', name: '水坝' },
+    farm: { color: '#8ac060', name: '农田' },
+    village: { color: '#d4a060', name: '村庄' },
+    well: { color: '#60a0c4', name: '水井' },
+    flooded: { color: '#3a70a4', name: '洪水' },
+    irrigated: { color: '#6ac070', name: '灌溉田' }
+};
+
+function init() {
+    canvas = document.getElementById('mapCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    initGrid();
+    renderSidePanel();
+    renderBottomPanel();
+    
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('mousemove', handleMove);
+    window.addEventListener('resize', resizeCanvas);
+    
+    setInterval(simulate, 1000);
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    gridW = Math.floor(canvas.width / GRID_SIZE);
+    gridH = Math.floor(canvas.height / GRID_SIZE);
+}
+
+function initGrid() {
+    grid = [];
+    for (let y = 0; y < gridH; y++) {
+        grid[y] = [];
+        for (let x = 0; x < gridW; x++) {
+            grid[y][x] = {
+                type: 'empty',
+                water: 0,
+                fertility: 0.3 + Math.random() * 0.3
+            };
+        }
+    }
+    
+    // 添加河流
+    const riverY = Math.floor(gridH / 2);
+    for (let x = 0; x < gridW; x++) {
+        const y = riverY + Math.floor(Math.sin(x * 0.3) * 2);
+        if (y >= 0 && y < gridH) {
+            grid[y][x].type = 'river';
+            grid[y][x].water = 100;
+            // 河岸肥沃
+            if (y > 0) grid[y-1][x].fertility = 0.8;
+            if (y < gridH - 1) grid[y+1][x].fertility = 0.8;
+        }
+    }
+}
+
+function renderSidePanel() {
+    const panel = document.getElementById('sidePanel');
+    const civ = civilizations[currentCiv];
+    const seasonNames = ['🌸 春', '☀️ 夏', '🍂 秋', '❄️ 冬'];
+    
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 8px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.75em; color: #8a9a7a; margin-bottom: 3px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #3a4a3a; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #8ac060; cursor: pointer; }
+            .btn { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; margin: 2px; }
+            .btn-primary { background: #3a5a3a; color: #c4d4a8; border: 1px solid #4a6a4a; }
+            .btn-secondary { background: rgba(255,255,255,0.05); color: #8a9a7a; }
+            .stat-bar { height: 8px; background: #2a3a2a; border-radius: 4px; margin-top: 3px; overflow: hidden; }
+            .stat-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+            .civ-btn { display: block; width: 100%; text-align: left; padding: 8px; margin: 3px 0; font-size: 0.8em; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:8px;">
+            <h2 style="color:#8ac060;font-size:1.1em;">🌾 ${civ.name}</h2>
+            <p style="color:#5a6a5a;font-size:0.7em;">${civ.river} 流域</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📅 时间</div>
+            <div style="text-align:center;font-size:1.2em;color:#8ac060;">
+                第 ${year} 年 ${seasonNames[season]}
+            </div>
+            <div style="display:flex;gap:4px;margin-top:8px;">
+                <button class="btn ${paused ? 'btn-primary' : 'btn-secondary'}" onclick="togglePause()">
+                    ${paused ? '▶️' : '⏸️'}
+                </button>
+                <button class="btn btn-secondary" onclick="initGrid(); renderSidePanel();">🔄</button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 资源状态</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>👥 人口</span><span>${stats.population.toLocaleString()}</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, stats.population/100)}%;background:#d4a060;"></div></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>🌾 粮食</span><span>${stats.food.toFixed(0)}</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, stats.food/10)}%;background:#8ac060;"></div></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>💧 水资源</span><span>${stats.water.toFixed(0)}%</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${stats.water}%;background:#4a90c4;"></div></div>
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>😊 幸福度</span><span>${stats.happiness.toFixed(0)}%</span></div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${stats.happiness}%;background:#c4a060;"></div></div>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🏛️ 选择文明</div>
+            ${Object.entries(civilizations).map(([k, c]) => `
+                <button class="btn civ-btn ${currentCiv === k ? 'btn-primary' : 'btn-secondary'}" 
+                        onclick="setCiv('${k}')">${c.name}</button>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚠️ 当前挑战</div>
+            <div style="font-size:0.8em;color:#c4a060;padding:8px;background:rgba(196,160,96,0.1);border-radius:4px;">
+                ${civ.challenge}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.7em;color:#5a6a5a;line-height:1.4;">
+                点击下方工具，然后在地图上放置。<br>
+                <b>水渠</b>：引水灌溉农田<br>
+                <b>水坝</b>：控制洪水<br>
+                <b>农田</b>：生产粮食<br>
+                靠近水源的农田产量更高。
+            </div>
+        </div>
+    `;
+}
+
+function renderBottomPanel() {
+    const panel = document.getElementById('bottomPanel');
+    panel.innerHTML = tools.map(t => `
+        <div class="tool-btn ${selectedTool === t.id ? 'active' : ''}" onclick="selectTool('${t.id}')">
+            <span class="tool-icon">${t.icon}</span>
+            <span class="tool-name">${t.name}</span>
+        </div>
+    `).join('') + `
+        <div style="flex:1;"></div>
+        <div style="font-size:0.8em;color:#8a9a7a;">
+            💰 资源: ${stats.food.toFixed(0)} | 选择工具后点击地图放置
+        </div>
+    `;
+}
+
+function selectTool(id) {
+    selectedTool = selectedTool === id ? null : id;
+    renderBottomPanel();
+}
+
+function setCiv(civ) {
+    currentCiv = civ;
+    initGrid();
+    stats = { population: 1000, food: 500, water: 100, happiness: 50 };
+    year = 0;
+    renderSidePanel();
+}
+
+function togglePause() {
+    paused = !paused;
+    renderSidePanel();
+}
+
+function handleClick(e) {
+    if (!selectedTool) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / GRID_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / GRID_SIZE);
+    
+    if (x < 0 || x >= gridW || y < 0 || y >= gridH) return;
+    
+    const cell = grid[y][x];
+    const tool = tools.find(t => t.id === selectedTool);
+    
+    if (cell.type === 'river' || cell.type === 'flooded') return;
+    if (stats.food < tool.cost) return;
+    
+    stats.food -= tool.cost;
+    cell.type = selectedTool;
+    
+    renderSidePanel();
+    renderBottomPanel();
+}
+
+function handleMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / GRID_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / GRID_SIZE);
+    
+    canvas.style.cursor = selectedTool && x >= 0 && x < gridW && y >= 0 && y < gridH ? 'pointer' : 'default';
+}
+
+function simulate() {
+    if (paused) return;
+    
+    // 季节变化
+    season = (season + 1) % 4;
+    if (season === 0) year++;
+    
+    // 水资源模拟
+    simulateWater();
+    
+    // 农业生产
+    simulateFarming();
+    
+    // 人口变化
+    simulatePopulation();
+    
+    renderSidePanel();
+    renderBottomPanel();
+}
+
+function simulateWater() {
+    // 季节性水量变化
+    const seasonWater = [0.8, 0.6, 0.7, 0.5][season]; // 春夏秋冬
+    
+    // 洪水事件（夏季）
+    const floodChance = season === 1 ? 0.3 : 0.05;
+    
+    for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+            const cell = grid[y][x];
+            
+            // 河流水量
+            if (cell.type === 'river') {
+                cell.water = 100 * seasonWater;
+                
+                // 洪水扩散
+                if (Math.random() < floodChance && currentCiv === 'egypt') {
+                    spreadFlood(x, y);
+                }
+            }
+            
+            // 水渠传水
+            if (cell.type === 'canal') {
+                const nearRiver = hasNearby(x, y, 'river') || hasNearby(x, y, 'canal');
+                cell.water = nearRiver ? 80 * seasonWater : Math.max(0, cell.water - 10);
+            }
+            
+            // 水井
+            if (cell.type === 'well') {
+                cell.water = 50;
+            }
+            
+            // 农田灌溉
+            if (cell.type === 'farm') {
+                const nearWater = hasNearby(x, y, 'river') || hasNearby(x, y, 'canal') || hasNearby(x, y, 'well');
+                cell.water = nearWater ? 60 : 10;
+                cell.type = nearWater ? 'irrigated' : 'farm';
+            }
+            
+            if (cell.type === 'irrigated') {
+                const nearWater = hasNearby(x, y, 'river') || hasNearby(x, y, 'canal') || hasNearby(x, y, 'well');
+                if (!nearWater) cell.type = 'farm';
+            }
+        }
+    }
+    
+    // 计算总水资源
+    let totalWater = 0, waterCells = 0;
+    for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+            if (grid[y][x].water > 0) {
+                totalWater += grid[y][x].water;
+                waterCells++;
+            }
+        }
+    }
+    stats.water = waterCells > 0 ? totalWater / waterCells : 0;
+}
+
+function spreadFlood(rx, ry) {
+    for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+            const x = rx + dx;
+            const y = ry + dy;
+            if (x >= 0 && x < gridW && y >= 0 && y < gridH) {
+                const cell = grid[y][x];
+                if (cell.type === 'empty' || cell.type === 'farm') {
+                    if (Math.random() < 0.3) {
+                        cell.type = 'flooded';
+                        cell.water = 100;
+                        cell.fertility = Math.min(1, cell.fertility + 0.1); // 洪水带来肥沃土壤
+                    }
+                }
+            }
+        }
+    }
+}
+
+function hasNearby(x, y, type) {
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < gridW && ny >= 0 && ny < gridH) {
+                if (grid[ny][nx].type === type) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function simulateFarming() {
+    let foodProduction = 0;
+    
+    for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+            const cell = grid[y][x];
+            
+            // 洪水退去
+            if (cell.type === 'flooded') {
+                cell.water -= 20;
+                if (cell.water <= 0) {
+                    cell.type = 'empty';
+                    cell.water = 0;
+                }
+            }
+            
+            // 农田产出
+            if (cell.type === 'farm' || cell.type === 'irrigated') {
+                const waterBonus = cell.type === 'irrigated' ? 2 : 0.5;
+                const seasonBonus = [1, 1.5, 1.2, 0.3][season]; // 春夏秋冬
+                foodProduction += cell.fertility * waterBonus * seasonBonus * 5;
+            }
+        }
+    }
+    
+    // 人口消耗粮食
+    const consumption = stats.population * 0.01;
+    stats.food = Math.max(0, stats.food + foodProduction - consumption);
+}
+
+function simulatePopulation() {
+    // 人口增长/减少
+    const foodPerCapita = stats.food / stats.population;
+    
+    if (foodPerCapita > 0.5) {
+        stats.population *= 1.01; // 增长
+        stats.happiness = Math.min(100, stats.happiness + 1);
+    } else if (foodPerCapita < 0.2) {
+        stats.population *= 0.98; // 饥荒
+        stats.happiness = Math.max(0, stats.happiness - 5);
+    }
+    
+    stats.population = Math.max(100, stats.population);
+}
+
+function draw() {
+    ctx.fillStyle = '#c4b090';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制网格
+    for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+            const cell = grid[y][x];
+            const px = x * GRID_SIZE;
+            const py = y * GRID_SIZE;
+            
+            // 基础颜色
+            ctx.fillStyle = CELL_TYPES[cell.type]?.color || '#c4b090';
+            ctx.fillRect(px, py, GRID_SIZE - 1, GRID_SIZE - 1);
+            
+            // 水量指示
+            if (cell.water > 0 && cell.type !== 'river') {
+                ctx.fillStyle = `rgba(74, 144, 196, ${cell.water / 200})`;
+                ctx.fillRect(px, py, GRID_SIZE - 1, GRID_SIZE - 1);
+            }
+            
+            // 肥沃度指示
+            if (cell.type === 'empty' && cell.fertility > 0.5) {
+                ctx.fillStyle = `rgba(138, 192, 96, ${(cell.fertility - 0.5) * 0.5})`;
+                ctx.fillRect(px, py, GRID_SIZE - 1, GRID_SIZE - 1);
+            }
+            
+            // 图标
+            if (cell.type === 'village') {
+                ctx.font = '20px Arial';
+                ctx.fillText('🏘️', px + 8, py + 28);
+            } else if (cell.type === 'well') {
+                ctx.font = '18px Arial';
+                ctx.fillText('⛲', px + 10, py + 26);
+            } else if (cell.type === 'dam') {
+                ctx.font = '18px Arial';
+                ctx.fillText('🧱', px + 10, py + 26);
+            }
+        }
+    }
+    
+    // 绘制河流动画
+    drawRiverAnimation();
+}
+
+function drawRiverAnimation() {
+    const time = Date.now() / 1000;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 2;
+    
+    for (let y = 0; y < gridH; y++) {
+        for (let x = 0; x < gridW; x++) {
+            if (grid[y][x].type === 'river') {
+                const px = x * GRID_SIZE + GRID_SIZE / 2;
+                const py = y * GRID_SIZE + GRID_SIZE / 2;
+                const offset = Math.sin(time * 2 + x * 0.5) * 3;
+                
+                ctx.beginPath();
+                ctx.moveTo(px - 10, py + offset);
+                ctx.lineTo(px + 10, py + offset);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+function animate() {
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

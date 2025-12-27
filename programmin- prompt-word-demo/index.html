@@ -6,184 +6,239 @@
     <title>HTML 互动项目展示</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* 深色主题（默认） */
+        :root {
+            --bg-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --bg-nav: rgba(0,0,0,0.2);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #fff;
+            --text-secondary: #8892b0;
+            --accent: #00d4ff;
+            --accent-gradient: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff006e);
         }
-
+        
+        /* 浅色主题 */
+        [data-theme="light"] {
+            --bg-primary: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 50%, #cbd5e1 100%);
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-nav: rgba(255,255,255,0.8);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --accent-gradient: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+        }
+        
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: var(--bg-primary);
             font-family: 'Segoe UI', Arial, sans-serif;
-            color: #fff;
-            padding: 40px 20px;
+            color: var(--text-primary);
+            padding: 30px 20px;
+            transition: background 0.3s, color 0.3s;
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; position: relative; }
         h1 {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff006e);
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        .subtitle { color: var(--text-secondary); font-size: 1em; }
+        .stats { color: var(--accent); font-size: 0.9em; margin-top: 8px; }
 
-        .subtitle {
-            color: #8892b0;
-            font-size: 1.1em;
+        /* 主题切换按钮 */
+        .theme-toggle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            background: var(--bg-card);
+            cursor: pointer;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
         }
+        .theme-toggle:hover {
+            transform: rotate(30deg) scale(1.1);
+            border-color: var(--accent);
+        }
+
+        /* 分类导航 */
+        .category-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: var(--bg-nav);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .cat-btn {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 25px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cat-btn:hover { background: rgba(59, 130, 246, 0.1); color: var(--text-primary); }
+        .cat-btn.active {
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            border-color: transparent;
+        }
+        .cat-btn .count {
+            background: rgba(0,0,0,0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
+
+        /* 分类区块 */
+        .category-section {
+            margin-bottom: 40px;
+        }
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid;
+        }
+        .category-icon { font-size: 1.8em; }
+        .category-title { font-size: 1.4em; font-weight: bold; }
+        .category-count { color: var(--text-secondary); font-size: 0.9em; }
 
         .projects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 25px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
-
         .project-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
         }
-
         .project-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
+            top: 0; left: 0; right: 0;
+            height: 3px;
             background: linear-gradient(90deg, var(--card-color, #00d4ff), transparent);
         }
-
         .project-card:hover {
-            transform: translateY(-8px);
+            transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
             border-color: var(--card-color, #00d4ff);
         }
-
-        .project-icon {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-        }
-
-        .project-title {
-            font-size: 1.3em;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #fff;
-        }
-
-        .project-desc {
-            color: #8892b0;
-            font-size: 0.95em;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-
-        .project-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
+        .project-icon { font-size: 2em; margin-bottom: 10px; }
+        .project-title { font-size: 1.1em; font-weight: bold; margin-bottom: 8px; color: #fff; }
+        .project-desc { color: #8892b0; font-size: 0.85em; line-height: 1.5; margin-bottom: 12px; }
+        .project-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .tag {
             background: rgba(0, 212, 255, 0.15);
             color: #00d4ff;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8em;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.75em;
         }
 
-        /* 添加项目卡片 */
         .add-card {
             background: rgba(255, 255, 255, 0.03);
             border: 2px dashed rgba(255, 255, 255, 0.2);
-            border-radius: 16px;
-            padding: 25px;
+            border-radius: 12px;
+            padding: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 200px;
+            min-height: 180px;
         }
+        .add-card:hover { border-color: #00d4ff; background: rgba(0, 212, 255, 0.05); }
+        .add-card .icon { font-size: 2.5em; margin-bottom: 10px; opacity: 0.5; }
+        .add-card .text { color: #8892b0; font-size: 0.9em; }
 
-        .add-card:hover {
-            border-color: #00d4ff;
-            background: rgba(0, 212, 255, 0.05);
+        .delete-btn {
+            position: absolute;
+            top: 8px; right: 8px;
+            background: rgba(255, 0, 0, 0.2);
+            border: none;
+            color: #ff6b6b;
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s;
+            font-size: 0.9em;
         }
+        .project-card:hover .delete-btn { opacity: 1; }
+        .delete-btn:hover { background: rgba(255, 0, 0, 0.4); }
 
-        .add-card .icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            opacity: 0.5;
-        }
-
-        .add-card .text {
-            color: #8892b0;
-            font-size: 1em;
+        .user-section-title {
+            color: #ffd700;
+            font-size: 0.85em;
+            margin: 25px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
         }
 
         /* 模态框 */
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.8);
             z-index: 1000;
             align-items: center;
             justify-content: center;
             padding: 20px;
         }
-
-        .modal.show {
-            display: flex;
-        }
-
+        .modal.show { display: flex; }
         .modal-content {
             background: #1a1a2e;
             border: 1px solid rgba(0, 212, 255, 0.3);
             border-radius: 16px;
-            padding: 30px;
-            max-width: 800px;
+            padding: 25px;
+            max-width: 700px;
             width: 100%;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
-
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-
-        .modal-header h2 {
-            color: #00d4ff;
-            font-size: 1.3em;
-        }
-
+        .modal-header h2 { color: #00d4ff; font-size: 1.2em; }
         .close-btn {
             background: none;
             border: none;
@@ -191,91 +246,54 @@
             font-size: 1.5em;
             cursor: pointer;
         }
-
-        .close-btn:hover {
-            color: #fff;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
+        .close-btn:hover { color: #fff; }
+        .form-group { margin-bottom: 18px; }
         .form-group label {
             display: block;
             color: #8892b0;
-            margin-bottom: 8px;
-            font-size: 0.9em;
+            margin-bottom: 6px;
+            font-size: 0.85em;
         }
-
         .form-group input, .form-group textarea {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             color: #fff;
-            font-size: 1em;
+            font-size: 0.95em;
             font-family: inherit;
         }
-
         .form-group textarea {
-            min-height: 200px;
+            min-height: 150px;
             font-family: 'Consolas', monospace;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
-
         .form-group input:focus, .form-group textarea:focus {
             outline: none;
             border-color: #00d4ff;
         }
-
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-
+        .btn-group { display: flex; gap: 10px; justify-content: flex-end; }
         .btn {
-            padding: 12px 25px;
+            padding: 10px 22px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 0.95em;
             transition: all 0.3s;
         }
-
         .btn-primary {
             background: linear-gradient(135deg, #00d4ff, #7b2cbf);
             color: #fff;
         }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: #8892b0;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-
-        .file-input-wrapper input[type="file"] {
-            display: none;
-        }
-
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3); }
+        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #8892b0; }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
+        .file-input-wrapper { position: relative; display: inline-block; width: 100%; }
+        .file-input-wrapper input[type="file"] { display: none; }
         .file-input-label {
             display: block;
-            padding: 15px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border: 2px dashed rgba(255, 255, 255, 0.2);
             border-radius: 8px;
@@ -284,207 +302,101 @@
             color: #8892b0;
             transition: all 0.3s;
         }
+        .file-input-label:hover { border-color: #00d4ff; color: #00d4ff; }
 
-        .file-input-label:hover {
-            border-color: #00d4ff;
-            color: #00d4ff;
-        }
-
-        .user-projects-title {
-            color: #ffd700;
-            font-size: 0.9em;
-            margin: 30px 0 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-        }
-
-        .delete-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255, 0, 0, 0.2);
-            border: none;
-            color: #ff6b6b;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            opacity: 0;
-            transition: all 0.3s;
-        }
-
-        .project-card:hover .delete-btn {
-            opacity: 1;
-        }
-
-        .delete-btn:hover {
-            background: rgba(255, 0, 0, 0.4);
-        }
-
-        /* 自定义对话框 */
+        /* 对话框 */
         .dialog-overlay {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.85);
             z-index: 2000;
             align-items: center;
             justify-content: center;
         }
-
-        .dialog-overlay.show {
-            display: flex;
-            animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
+        .dialog-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .dialog-box {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border: 1px solid rgba(0, 212, 255, 0.4);
             border-radius: 16px;
-            padding: 30px;
-            max-width: 420px;
+            padding: 25px;
+            max-width: 400px;
             width: 90%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.3s ease;
         }
-
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .dialog-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-        }
-
-        .dialog-title {
-            font-size: 1.3em;
-            color: #fff;
-            margin-bottom: 10px;
-        }
-
-        .dialog-message {
-            color: #8892b0;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-
-        .dialog-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-        }
-
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .dialog-icon { font-size: 2.5em; margin-bottom: 12px; }
+        .dialog-title { font-size: 1.2em; color: #fff; margin-bottom: 8px; }
+        .dialog-message { color: #8892b0; margin-bottom: 20px; line-height: 1.5; }
+        .dialog-buttons { display: flex; gap: 10px; justify-content: center; }
         .dialog-btn {
-            padding: 12px 30px;
+            padding: 10px 25px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 0.95em;
             font-weight: 500;
             transition: all 0.3s;
         }
+        .dialog-btn-confirm { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: #fff; }
+        .dialog-btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4); }
+        .dialog-btn-cancel { background: rgba(255, 255, 255, 0.1); color: #8892b0; }
+        .dialog-btn-cancel:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+        .dialog-btn-ok { background: linear-gradient(135deg, #00d4ff, #7b2cbf); color: #fff; min-width: 100px; }
+        .dialog-btn-ok:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4); }
 
-        .dialog-btn-confirm {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
-            color: #fff;
-        }
-
-        .dialog-btn-confirm:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
-        }
-
-        .dialog-btn-cancel {
-            background: rgba(255, 255, 255, 0.1);
-            color: #8892b0;
-        }
-
-        .dialog-btn-cancel:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-
-        .dialog-btn-ok {
-            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
-            color: #fff;
-            min-width: 120px;
-        }
-
-        .dialog-btn-ok:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
-        }
-
-        /* Toast 提示 */
         .toast {
             position: fixed;
-            bottom: 30px;
+            bottom: 25px;
             left: 50%;
             transform: translateX(-50%) translateY(100px);
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border: 1px solid rgba(0, 212, 255, 0.4);
-            border-radius: 12px;
-            padding: 15px 30px;
+            border-radius: 10px;
+            padding: 12px 25px;
             color: #fff;
-            font-size: 1em;
+            font-size: 0.95em;
             z-index: 3000;
             opacity: 0;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 10px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            gap: 8px;
         }
-
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-
-        .toast.success {
-            border-color: rgba(56, 239, 125, 0.5);
-        }
-
-        .toast.error {
-            border-color: rgba(255, 107, 107, 0.5);
-        }
-
-        .toast.warning {
-            border-color: rgba(255, 215, 0, 0.5);
-        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { border-color: rgba(56, 239, 125, 0.5); }
+        .toast.error { border-color: rgba(255, 107, 107, 0.5); }
+        .toast.warning { border-color: rgba(255, 215, 0, 0.5); }
 
         footer {
             text-align: center;
-            margin-top: 50px;
-            padding-top: 30px;
+            margin-top: 40px;
+            padding-top: 25px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             color: #8892b0;
+            font-size: 0.9em;
         }
-
-        @media (max-width: 600px) {
-            h1 { font-size: 1.8em; }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.6em; }
             .projects-grid { grid-template-columns: 1fr; }
+            .category-nav { gap: 6px; }
+            .cat-btn { padding: 8px 14px; font-size: 0.8em; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
+            <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
             <h1>🎨 HTML 互动项目展示</h1>
             <p class="subtitle">点击卡片进入对应项目 | 纯前端实现，无需服务器</p>
+            <p class="stats" id="statsInfo"></p>
         </header>
-        <div class="projects-grid" id="projectsGrid"></div>
+        <nav class="category-nav" id="categoryNav"></nav>
+        <main id="projectsContainer"></main>
         <footer>
             <p>💡 点击"添加项目"卡片可导入自定义HTML项目</p>
         </footer>
@@ -517,9 +429,9 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>或直接粘贴HTML代码 <span style="color:#8892b0;font-size:0.85em">(单个项目限制 100KB)</span></label>
+                <label>或直接粘贴HTML代码 <span style="color:#8892b0;font-size:0.85em">(限制 100KB)</span></label>
                 <textarea id="htmlCode" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&#10;..." maxlength="102400"></textarea>
-                <div style="text-align:right;color:#8892b0;font-size:0.8em;margin-top:5px;">
+                <div style="text-align:right;color:#8892b0;font-size:0.75em;margin-top:4px;">
                     <span id="codeSize">0</span> / 100 KB
                 </div>
             </div>
@@ -530,7 +442,7 @@
         </div>
     </div>
 
-    <!-- 自定义确认对话框 -->
+    <!-- 确认对话框 -->
     <div class="dialog-overlay" id="confirmDialog">
         <div class="dialog-box">
             <div class="dialog-icon" id="dialogIcon">⚠️</div>
@@ -543,7 +455,7 @@
         </div>
     </div>
 
-    <!-- 自定义提示对话框 -->
+    <!-- 提示对话框 -->
     <div class="dialog-overlay" id="alertDialog">
         <div class="dialog-box">
             <div class="dialog-icon" id="alertIcon">✅</div>
@@ -555,225 +467,232 @@
         </div>
     </div>
 
-    <!-- Toast 提示 -->
+    <!-- Toast -->
     <div class="toast" id="toast">
         <span id="toastIcon">✅</span>
         <span id="toastMessage">操作成功</span>
     </div>
 
     <script>
-        // ========== 自定义对话框系统 ==========
+
+        // ========== 对话框系统 ==========
         const Dialog = {
-            // 确认对话框
             confirm(options) {
                 return new Promise((resolve) => {
                     const overlay = document.getElementById('confirmDialog');
                     document.getElementById('dialogIcon').textContent = options.icon || '⚠️';
                     document.getElementById('dialogTitle').textContent = options.title || '确认操作';
                     document.getElementById('dialogMessage').textContent = options.message || '确定要执行此操作吗？';
-                    
                     const confirmBtn = document.getElementById('dialogConfirm');
                     const cancelBtn = document.getElementById('dialogCancel');
-                    
                     confirmBtn.textContent = options.confirmText || '确定';
                     cancelBtn.textContent = options.cancelText || '取消';
-                    
                     overlay.classList.add('show');
-                    
-                    const handleConfirm = () => {
-                        overlay.classList.remove('show');
-                        cleanup();
-                        resolve(true);
-                    };
-                    
-                    const handleCancel = () => {
-                        overlay.classList.remove('show');
-                        cleanup();
-                        resolve(false);
-                    };
-                    
-                    const handleOverlay = (e) => {
-                        if (e.target === overlay) handleCancel();
-                    };
-                    
+                    const handleConfirm = () => { overlay.classList.remove('show'); cleanup(); resolve(true); };
+                    const handleCancel = () => { overlay.classList.remove('show'); cleanup(); resolve(false); };
+                    const handleOverlay = (e) => { if (e.target === overlay) handleCancel(); };
                     const cleanup = () => {
                         confirmBtn.removeEventListener('click', handleConfirm);
                         cancelBtn.removeEventListener('click', handleCancel);
                         overlay.removeEventListener('click', handleOverlay);
                     };
-                    
                     confirmBtn.addEventListener('click', handleConfirm);
                     cancelBtn.addEventListener('click', handleCancel);
                     overlay.addEventListener('click', handleOverlay);
                 });
             },
-            
-            // 提示对话框
             alert(options) {
                 return new Promise((resolve) => {
                     const overlay = document.getElementById('alertDialog');
                     document.getElementById('alertIcon').textContent = options.icon || '✅';
                     document.getElementById('alertTitle').textContent = options.title || '提示';
                     document.getElementById('alertMessage').textContent = options.message || '操作完成';
-                    
                     overlay.classList.add('show');
-                    
                     const okBtn = document.getElementById('alertOk');
-                    
-                    const handleOk = () => {
-                        overlay.classList.remove('show');
-                        okBtn.removeEventListener('click', handleOk);
-                        overlay.removeEventListener('click', handleOverlay);
-                        resolve();
-                    };
-                    
-                    const handleOverlay = (e) => {
-                        if (e.target === overlay) handleOk();
-                    };
-                    
+                    const handleOk = () => { overlay.classList.remove('show'); okBtn.removeEventListener('click', handleOk); overlay.removeEventListener('click', handleOverlay); resolve(); };
+                    const handleOverlay = (e) => { if (e.target === overlay) handleOk(); };
                     okBtn.addEventListener('click', handleOk);
                     overlay.addEventListener('click', handleOverlay);
                 });
             },
-            
-            // Toast 提示
             toast(message, type = 'success', duration = 3000) {
                 const toast = document.getElementById('toast');
-                const icon = document.getElementById('toastIcon');
-                const msg = document.getElementById('toastMessage');
-                
-                const icons = {
-                    success: '✅',
-                    error: '❌',
-                    warning: '⚠️',
-                    info: 'ℹ️'
-                };
-                
-                icon.textContent = icons[type] || icons.success;
-                msg.textContent = message;
-                
+                const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+                document.getElementById('toastIcon').textContent = icons[type] || icons.success;
+                document.getElementById('toastMessage').textContent = message;
                 toast.className = 'toast ' + type;
                 toast.classList.add('show');
-                
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, duration);
+                setTimeout(() => { toast.classList.remove('show'); }, duration);
             }
         };
 
-        // ========== 内置项目配置 ==========
+        // ========== 分类定义 ==========
+        const categories = {
+            all: { name: '全部', icon: '📚', color: '#00d4ff' },
+            physics: { name: '物理模拟', icon: '⚛️', color: '#00ffff' },
+            sports: { name: '运动科学', icon: '🏃', color: '#7fff7f' },
+            biology: { name: '生命科学', icon: '🧬', color: '#ff6b6b' },
+            engineering: { name: '工程技术', icon: '⚙️', color: '#ffd700' },
+            algorithm: { name: '算法可视化', icon: '🧮', color: '#a78bfa' },
+            art: { name: '艺术创意', icon: '🎨', color: '#ff69b4' },
+            history: { name: '历史人文', icon: '📜', color: '#d4a574' },
+            environment: { name: '环境地球', icon: '🌍', color: '#4caf50' },
+            life: { name: '生活工具', icon: '🏠', color: '#4fc3f7' },
+            game: { name: '游戏教育', icon: '🎮', color: '#ff9800' },
+            web: { name: '网页模板', icon: '🌐', color: '#2196f3' }
+        };
+
+        // ========== 项目数据（按分类） ==========
         const builtInProjects = [
-            {
-                title: '六边形弹跳小球',
-                file: 'hexagon-bouncing-ball.html',
-                icon: '⬡',
-                color: '#00d4ff',
-                desc: '小球在旋转的六边形边界内弹跳，可调节重力、弹性、旋转速度等参数',
-                tags: ['物理模拟', 'Canvas', '交互']
-            },
-            {
-                title: '砖块烟囱爆破',
-                file: 'chimney-demolition.html',
-                icon: '💥',
-                color: '#ff6b6b',
-                desc: '3D砖块烟囱爆破模拟，支持视角旋转、物理碰撞和重力效果',
-                tags: ['3D渲染', '物理引擎', '爆破']
-            },
-            {
-                title: '太阳系模拟器',
-                file: 'solar-system.html',
-                icon: '🌍',
-                color: '#ffd700',
-                desc: '八大行星围绕太阳公转，按真实比例速度运行，可调节时间倍速',
-                tags: ['天文', '动画', '教育']
-            },
-            {
-                title: '粒子漩涡',
-                file: 'particle-vortex.html',
-                icon: '🌀',
-                color: '#ff00ff',
-                desc: '点击创建黑洞吸引粒子，松开后粒子四散，带有绚丽拖尾效果',
-                tags: ['粒子系统', '交互', '视觉']
-            },
-            {
-                title: '企业官网模板',
-                file: 'corporate-website.html',
-                icon: '🏢',
-                color: '#2563eb',
-                desc: '响应式企业官网首页，包含导航、轮播图、服务展示、客户评价等模块',
-                tags: ['响应式', '网站模板', 'UI']
-            },
-            {
-                title: '动画天气卡片',
-                file: 'weather-cards.html',
-                icon: '🌤️',
-                color: '#38ef7d',
-                desc: '四种天气动画卡片：晴天、雨天、雪天、大风，支持筛选切换',
-                tags: ['CSS动画', '卡片', '天气']
-            },
-            {
-                title: '打字练习游戏',
-                file: 'typing-game.html',
-                icon: '⌨️',
-                color: '#667eea',
-                desc: '英文打字练习，实时显示WPM、准确率，带虚拟键盘反馈',
-                tags: ['游戏', '键盘', '练习']
-            },
-            {
-                title: '量子波函数模拟器',
-                file: 'quantum-simulator.html',
-                icon: '⚛️',
-                color: '#00ffff',
-                desc: '量子力学势阱中的波函数可视化，可调节量子数、势阱参数等',
-                tags: ['量子物理', '科学', '模拟']
-            }
+            // 物理模拟
+            { title: '六边形弹跳小球', file: 'physics/hexagon-bouncing-ball.html', icon: '⬡', color: '#00d4ff', category: 'physics',
+              desc: '小球在旋转的六边形边界内弹跳，可调节重力、弹性、旋转速度', tags: ['物理模拟', 'Canvas'] },
+            { title: '砖块烟囱爆破', file: 'physics/chimney-demolition.html', icon: '💥', color: '#ff6b6b', category: 'physics',
+              desc: '3D砖块烟囱爆破模拟，支持视角旋转、物理碰撞', tags: ['3D渲染', '物理引擎'] },
+            { title: '粒子漩涡', file: 'physics/particle-vortex.html', icon: '🌀', color: '#ff00ff', category: 'physics',
+              desc: '点击创建黑洞吸引粒子，松开后粒子四散', tags: ['粒子系统', '交互'] },
+            { title: '量子波函数模拟器', file: 'physics/quantum-simulator.html', icon: '⚛️', color: '#00ffff', category: 'physics',
+              desc: '量子力学势阱中的波函数可视化', tags: ['量子物理', '科学'] },
+            { title: '引力波时空模拟器', file: 'physics/gravitational-waves.html', icon: '🌌', color: '#0af', category: 'physics',
+              desc: '双黑洞合并引力波模拟，时空扭曲可视化', tags: ['天体物理', '相对论'] },
+            { title: '量子计算门模拟器', file: 'physics/quantum-gates.html', icon: '🔬', color: '#a6f', category: 'physics',
+              desc: '量子比特和逻辑门可视化，布洛赫球体', tags: ['量子计算', '教育'] },
+            { title: '混沌吸引子3D', file: 'physics/chaos-attractor.html', icon: '🦋', color: '#0f0', category: 'physics',
+              desc: '洛伦兹、罗斯勒等混沌系统3D可视化', tags: ['混沌理论', '数学'] },
+            { title: '时空光锥模拟器', file: 'physics/lightcone-relativity.html', icon: '⏳', color: '#00d4ff', category: 'physics',
+              desc: '狭义相对论可视化，光锥、洛伦兹变换', tags: ['相对论', '时空'] },
+            { title: '流体动力学模拟', file: 'physics/fluid-dynamics.html', icon: '💧', color: '#0af', category: 'physics',
+              desc: '纳维-斯托克斯方程流体模拟，涡旋演化', tags: ['流体', '物理'] },
+            { title: '分子轨道模拟器', file: 'physics/molecular-orbital.html', icon: '🧪', color: '#a0f', category: 'physics',
+              desc: '量子化学分子轨道可视化，电子云', tags: ['化学', '量子'] },
+
+            // 运动科学
+            { title: '羽毛球飞行物理', file: 'sports/badminton-physics.html', icon: '🏸', color: '#7fff7f', category: 'sports',
+              desc: '空气动力学羽毛球轨迹模拟，击球技术分析', tags: ['羽毛球', '物理'] },
+            { title: '篮球投篮力学', file: 'sports/basketball-shooting.html', icon: '🏀', color: '#ff6b35', category: 'sports',
+              desc: '投篮弹道物理模拟，出手角度与命中率', tags: ['篮球', '力学'] },
+            { title: '排球生物力学', file: 'sports/volleyball-mechanics.html', icon: '🏐', color: '#ffd700', category: 'sports',
+              desc: '扣球发球物理模拟，飘球效应', tags: ['排球', '生物力学'] },
+            { title: '三球运动物理对比', file: 'sports/sports-physics-compare.html', icon: '🎯', color: '#4af', category: 'sports',
+              desc: '羽毛球/篮球/排球物理原理对比分析', tags: ['运动科学', '对比'] },
+            { title: '人体运动生物力学', file: 'sports/biomechanics.html', icon: '🏃', color: '#ff6b6b', category: 'sports',
+              desc: '骨骼动画与肌肉激活分析，步态周期', tags: ['生物力学', '人体'] },
+            { title: '运动损伤康复规划', file: 'sports/injury-rehab.html', icon: '🩹', color: '#64ffda', category: 'sports',
+              desc: '从损伤到康复的时间线模拟', tags: ['医学', '康复'] },
+
+            // 生命科学
+            { title: '神经网络可视化', file: 'biology/neural-network.html', icon: '🧠', color: '#00ff00', category: 'biology',
+              desc: '交互式神经网络学习器，前向/反向传播', tags: ['机器学习', 'AI'] },
+            { title: '人体生理模拟器', file: 'biology/body-physiology.html', icon: '🫀', color: '#ff4466', category: 'biology',
+              desc: '多系统协调的人体生理学仿真', tags: ['生理学', '医学'] },
+            { title: '流行病传播模拟', file: 'biology/epidemic-spread.html', icon: '🦠', color: '#44ff88', category: 'biology',
+              desc: 'SEIR网络传播模型，干预措施分析', tags: ['流行病学', '网络'] },
+            { title: '睡眠与梦境生成器', file: 'biology/sleep-dream.html', icon: '🌙', color: '#a78bfa', category: 'biology',
+              desc: '睡眠周期模拟与梦境内容生成', tags: ['睡眠', '神经科学'] },
+
+            // 工程技术
+            { title: '数字电路仿真器', file: 'engineering/digital-circuit.html', icon: '🔌', color: '#00ff00', category: 'engineering',
+              desc: '逻辑门电路设计与仿真，示波器分析', tags: ['电子', '数字电路'] },
+            { title: '齿轮传动设计器', file: 'engineering/gear-system.html', icon: '⚙️', color: '#708090', category: 'engineering',
+              desc: '参数化齿轮系统设计，传动比计算', tags: ['机械', '传动'] },
+            { title: 'PID控制仿真', file: 'engineering/pid-control.html', icon: '🎛️', color: '#4080c0', category: 'engineering',
+              desc: '工业过程PID控制仿真，参数整定', tags: ['控制', '自动化'] },
+            { title: '光线追踪工作室', file: 'engineering/raytracing-studio.html', icon: '💎', color: '#4af', category: 'engineering',
+              desc: '实时光线追踪渲染，材质编辑', tags: ['3D', '渲染'] },
+
+            // 算法可视化
+            { title: '数据结构塔防', file: 'algorithm/ds-tower-defense.html', icon: '🏰', color: '#667eea', category: 'algorithm',
+              desc: '通过塔防游戏学习数据结构与算法', tags: ['算法', '游戏'] },
+            { title: '排序算法舞蹈', file: 'algorithm/sorting-dance.html', icon: '🕺', color: '#f9ca24', category: 'algorithm',
+              desc: '可视化排序算法，数字化身舞者', tags: ['算法', '可视化'] },
+            { title: '递归分治魔法', file: 'algorithm/recursion-puzzle.html', icon: '🔮', color: '#a855f7', category: 'algorithm',
+              desc: '递归与分治可视化，汉诺塔、分形', tags: ['递归', '分形'] },
+
+            // 艺术创意
+            { title: '分形艺术生成器', file: 'art/fractal-art.html', icon: '🎨', color: '#f0a', category: 'art',
+              desc: '曼德勃罗集、朱利亚集实时渲染', tags: ['分形', '艺术'] },
+            { title: '数字水墨绘画', file: 'art/ink-painting.html', icon: '🖌️', color: '#c4a060', category: 'art',
+              desc: '物理模拟水墨扩散，宣纸纹理', tags: ['绘画', '艺术'] },
+            { title: '动画天气卡片', file: 'art/weather-cards.html', icon: '🌤️', color: '#38ef7d', category: 'art',
+              desc: '四种天气动画卡片：晴天、雨天、雪天、大风', tags: ['CSS动画', '卡片'] },
+
+            // 历史人文
+            { title: '丝绸之路贸易网络', file: 'history/silk-road.html', icon: '🐫', color: '#d4a574', category: 'history',
+              desc: '古代丝绸之路贸易模拟，商队动画', tags: ['历史', '贸易'] },
+            { title: '古代灌溉系统', file: 'history/ancient-irrigation.html', icon: '🌾', color: '#4a90a4', category: 'history',
+              desc: '四大文明灌溉系统模拟，水利工程', tags: ['历史', '水利'] },
+            { title: '封建社会模拟器', file: 'history/feudal-society.html', icon: '👑', color: '#c4a060', category: 'history',
+              desc: '中世纪封建制度模拟，社会阶层', tags: ['历史', '社会'] },
+            { title: '密码学历史冒险', file: 'history/crypto-history.html', icon: '🔐', color: '#c9a227', category: 'history',
+              desc: '从凯撒密码到RSA，穿越密码学历史', tags: ['密码学', '历史'] },
+            { title: '全球手势文化图鉴', file: 'history/gesture-culture.html', icon: '🤚', color: '#ffd700', category: 'history',
+              desc: '跨文化手势含义对比，避免误解', tags: ['文化', '手势'] },
+
+            // 环境地球
+            { title: '太阳系模拟器', file: 'environment/solar-system.html', icon: '☀️', color: '#ffd700', category: 'environment',
+              desc: '八大行星围绕太阳公转，可调节时间倍速', tags: ['天文', '动画'] },
+            { title: '地球气候模拟器', file: 'environment/climate-system.html', icon: '🌍', color: '#4488cc', category: 'environment',
+              desc: '从冰河期到未来，气候变化时间旅行', tags: ['气候', '地球科学'] },
+            { title: '海洋塑料污染追踪', file: 'environment/ocean-plastic.html', icon: '🌊', color: '#0077be', category: 'environment',
+              desc: '全球海洋塑料污染可视化，垃圾带分布', tags: ['环境', '海洋'] },
+            { title: '极端环境生存挑战', file: 'environment/survival-challenge.html', icon: '🏔️', color: '#4a90a4', category: 'environment',
+              desc: '珠峰、深海、沙漠、太空四大极端环境', tags: ['生存', '模拟'] },
+
+            // 生活工具
+            { title: '家庭能源管家', file: 'life/energy-manager.html', icon: '🏠', color: '#48bb78', category: 'life',
+              desc: '家庭能耗模拟与节能优化，电费计算', tags: ['节能', '智能家居'] },
+            { title: '复利理财模拟器', file: 'life/wealth-simulator.html', icon: '💰', color: '#ffd700', category: 'life',
+              desc: '个人财富增长规划，复利计算', tags: ['理财', '投资'] },
+            { title: '智能餐盘营养分析', file: 'life/nutrition-planner.html', icon: '🥗', color: '#4caf50', category: 'life',
+              desc: '交互式餐盘营养分析，热量计算', tags: ['健康', '营养'] },
+            { title: '通勤路线规划', file: 'life/commute-planner.html', icon: '🚗', color: '#4fc3f7', category: 'life',
+              desc: '多交通方式通勤成本与效率模拟', tags: ['交通', '规划'] },
+            { title: '虚拟智能花园', file: 'life/virtual-garden.html', icon: '🌱', color: '#4caf50', category: 'life',
+              desc: '室内外植物生长养护模拟', tags: ['植物', '养护'] },
+
+            // 游戏教育
+            { title: '打字练习游戏', file: 'game/typing-game.html', icon: '⌨️', color: '#667eea', category: 'game',
+              desc: '英文打字练习，实时显示WPM、准确率', tags: ['游戏', '练习'] },
+            { title: '编程语法冒险', file: 'game/code-adventure.html', icon: '🧙', color: '#00ffaa', category: 'game',
+              desc: '游戏化编程学习，Python/JS/Java语法', tags: ['编程', '游戏'] },
+
+            // 网页模板
+            { title: '企业官网模板', file: 'web/corporate-website.html', icon: '🏢', color: '#2563eb', category: 'web',
+              desc: '响应式企业官网首页，导航、轮播图', tags: ['响应式', '网站模板'] },
+            { title: '物联网平台模板', file: 'web/iot-platform.html', icon: '📡', color: '#00d4ff', category: 'web',
+              desc: '工业物联网平台首页，设备监控、数据可视化', tags: ['IoT', '平台模板'] },
+            { title: '方案平台模板', file: 'web/solution-platform.html', icon: '💡', color: '#6366f1', category: 'web',
+              desc: '企业解决方案平台，方案展示、服务商入驻', tags: ['方案', '平台模板'] },
+            { title: 'MES系统模板', file: 'web/mes-system.html', icon: '🏭', color: '#3b82f6', category: 'web',
+              desc: '数字化制造执行系统，生产看板、工单管理', tags: ['MES', '系统模板'] }
         ];
 
         // ========== GitHub 配置 ==========
-        // Token 在构建时通过 GitHub Actions 自动注入
         const GITHUB_CONFIG = {
             owner: 'alanttor',
             repo: 'ai-game',
-            // 数据文件在仓库中的路径
             path: 'programmin- prompt-word-demo/data/projects.json',
-            // %%GITHUB_TOKEN%% 会在部署时被替换为真实 Token
             token: '%%GITHUB_TOKEN%%'
         };
-
-        // 是否使用 GitHub 存储
         const USE_GITHUB_STORAGE = GITHUB_CONFIG.token !== '' && !GITHUB_CONFIG.token.includes('%%');
 
-        // ========== 存储层抽象 ==========
+        // ========== 存储层 ==========
         const Storage = {
             fileSha: null,
-
             async getProjects() {
                 if (!USE_GITHUB_STORAGE) {
                     const data = localStorage.getItem('userProjects');
                     return data ? JSON.parse(data) : [];
                 }
-
                 try {
                     const encodedPath = encodeURIComponent(GITHUB_CONFIG.path).replace(/%2F/g, '/');
-                    const res = await fetch(
-                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`,
-                        {
-                            headers: {
-                                'Authorization': `token ${GITHUB_CONFIG.token}`,
-                                'Accept': 'application/vnd.github.v3+json'
-                            }
-                        }
-                    );
-                    
-                    if (!res.ok) {
-                        if (res.status === 404) return [];
-                        throw new Error('获取数据失败');
-                    }
-                    
+                    const res = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`, {
+                        headers: { 'Authorization': `token ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (!res.ok) { if (res.status === 404) return []; throw new Error('获取数据失败'); }
                     const data = await res.json();
                     this.fileSha = data.sha;
-                    const content = decodeURIComponent(escape(atob(data.content)));
-                    return JSON.parse(content);
+                    return JSON.parse(decodeURIComponent(escape(atob(data.content))));
                 } catch (error) {
                     console.error('GitHub 读取失败:', error);
                     Dialog.toast('云端读取失败，使用本地数据', 'warning');
@@ -781,42 +700,20 @@
                     return data ? JSON.parse(data) : [];
                 }
             },
-
             async saveProjects(projects) {
-                // 始终保存到本地作为备份
                 localStorage.setItem('userProjects', JSON.stringify(projects));
-
                 if (!USE_GITHUB_STORAGE) return true;
-
                 try {
                     const content = btoa(unescape(encodeURIComponent(JSON.stringify(projects, null, 2))));
-                    
-                    const body = {
-                        message: `更新项目数据 - ${new Date().toLocaleString('zh-CN')}`,
-                        content: content,
-                        branch: 'master'
-                    };
-                    
-                    if (this.fileSha) {
-                        body.sha = this.fileSha;
-                    }
-
+                    const body = { message: `更新项目数据 - ${new Date().toLocaleString('zh-CN')}`, content: content, branch: 'master' };
+                    if (this.fileSha) body.sha = this.fileSha;
                     const encodedPath = encodeURIComponent(GITHUB_CONFIG.path).replace(/%2F/g, '/');
-                    const res = await fetch(
-                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`,
-                        {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${GITHUB_CONFIG.token}`,
-                                'Accept': 'application/vnd.github.v3+json',
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(body)
-                        }
-                    );
-
+                    const res = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `token ${GITHUB_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
                     if (!res.ok) throw new Error('保存失败');
-                    
                     const data = await res.json();
                     this.fileSha = data.content.sha;
                     return true;
@@ -828,23 +725,12 @@
             }
         };
 
-        // ========== 用户项目管理 ==========
         let userProjectsCache = [];
+        let currentCategory = 'all';
 
-        async function loadUserProjects() {
-            userProjectsCache = await Storage.getProjects();
-            return userProjectsCache;
-        }
-
-        function getUserProjects() {
-            return userProjectsCache;
-        }
-
-        async function saveUserProjects(projects) {
-            userProjectsCache = projects;
-            await Storage.saveProjects(projects);
-        }
-
+        async function loadUserProjects() { userProjectsCache = await Storage.getProjects(); return userProjectsCache; }
+        function getUserProjects() { return userProjectsCache; }
+        async function saveUserProjects(projects) { userProjectsCache = projects; await Storage.saveProjects(projects); }
         async function addUserProject(project) {
             const projects = getUserProjects();
             project.id = Date.now();
@@ -853,177 +739,180 @@
             await saveUserProjects(projects);
             renderProjects();
         }
-
         async function deleteUserProject(id) {
             const projects = getUserProjects().filter(p => p.id !== id);
             await saveUserProjects(projects);
             renderProjects();
         }
 
-        // ========== 渲染项目 ==========
-        async function renderProjects() {
-            const grid = document.getElementById('projectsGrid');
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#8892b0;">加载中...</div>';
-
-            // 首次加载时从存储获取
-            if (userProjectsCache.length === 0) {
-                await loadUserProjects();
-            }
-
-            grid.innerHTML = '';
-
-            // 渲染内置项目
-            builtInProjects.forEach(project => {
-                const card = createProjectCard(project, false);
-                grid.appendChild(card);
+        // ========== 渲染分类导航 ==========
+        function renderCategoryNav() {
+            const nav = document.getElementById('categoryNav');
+            const counts = { all: builtInProjects.length };
+            
+            builtInProjects.forEach(p => {
+                counts[p.category] = (counts[p.category] || 0) + 1;
             });
-
-            // 渲染用户项目
-            const userProjects = getUserProjects();
-            if (userProjects.length > 0) {
-                const divider = document.createElement('div');
-                divider.className = 'user-projects-title';
-                divider.style.gridColumn = '1 / -1';
-                divider.textContent = `📦 社区项目 (${userProjects.length})`;
-                grid.appendChild(divider);
-
-                userProjects.forEach(project => {
-                    const card = createProjectCard(project, true);
-                    grid.appendChild(card);
-                });
-            }
-
-            // 添加"添加项目"卡片
-            const addCard = document.createElement('div');
-            addCard.className = 'add-card';
-            addCard.innerHTML = `
-                <div class="icon">➕</div>
-                <div class="text">添加新项目</div>
-            `;
-            addCard.addEventListener('click', () => {
-                document.getElementById('addModal').classList.add('show');
-            });
-            grid.appendChild(addCard);
+            
+            nav.innerHTML = Object.entries(categories).map(([key, cat]) => `
+                <button class="cat-btn ${currentCategory === key ? 'active' : ''}" onclick="selectCategory('${key}')">
+                    <span>${cat.icon}</span>
+                    <span>${cat.name}</span>
+                    <span class="count">${counts[key] || 0}</span>
+                </button>
+            `).join('');
         }
 
-        function createProjectCard(project, isUserProject) {
-            const card = document.createElement('div');
-            card.className = 'project-card';
-            card.style.setProperty('--card-color', project.color || '#00d4ff');
+        function selectCategory(cat) {
+            currentCategory = cat;
+            renderCategoryNav();
+            renderProjects();
+        }
+
+        // ========== 渲染项目 ==========
+        async function renderProjects() {
+            const container = document.getElementById('projectsContainer');
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8892b0;">加载中...</div>';
+
+            if (userProjectsCache.length === 0) await loadUserProjects();
+
+            let html = '';
             
-            let deleteBtn = '';
-            if (isUserProject) {
-                deleteBtn = `<button class="delete-btn" data-id="${project.id}">×</button>`;
+            if (currentCategory === 'all') {
+                // 按分类分组显示
+                Object.entries(categories).forEach(([catKey, cat]) => {
+                    if (catKey === 'all') return;
+                    const catProjects = builtInProjects.filter(p => p.category === catKey);
+                    if (catProjects.length === 0) return;
+                    
+                    html += `
+                        <section class="category-section">
+                            <div class="category-header" style="border-color: ${cat.color};">
+                                <span class="category-icon">${cat.icon}</span>
+                                <span class="category-title" style="color: ${cat.color};">${cat.name}</span>
+                                <span class="category-count">(${catProjects.length}个项目)</span>
+                            </div>
+                            <div class="projects-grid">
+                                ${catProjects.map(p => createProjectCardHTML(p, false)).join('')}
+                            </div>
+                        </section>
+                    `;
+                });
+            } else {
+                // 显示单个分类
+                const cat = categories[currentCategory];
+                const catProjects = builtInProjects.filter(p => p.category === currentCategory);
+                
+                html += `
+                    <section class="category-section">
+                        <div class="category-header" style="border-color: ${cat.color};">
+                            <span class="category-icon">${cat.icon}</span>
+                            <span class="category-title" style="color: ${cat.color};">${cat.name}</span>
+                            <span class="category-count">(${catProjects.length}个项目)</span>
+                        </div>
+                        <div class="projects-grid">
+                            ${catProjects.map(p => createProjectCardHTML(p, false)).join('')}
+                        </div>
+                    </section>
+                `;
             }
 
-            card.innerHTML = `
-                ${deleteBtn}
-                <div class="project-icon">${project.icon}</div>
-                <div class="project-title">${project.title}</div>
-                <div class="project-desc">${project.desc}</div>
-                <div class="project-tags">
-                    ${(project.tags || ['自定义']).map(tag => `<span class="tag">${tag}</span>`).join('')}
+            // 用户项目
+            const userProjects = getUserProjects();
+            if (userProjects.length > 0) {
+                html += `
+                    <div class="user-section-title">📦 社区项目 (${userProjects.length})</div>
+                    <div class="projects-grid">
+                        ${userProjects.map(p => createProjectCardHTML(p, true)).join('')}
+                    </div>
+                `;
+            }
+
+            // 添加项目卡片
+            html += `
+                <div class="projects-grid" style="margin-top: 20px;">
+                    <div class="add-card" onclick="document.getElementById('addModal').classList.add('show')">
+                        <div class="icon">➕</div>
+                        <div class="text">添加新项目</div>
+                    </div>
                 </div>
             `;
 
-            // 点击卡片打开项目
-            card.addEventListener('click', (e) => {
-                if (e.target.classList.contains('delete-btn')) return;
-                
-                if (isUserProject) {
-                    // 用户项目：从项目数据中读取HTML并在新窗口打开
-                    const htmlContent = project.htmlContent;
-                    if (htmlContent) {
-                        const blob = new Blob([htmlContent], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                    } else {
-                        Dialog.toast('该项目没有HTML内容', 'error');
-                    }
-                } else {
-                    // 内置项目：直接跳转
-                    window.location.href = project.file;
-                }
-            });
-
-            // 删除按钮
-            if (isUserProject) {
-                card.querySelector('.delete-btn').addEventListener('click', async (e) => {
+            container.innerHTML = html;
+            
+            // 绑定删除按钮事件
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
+                    const id = parseInt(btn.dataset.id);
+                    const project = userProjects.find(p => p.id === id);
                     const confirmed = await Dialog.confirm({
                         icon: '🗑️',
                         title: '删除项目',
-                        message: `确定要删除「${project.title}」吗？此操作无法撤销。`,
+                        message: `确定要删除「${project?.title}」吗？此操作无法撤销。`,
                         confirmText: '删除',
                         cancelText: '取消'
                     });
                     if (confirmed) {
-                        deleteUserProject(project.id);
+                        deleteUserProject(id);
                         Dialog.toast('项目已删除', 'success');
                     }
                 });
-            }
+            });
 
-            return card;
+            // 更新统计
+            document.getElementById('statsInfo').textContent = `共 ${builtInProjects.length} 个内置项目，${Object.keys(categories).length - 1} 个分类`;
+        }
+
+        function createProjectCardHTML(project, isUserProject) {
+            const deleteBtn = isUserProject ? `<button class="delete-btn" data-id="${project.id}">×</button>` : '';
+            return `
+                <div class="project-card" style="--card-color: ${project.color || '#00d4ff'};" 
+                     data-file="${project.file || ''}" data-user="${isUserProject}" data-id="${project.id || ''}">
+                    ${deleteBtn}
+                    <div class="project-icon">${project.icon}</div>
+                    <div class="project-title">${project.title}</div>
+                    <div class="project-desc">${project.desc}</div>
+                    <div class="project-tags">
+                        ${(project.tags || ['自定义']).map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         // ========== 模态框逻辑 ==========
         const modal = document.getElementById('addModal');
-        const closeModal = document.getElementById('closeModal');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const saveBtn = document.getElementById('saveBtn');
+        document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
+        document.getElementById('cancelBtn').addEventListener('click', () => modal.classList.remove('show'));
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
         const htmlFile = document.getElementById('htmlFile');
         const htmlCode = document.getElementById('htmlCode');
         const fileLabel = document.querySelector('.file-input-label');
 
-        closeModal.addEventListener('click', () => modal.classList.remove('show'));
-        cancelBtn.addEventListener('click', () => modal.classList.remove('show'));
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.remove('show');
-        });
-
-        // 文件选择
         htmlFile.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 if (file.size > 100 * 1024) {
-                    Dialog.alert({
-                        icon: '⚠️',
-                        title: '文件过大',
-                        message: `文件大小 ${(file.size/1024).toFixed(1)}KB 超过限制（100KB），请压缩后重试`
-                    });
+                    Dialog.alert({ icon: '⚠️', title: '文件过大', message: `文件大小 ${(file.size/1024).toFixed(1)}KB 超过限制（100KB）` });
                     return;
                 }
                 fileLabel.textContent = `✅ 已选择: ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    htmlCode.value = e.target.result;
-                    updateCodeSize();
-                };
+                reader.onload = (e) => { htmlCode.value = e.target.result; updateCodeSize(); };
                 reader.readAsText(file);
             }
         });
 
-        // 更新代码大小显示
         function updateCodeSize() {
             const size = new Blob([htmlCode.value]).size;
-            const sizeKB = (size / 1024).toFixed(1);
-            document.getElementById('codeSize').textContent = sizeKB;
+            document.getElementById('codeSize').textContent = (size / 1024).toFixed(1);
             document.getElementById('codeSize').style.color = size > 100 * 1024 ? '#ff6b6b' : '#8892b0';
         }
-
         htmlCode.addEventListener('input', updateCodeSize);
 
-        // 拖拽上传
-        fileLabel.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            fileLabel.style.borderColor = '#00d4ff';
-        });
-
-        fileLabel.addEventListener('dragleave', () => {
-            fileLabel.style.borderColor = '';
-        });
-
+        fileLabel.addEventListener('dragover', (e) => { e.preventDefault(); fileLabel.style.borderColor = '#00d4ff'; });
+        fileLabel.addEventListener('dragleave', () => { fileLabel.style.borderColor = ''; });
         fileLabel.addEventListener('drop', (e) => {
             e.preventDefault();
             fileLabel.style.borderColor = '';
@@ -1031,90 +920,91 @@
             if (file && (file.name.endsWith('.html') || file.name.endsWith('.htm'))) {
                 fileLabel.textContent = `✅ 已选择: ${file.name}`;
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    htmlCode.value = e.target.result;
-                };
+                reader.onload = (e) => { htmlCode.value = e.target.result; updateCodeSize(); };
                 reader.readAsText(file);
             }
         });
 
-        // 保存项目
-        saveBtn.addEventListener('click', async () => {
+        document.getElementById('saveBtn').addEventListener('click', async () => {
             const title = document.getElementById('projectTitle').value.trim();
             const desc = document.getElementById('projectDesc').value.trim();
             const icon = document.getElementById('projectIcon').value.trim() || '📄';
             const code = htmlCode.value.trim();
 
-            if (!title) {
-                await Dialog.alert({
-                    icon: '⚠️',
-                    title: '缺少信息',
-                    message: '请输入项目名称'
-                });
-                return;
-            }
-            if (!code) {
-                await Dialog.alert({
-                    icon: '⚠️',
-                    title: '缺少内容',
-                    message: '请导入HTML文件或粘贴HTML代码'
-                });
-                return;
-            }
+            if (!title) { await Dialog.alert({ icon: '⚠️', title: '缺少信息', message: '请输入项目名称' }); return; }
+            if (!code) { await Dialog.alert({ icon: '⚠️', title: '缺少内容', message: '请导入HTML文件或粘贴HTML代码' }); return; }
 
-            // 检查文件大小
             const codeSize = new Blob([code]).size;
             if (codeSize > 100 * 1024) {
-                await Dialog.alert({
-                    icon: '⚠️',
-                    title: '内容过大',
-                    message: `HTML内容 ${(codeSize/1024).toFixed(1)}KB 超过限制（100KB），请精简代码后重试`
-                });
+                await Dialog.alert({ icon: '⚠️', title: '内容过大', message: `HTML内容 ${(codeSize/1024).toFixed(1)}KB 超过限制（100KB）` });
                 return;
             }
 
-            // 验证HTML代码
             if (!code.includes('<html') && !code.includes('<body') && !code.includes('<div')) {
                 const confirmed = await Dialog.confirm({
-                    icon: '🤔',
-                    title: 'HTML格式检查',
+                    icon: '🤔', title: 'HTML格式检查',
                     message: '代码似乎不是完整的HTML，确定要继续保存吗？',
-                    confirmText: '继续保存',
-                    cancelText: '返回修改'
+                    confirmText: '继续保存', cancelText: '返回修改'
                 });
                 if (!confirmed) return;
             }
 
-            // 将HTML内容也存入项目数据中（这样所有人都能访问）
-            const project = {
-                title,
-                desc: desc || '用户自定义项目',
-                icon,
-                color: '#ffd700',
-                tags: ['自定义'],
-                htmlContent: code  // HTML内容存到GitHub
-            };
-
+            const project = { title, desc: desc || '用户自定义项目', icon, color: '#ffd700', tags: ['自定义'], htmlContent: code };
             await addUserProject(project);
 
-            // 重置表单
             document.getElementById('projectTitle').value = '';
             document.getElementById('projectDesc').value = '';
             document.getElementById('projectIcon').value = '';
             htmlCode.value = '';
             fileLabel.textContent = '📁 点击选择HTML文件或拖拽到此处';
-            
             modal.classList.remove('show');
-            
-            await Dialog.alert({
-                icon: '🎉',
-                title: '添加成功',
-                message: `项目「${title}」已成功添加！`
-            });
+            await Dialog.alert({ icon: '🎉', title: '添加成功', message: `项目「${title}」已成功添加！` });
         });
 
         // 初始化
+        renderCategoryNav();
         renderProjects();
+
+        // ========== 主题切换 ==========
+        const themeToggle = document.getElementById('themeToggle');
+        let currentTheme = localStorage.getItem('theme') || 'dark';
+        
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                themeToggle.textContent = '☀️';
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                themeToggle.textContent = '🌙';
+            }
+            localStorage.setItem('theme', theme);
+            currentTheme = theme;
+        }
+        
+        applyTheme(currentTheme);
+        
+        themeToggle.addEventListener('click', () => {
+            applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
+
+        // 修改项目跳转，传递主题参数
+        document.getElementById('projectsContainer').addEventListener('click', (e) => {
+            const card = e.target.closest('.project-card');
+            if (!card || e.target.classList.contains('delete-btn')) return;
+            
+            const file = card.dataset.file;
+            const isUser = card.dataset.user === 'true';
+            
+            if (isUser) {
+                const project = getUserProjects().find(p => p.id == card.dataset.id);
+                if (project?.htmlContent) {
+                    const blob = new Blob([project.htmlContent], { type: 'text/html' });
+                    window.open(URL.createObjectURL(blob), '_blank');
+                }
+            } else if (file) {
+                window.location.href = file + '?theme=' + currentTheme;
+            }
+        });
     </script>
 </body>
 </html>

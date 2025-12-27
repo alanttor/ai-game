@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数化分形艺术生成器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .canvas-area {
+            flex: 7;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #fractalCanvas { display: block; cursor: crosshair; }
+        .control-panel {
+            flex: 3;
+            min-width: 280px;
+            background: rgba(20,20,20,0.95);
+            border-left: 1px solid #333;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 0.9em;
+            color: #f0a;
+            border-bottom: 1px solid #f0a3;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+        .panel-section {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .coords-display {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            font-family: monospace;
+        }
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f0a, #0af);
+            transition: width 0.1s;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="canvas-area">
+        <canvas id="fractalCanvas"></canvas>
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        <div class="coords-display" id="coordsDisplay">z = 0 + 0i</div>
+    </div>
+    <div class="control-panel" id="controlPanel"></div>
+</div>
+<script>
+let canvas, ctx;
+let imageData;
+let rendering = false;
+let animating = false;
+
+const state = {
+    type: 'mandelbrot',
+    centerX: -0.5,
+    centerY: 0,
+    zoom: 1,
+    maxIter: 100,
+    escapeRadius: 2,
+    juliaReal: -0.7,
+    juliaImag: 0.27,
+    colorScheme: 'rainbow',
+    colorCycles: 1,
+    power: 2,
+    smooth: true
+};
+
+const FRACTALS = {
+    mandelbrot: { name: '曼德勃罗集', formula: 'z² + c' },
+    julia: { name: '朱利亚集', formula: 'z² + c (固定c)' },
+    burningShip: { name: '燃烧船', formula: '(|Re|+i|Im|)² + c' },
+    tricorn: { name: '三角分形', formula: 'conj(z)² + c' },
+    newton: { name: '牛顿分形', formula: 'z - f(z)/f\'(z)' },
+    phoenix: { name: '凤凰分形', formula: 'z² + c + p·z_prev' }
+};
+
+const COLORS = {
+    rainbow: '彩虹',
+    fire: '火焰',
+    ocean: '海洋',
+    forest: '森林',
+    purple: '紫色',
+    grayscale: '灰度',
+    electric: '电光',
+    sunset: '日落'
+};
+
+function init() {
+    canvas = document.getElementById('fractalCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    renderControlPanel();
+    render();
+    
+    canvas.addEventListener('wheel', handleWheel);
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('dblclick', handleDoubleClick);
+    window.addEventListener('resize', resizeCanvas);
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    const size = Math.min(area.clientWidth - 20, area.clientHeight - 20);
+    canvas.width = size;
+    canvas.height = size;
+    imageData = ctx.createImageData(canvas.width, canvas.height);
+    if (!rendering) render();
+}
+
+function renderControlPanel() {
+    const panel = document.getElementById('controlPanel');
+    panel.innerHTML = `
+        <style>
+            .slider-group { margin-bottom: 8px; }
+            .slider-label { display: flex; justify-content: space-between; font-size: 0.75em; color: #aaa; margin-bottom: 3px; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #333; -webkit-appearance: none; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #f0a; cursor: pointer; }
+            .btn { padding: 6px 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8em; transition: all 0.2s; margin: 2px; }
+            .btn-primary { background: linear-gradient(135deg, #f0a, #a0f); color: #fff; }
+            .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+            .btn.active { box-shadow: 0 0 8px #f0a; }
+            .btn:hover { transform: scale(1.02); }
+            .fractal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+            .fractal-btn { padding: 8px 5px; font-size: 0.7em; text-align: center; }
+            .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+            .color-btn { padding: 6px; font-size: 0.65em; }
+            .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+            .preset-item { aspect-ratio: 1; background: #222; border-radius: 4px; cursor: pointer; overflow: hidden; }
+            .preset-item canvas { width: 100%; height: 100%; }
+        </style>
+        <div style="text-align:center;margin-bottom:8px;">
+            <h2 style="color:#f0a;font-size:1.1em;">🎨 分形艺术生成器</h2>
+            <p style="color:#666;font-size:0.7em;">滚轮缩放 | 双击居中 | 拖拽平移</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔮 分形类型</div>
+            <div class="fractal-grid">
+                ${Object.entries(FRACTALS).map(([key, f]) => `
+                    <button class="btn fractal-btn ${state.type === key ? 'btn-primary' : 'btn-secondary'}" 
+                            onclick="setFractal('${key}')">${f.name}</button>
+                `).join('')}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">⚙️ 参数设置</div>
+            <div class="slider-group">
+                <div class="slider-label"><span>最大迭代</span><span id="iterVal">${state.maxIter}</span></div>
+                <input type="range" id="iterSlider" min="10" max="500" value="${state.maxIter}">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>逃逸半径</span><span id="escapeVal">${state.escapeRadius.toFixed(1)}</span></div>
+                <input type="range" id="escapeSlider" min="1" max="50" value="${state.escapeRadius * 5}">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>幂次</span><span id="powerVal">${state.power}</span></div>
+                <input type="range" id="powerSlider" min="2" max="8" value="${state.power}">
+            </div>
+            ${state.type === 'julia' ? `
+            <div class="slider-group">
+                <div class="slider-label"><span>Julia 实部</span><span id="jrVal">${state.juliaReal.toFixed(3)}</span></div>
+                <input type="range" id="jrSlider" min="-200" max="200" value="${state.juliaReal * 100}">
+            </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>Julia 虚部</span><span id="jiVal">${state.juliaImag.toFixed(3)}</span></div>
+                <input type="range" id="jiSlider" min="-200" max="200" value="${state.juliaImag * 100}">
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎨 色彩方案</div>
+            <div class="color-grid">
+                ${Object.entries(COLORS).map(([key, name]) => `
+                    <button class="btn color-btn ${state.colorScheme === key ? 'btn-primary' : 'btn-secondary'}" 
+                            onclick="setColor('${key}')">${name}</button>
+                `).join('')}
+            </div>
+            <div class="slider-group" style="margin-top:8px;">
+                <div class="slider-label"><span>色彩循环</span><span id="cycleVal">${state.colorCycles}</span></div>
+                <input type="range" id="cycleSlider" min="1" max="10" value="${state.colorCycles}">
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🎬 控制</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                <button class="btn btn-secondary" onclick="resetView()">🔄 重置</button>
+                <button class="btn btn-secondary" onclick="saveImage()">💾 保存</button>
+                <button class="btn ${animating?'btn-primary':'btn-secondary'}" onclick="toggleAnimation()">
+                    ${animating ? '⏹️ 停止' : '▶️ 动画'}
+                </button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📍 当前视图</div>
+            <div style="font-size:0.7em;color:#888;font-family:monospace;">
+                中心: ${state.centerX.toFixed(6)} + ${state.centerY.toFixed(6)}i<br>
+                缩放: ${state.zoom.toExponential(2)}
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 说明</div>
+            <div style="font-size:0.7em;color:#666;line-height:1.4;">
+                <b>曼德勃罗集</b>：复平面上迭代不发散的点集<br>
+                <b>朱利亚集</b>：固定c值下的迭代边界<br>
+                颜色表示逃逸速度，越深迭代越多
+            </div>
+        </div>
+    `;
+    
+    // 绑定事件
+    document.getElementById('iterSlider').oninput = (e) => {
+        state.maxIter = parseInt(e.target.value);
+        document.getElementById('iterVal').textContent = state.maxIter;
+        render();
+    };
+    document.getElementById('escapeSlider').oninput = (e) => {
+        state.escapeRadius = e.target.value / 5;
+        document.getElementById('escapeVal').textContent = state.escapeRadius.toFixed(1);
+        render();
+    };
+    document.getElementById('powerSlider').oninput = (e) => {
+        state.power = parseInt(e.target.value);
+        document.getElementById('powerVal').textContent = state.power;
+        render();
+    };
+    document.getElementById('cycleSlider').oninput = (e) => {
+        state.colorCycles = parseInt(e.target.value);
+        document.getElementById('cycleVal').textContent = state.colorCycles;
+        render();
+    };
+    
+    if (state.type === 'julia') {
+        document.getElementById('jrSlider').oninput = (e) => {
+            state.juliaReal = e.target.value / 100;
+            document.getElementById('jrVal').textContent = state.juliaReal.toFixed(3);
+            render();
+        };
+        document.getElementById('jiSlider').oninput = (e) => {
+            state.juliaImag = e.target.value / 100;
+            document.getElementById('jiVal').textContent = state.juliaImag.toFixed(3);
+            render();
+        };
+    }
+}
+
+function setFractal(type) {
+    state.type = type;
+    if (type === 'julia') {
+        state.centerX = 0;
+        state.centerY = 0;
+    } else {
+        state.centerX = -0.5;
+        state.centerY = 0;
+    }
+    state.zoom = 1;
+    renderControlPanel();
+    render();
+}
+
+function setColor(scheme) {
+    state.colorScheme = scheme;
+    renderControlPanel();
+    render();
+}
+
+function resetView() {
+    state.centerX = state.type === 'julia' ? 0 : -0.5;
+    state.centerY = 0;
+    state.zoom = 1;
+    renderControlPanel();
+    render();
+}
+
+// 分形计算
+function computeFractal(px, py) {
+    const scale = 3 / state.zoom;
+    const x0 = state.centerX + (px / canvas.width - 0.5) * scale;
+    const y0 = state.centerY + (py / canvas.height - 0.5) * scale;
+    
+    let x, y, cx, cy;
+    
+    switch (state.type) {
+        case 'mandelbrot':
+            x = 0; y = 0; cx = x0; cy = y0;
+            break;
+        case 'julia':
+            x = x0; y = y0; cx = state.juliaReal; cy = state.juliaImag;
+            break;
+        case 'burningShip':
+            x = 0; y = 0; cx = x0; cy = y0;
+            break;
+        case 'tricorn':
+            x = 0; y = 0; cx = x0; cy = y0;
+            break;
+        case 'newton':
+            return computeNewton(x0, y0);
+        case 'phoenix':
+            return computePhoenix(x0, y0);
+        default:
+            x = 0; y = 0; cx = x0; cy = y0;
+    }
+    
+    let iter = 0;
+    const maxIter = state.maxIter;
+    const escape = state.escapeRadius * state.escapeRadius;
+    
+    while (x * x + y * y < escape && iter < maxIter) {
+        let xtemp, ytemp;
+        
+        if (state.type === 'burningShip') {
+            xtemp = x * x - y * y + cx;
+            ytemp = 2 * Math.abs(x * y) + cy;
+        } else if (state.type === 'tricorn') {
+            xtemp = x * x - y * y + cx;
+            ytemp = -2 * x * y + cy;
+        } else {
+            // 标准 z^n + c
+            if (state.power === 2) {
+                xtemp = x * x - y * y + cx;
+                ytemp = 2 * x * y + cy;
+            } else {
+                const r = Math.sqrt(x * x + y * y);
+                const theta = Math.atan2(y, x);
+                const rn = Math.pow(r, state.power);
+                xtemp = rn * Math.cos(state.power * theta) + cx;
+                ytemp = rn * Math.sin(state.power * theta) + cy;
+            }
+        }
+        
+        x = xtemp;
+        y = ytemp;
+        iter++;
+    }
+    
+    if (iter === maxIter) return -1;
+    
+    // 平滑着色
+    if (state.smooth && iter > 0) {
+        const log_zn = Math.log(x * x + y * y) / 2;
+        const nu = Math.log(log_zn / Math.log(state.escapeRadius)) / Math.log(state.power);
+        return iter + 1 - nu;
+    }
+    
+    return iter;
+}
+
+function computeNewton(x0, y0) {
+    let x = x0, y = y0;
+    const maxIter = state.maxIter;
+    const tolerance = 0.0001;
+    
+    // z^3 - 1 = 0 的根
+    const roots = [
+        { x: 1, y: 0 },
+        { x: -0.5, y: Math.sqrt(3) / 2 },
+        { x: -0.5, y: -Math.sqrt(3) / 2 }
+    ];
+    
+    for (let iter = 0; iter < maxIter; iter++) {
+        // f(z) = z^3 - 1
+        // f'(z) = 3z^2
+        const x2 = x * x, y2 = y * y;
+        const x3 = x * (x2 - 3 * y2);
+        const y3 = y * (3 * x2 - y2);
+        
+        const fx = x3 - 1;
+        const fy = y3;
+        
+        const fpx = 3 * (x2 - y2);
+        const fpy = 6 * x * y;
+        
+        const denom = fpx * fpx + fpy * fpy;
+        if (denom < tolerance) return iter;
+        
+        x = x - (fx * fpx + fy * fpy) / denom;
+        y = y - (fy * fpx - fx * fpy) / denom;
+        
+        // 检查是否收敛到某个根
+        for (let i = 0; i < roots.length; i++) {
+            const dx = x - roots[i].x;
+            const dy = y - roots[i].y;
+            if (dx * dx + dy * dy < tolerance) {
+                return iter + i * maxIter / 3;
+            }
+        }
+    }
+    
+    return -1;
+}
+
+function computePhoenix(x0, y0) {
+    let x = x0, y = y0;
+    let px = 0, py = 0;
+    const cx = 0.5667, cy = 0;
+    const p = -0.5;
+    const maxIter = state.maxIter;
+    const escape = state.escapeRadius * state.escapeRadius;
+    
+    for (let iter = 0; iter < maxIter; iter++) {
+        if (x * x + y * y > escape) {
+            return iter;
+        }
+        
+        const xtemp = x * x - y * y + cx + p * px;
+        const ytemp = 2 * x * y + cy + p * py;
+        
+        px = x;
+        py = y;
+        x = xtemp;
+        y = ytemp;
+    }
+    
+    return -1;
+}
+
+// 颜色映射
+function getColor(iter) {
+    if (iter < 0) return [0, 0, 0];
+    
+    const t = (iter * state.colorCycles) % state.maxIter / state.maxIter;
+    
+    switch (state.colorScheme) {
+        case 'rainbow':
+            return hslToRgb(t, 0.8, 0.5);
+        case 'fire':
+            return [
+                Math.floor(255 * Math.min(1, t * 3)),
+                Math.floor(255 * Math.max(0, Math.min(1, t * 3 - 1))),
+                Math.floor(255 * Math.max(0, t * 3 - 2))
+            ];
+        case 'ocean':
+            return [
+                Math.floor(255 * t * 0.3),
+                Math.floor(255 * (0.3 + t * 0.5)),
+                Math.floor(255 * (0.5 + t * 0.5))
+            ];
+        case 'forest':
+            return [
+                Math.floor(255 * t * 0.4),
+                Math.floor(255 * (0.3 + t * 0.6)),
+                Math.floor(255 * t * 0.3)
+            ];
+        case 'purple':
+            return hslToRgb(0.75 + t * 0.15, 0.7, 0.3 + t * 0.4);
+        case 'grayscale':
+            const g = Math.floor(255 * t);
+            return [g, g, g];
+        case 'electric':
+            return [
+                Math.floor(255 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2))),
+                Math.floor(255 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 + 2))),
+                Math.floor(255 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 + 4)))
+            ];
+        case 'sunset':
+            return [
+                Math.floor(255 * (0.5 + 0.5 * t)),
+                Math.floor(255 * (0.2 + 0.3 * t)),
+                Math.floor(255 * (0.5 - 0.3 * t))
+            ];
+        default:
+            return hslToRgb(t, 0.8, 0.5);
+    }
+}
+
+function hslToRgb(h, s, l) {
+    let r, g, b;
+    if (s === 0) {
+        r = g = b = l;
+    } else {
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+// 渲染
+function render() {
+    if (rendering) return;
+    rendering = true;
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const data = imageData.data;
+    
+    let row = 0;
+    const rowsPerFrame = 10;
+    
+    function renderRows() {
+        const endRow = Math.min(row + rowsPerFrame, height);
+        
+        for (let y = row; y < endRow; y++) {
+            for (let x = 0; x < width; x++) {
+                const iter = computeFractal(x, y);
+                const color = getColor(iter);
+                const idx = (y * width + x) * 4;
+                data[idx] = color[0];
+                data[idx + 1] = color[1];
+                data[idx + 2] = color[2];
+                data[idx + 3] = 255;
+            }
+        }
+        
+        row = endRow;
+        document.getElementById('progressBar').style.width = (row / height * 100) + '%';
+        
+        if (row < height) {
+            requestAnimationFrame(renderRows);
+        } else {
+            ctx.putImageData(imageData, 0, 0);
+            rendering = false;
+            document.getElementById('progressBar').style.width = '0%';
+        }
+    }
+    
+    renderRows();
+}
+
+// 交互
+let dragging = false;
+let dragStartX, dragStartY;
+let dragCenterX, dragCenterY;
+
+function handleWheel(e) {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    const scale = 3 / state.zoom;
+    const x = state.centerX + (mx / canvas.width - 0.5) * scale;
+    const y = state.centerY + (my / canvas.height - 0.5) * scale;
+    
+    const factor = e.deltaY > 0 ? 0.8 : 1.25;
+    state.zoom *= factor;
+    
+    // 缩放到鼠标位置
+    const newScale = 3 / state.zoom;
+    state.centerX = x - (mx / canvas.width - 0.5) * newScale;
+    state.centerY = y - (my / canvas.height - 0.5) * newScale;
+    
+    renderControlPanel();
+    render();
+}
+
+function handleMouseDown(e) {
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragCenterX = state.centerX;
+    dragCenterY = state.centerY;
+    canvas.style.cursor = 'grabbing';
+}
+
+function handleMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    // 更新坐标显示
+    const scale = 3 / state.zoom;
+    const x = state.centerX + (mx / canvas.width - 0.5) * scale;
+    const y = state.centerY + (my / canvas.height - 0.5) * scale;
+    document.getElementById('coordsDisplay').textContent = 
+        `z = ${x.toFixed(6)} ${y >= 0 ? '+' : '-'} ${Math.abs(y).toFixed(6)}i`;
+    
+    if (dragging) {
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        
+        state.centerX = dragCenterX - dx / canvas.width * scale;
+        state.centerY = dragCenterY - dy / canvas.height * scale;
+        
+        render();
+    }
+}
+
+function handleDoubleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    const scale = 3 / state.zoom;
+    state.centerX = state.centerX + (mx / canvas.width - 0.5) * scale;
+    state.centerY = state.centerY + (my / canvas.height - 0.5) * scale;
+    state.zoom *= 2;
+    
+    renderControlPanel();
+    render();
+}
+
+document.addEventListener('mouseup', () => {
+    dragging = false;
+    canvas.style.cursor = 'crosshair';
+});
+
+// 动画
+let animationId;
+function toggleAnimation() {
+    animating = !animating;
+    renderControlPanel();
+    
+    if (animating) {
+        animateJulia();
+    } else {
+        cancelAnimationFrame(animationId);
+    }
+}
+
+function animateJulia() {
+    if (!animating) return;
+    
+    const time = Date.now() / 3000;
+    state.juliaReal = 0.7885 * Math.cos(time);
+    state.juliaImag = 0.7885 * Math.sin(time);
+    
+    if (state.type !== 'julia') {
+        state.type = 'julia';
+        state.centerX = 0;
+        state.centerY = 0;
+    }
+    
+    render();
+    animationId = requestAnimationFrame(animateJulia);
+}
+
+// 保存图片
+function saveImage() {
+    const link = document.createElement('a');
+    link.download = `fractal_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+init();
+</script>
+</body>
+</html>

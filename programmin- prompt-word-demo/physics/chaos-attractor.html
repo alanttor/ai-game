@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>混沌吸引子3D模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦋</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .main-view {
+            flex: 1;
+            position: relative;
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .info-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-size: 0.8em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin: 4px 0;
+        }
+
+        .info-label { color: #888; }
+        .info-value { color: #0f0; font-family: monospace; }
+
+        .equation-display {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85em;
+            color: #0af;
+        }
+
+        .control-panel {
+            width: 280px;
+            background: rgba(10, 10, 15, 0.95);
+            border-left: 1px solid #333;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            text-align: center;
+            font-size: 1em;
+            color: #0f0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .section-title {
+            color: #888;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            margin: 15px 0 10px;
+            letter-spacing: 1px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .control-group .value {
+            color: #0f0;
+            font-family: monospace;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #0f0;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #aaa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #2a2a2a;
+            border-color: #0f0;
+            color: #fff;
+        }
+
+        .btn.active {
+            background: #0f0;
+            color: #000;
+            border-color: #0f0;
+        }
+
+        .btn.full { grid-column: 1 / -1; }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+
+        .checkbox-group input {
+            width: 16px;
+            height: 16px;
+            accent-color: #0f0;
+        }
+
+        .hint {
+            font-size: 0.7em;
+            color: #666;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-view">
+            <canvas id="canvas"></canvas>
+            <div class="info-overlay">
+                <div class="info-row">
+                    <span class="info-label">吸引子类型:</span>
+                    <span class="info-value" id="typeDisplay">洛伦兹</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">轨迹点数:</span>
+                    <span class="info-value" id="pointsDisplay">0</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">李雅普诺夫指数:</span>
+                    <span class="info-value" id="lyapunovDisplay">~0.9</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">FPS:</span>
+                    <span class="info-value" id="fpsDisplay">60</span>
+                </div>
+            </div>
+            <div class="equation-display" id="equationDisplay">
+                dx/dt = σ(y - x)<br>
+                dy/dt = x(ρ - z) - y<br>
+                dz/dt = xy - βz
+            </div>
+        </div>
+        <div class="control-panel">
+            <div class="panel-title">🌀 混沌吸引子控制</div>
+            
+            <div class="section-title">吸引子类型</div>
+            <select id="attractorType">
+                <option value="lorenz">洛伦兹 (Lorenz)</option>
+                <option value="rossler">罗斯勒 (Rössler)</option>
+                <option value="chen">陈氏 (Chen)</option>
+                <option value="aizawa">相�的 (Aizawa)</option>
+                <option value="thomas">托马斯 (Thomas)</option>
+                <option value="halvorsen">哈尔沃森 (Halvorsen)</option>
+            </select>
+
+            <div class="section-title">系统参数</div>
+            <div class="control-group">
+                <label><span>参数 σ/a</span><span class="value" id="paramAVal">10.00</span></label>
+                <input type="range" id="paramA" min="0" max="200" value="100">
+            </div>
+            <div class="control-group">
+                <label><span>参数 ρ/b</span><span class="value" id="paramBVal">28.00</span></label>
+                <input type="range" id="paramB" min="0" max="400" value="280">
+            </div>
+            <div class="control-group">
+                <label><span>参数 β/c</span><span class="value" id="paramCVal">2.67</span></label>
+                <input type="range" id="paramC" min="0" max="100" value="27">
+            </div>
+
+            <div class="section-title">可视化设置</div>
+            <div class="control-group">
+                <label><span>轨迹长度</span><span class="value" id="trailVal">5000</span></label>
+                <input type="range" id="trailLength" min="1000" max="10000" value="5000">
+            </div>
+            <div class="control-group">
+                <label><span>旋转速度</span><span class="value" id="rotateVal">0.50</span></label>
+                <input type="range" id="rotateSpeed" min="0" max="200" value="50">
+            </div>
+            <div class="control-group">
+                <label><span>缩放</span><span class="value" id="zoomVal">1.00</span></label>
+                <input type="range" id="zoom" min="20" max="300" value="100">
+            </div>
+            <div class="control-group">
+                <label><span>颜色模式</span></label>
+                <select id="colorMode">
+                    <option value="speed">速度映射</option>
+                    <option value="curvature">曲率映射</option>
+                    <option value="height">高度映射</option>
+                    <option value="rainbow">彩虹渐变</option>
+                    <option value="fixed">固定颜色</option>
+                </select>
+            </div>
+
+            <div class="section-title">功能选项</div>
+            <label class="checkbox-group">
+                <input type="checkbox" id="showAxes" checked>
+                显示坐标轴
+            </label>
+            <label class="checkbox-group">
+                <input type="checkbox" id="showGrid">
+                显示网格
+            </label>
+            <label class="checkbox-group">
+                <input type="checkbox" id="multiTrail">
+                多轨迹模式 (蝴蝶效应)
+            </label>
+            <label class="checkbox-group">
+                <input type="checkbox" id="vrMode">
+                VR分屏模式
+            </label>
+
+            <div class="section-title">操作</div>
+            <div class="btn-group">
+                <button class="btn" id="resetBtn">↺ 重置</button>
+                <button class="btn" id="pauseBtn">⏸ 暂停</button>
+                <button class="btn" id="exportBtn">📥 导出数据</button>
+                <button class="btn" id="screenshotBtn">📷 截图</button>
+            </div>
+
+            <div class="hint">
+                🖱️ 鼠标拖拽旋转视角<br>
+                🔍 滚轮缩放<br>
+                💡 混沌系统对初始条件极度敏感
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // ==================== 混沌系统定义 ====================
+        const ChaosSystems = {
+            lorenz: {
+                name: '洛伦兹',
+                params: { a: 10, b: 28, c: 8/3 },
+                ranges: { a: [0, 20], b: [0, 40], c: [0, 5] },
+                initial: [1, 1, 1],
+                scale: 8,
+                equations: 'dx/dt = σ(y - x)\ndy/dt = x(ρ - z) - y\ndz/dt = xy - βz',
+                derivative: (x, y, z, p) => [
+                    p.a * (y - x),
+                    x * (p.b - z) - y,
+                    x * y - p.c * z
+                ]
+            },
+            rossler: {
+                name: '罗斯勒',
+                params: { a: 0.2, b: 0.2, c: 5.7 },
+                ranges: { a: [0, 1], b: [0, 1], c: [0, 20] },
+                initial: [0.1, 0.1, 0.1],
+                scale: 15,
+                equations: 'dx/dt = -y - z\ndy/dt = x + ay\ndz/dt = b + z(x - c)',
+                derivative: (x, y, z, p) => [
+                    -y - z,
+                    x + p.a * y,
+                    p.b + z * (x - p.c)
+                ]
+            },
+            chen: {
+                name: '陈氏',
+                params: { a: 40, b: 3, c: 28 },
+                ranges: { a: [20, 60], b: [0, 10], c: [10, 40] },
+                initial: [-0.1, 0.5, -0.6],
+                scale: 12,
+                equations: 'dx/dt = a(y - x)\ndy/dt = (c - a)x - xz + cy\ndz/dt = xy - bz',
+                derivative: (x, y, z, p) => [
+                    p.a * (y - x),
+                    (p.c - p.a) * x - x * z + p.c * y,
+                    x * y - p.b * z
+                ]
+            },
+            aizawa: {
+                name: '相�的',
+                params: { a: 0.95, b: 0.7, c: 0.6 },
+                ranges: { a: [0, 2], b: [0, 2], c: [0, 2] },
+                initial: [0.1, 0, 0],
+                scale: 200,
+                equations: 'dx/dt = (z - b)x - dy\ndy/dt = dx + (z - b)y\ndz/dt = c + az - z³/3 - (x² + y²)(1 + ez) + fzx³',
+                derivative: (x, y, z, p) => {
+                    const d = 3.5, e = 0.25, f = 0.1;
+                    return [
+                        (z - p.b) * x - d * y,
+                        d * x + (z - p.b) * y,
+                        p.c + p.a * z - z*z*z/3 - (x*x + y*y) * (1 + e * z) + f * z * x*x*x
+                    ];
+                }
+            },
+            thomas: {
+                name: '托马斯',
+                params: { a: 0.208186, b: 0.208186, c: 0.208186 },
+                ranges: { a: [0, 1], b: [0, 1], c: [0, 1] },
+                initial: [1.1, 1.1, -0.01],
+                scale: 80,
+                equations: 'dx/dt = sin(y) - bx\ndy/dt = sin(z) - by\ndz/dt = sin(x) - bz',
+                derivative: (x, y, z, p) => [
+                    Math.sin(y) - p.a * x,
+                    Math.sin(z) - p.b * y,
+                    Math.sin(x) - p.c * z
+                ]
+            },
+            halvorsen: {
+                name: '哈尔沃森',
+                params: { a: 1.89, b: 1.89, c: 1.89 },
+                ranges: { a: [1, 3], b: [1, 3], c: [1, 3] },
+                initial: [-5, 0, 0],
+                scale: 15,
+                equations: 'dx/dt = -ax - 4y - 4z - y²\ndy/dt = -ay - 4z - 4x - z²\ndz/dt = -az - 4x - 4y - x²',
+                derivative: (x, y, z, p) => [
+                    -p.a * x - 4 * y - 4 * z - y * y,
+                    -p.b * y - 4 * z - 4 * x - z * z,
+                    -p.c * z - 4 * x - 4 * y - x * x
+                ]
+            }
+        };
+
+        // ==================== 数值积分器 (RK4) ====================
+        class Integrator {
+            static rk4(derivative, state, params, dt) {
+                const [x, y, z] = state;
+                
+                const k1 = derivative(x, y, z, params);
+                const k2 = derivative(
+                    x + k1[0] * dt/2,
+                    y + k1[1] * dt/2,
+                    z + k1[2] * dt/2,
+                    params
+                );
+                const k3 = derivative(
+                    x + k2[0] * dt/2,
+                    y + k2[1] * dt/2,
+                    z + k2[2] * dt/2,
+                    params
+                );
+                const k4 = derivative(
+                    x + k3[0] * dt,
+                    y + k3[1] * dt,
+                    z + k3[2] * dt,
+                    params
+                );
+                
+                return [
+                    x + (k1[0] + 2*k2[0] + 2*k3[0] + k4[0]) * dt / 6,
+                    y + (k1[1] + 2*k2[1] + 2*k3[1] + k4[1]) * dt / 6,
+                    z + (k1[2] + 2*k2[2] + 2*k3[2] + k4[2]) * dt / 6
+                ];
+            }
+        }
+
+        // ==================== 3D渲染器 ====================
+        class Renderer3D {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.resize();
+                
+                this.rotationX = 0.3;
+                this.rotationY = 0;
+                this.rotationZ = 0;
+                this.zoom = 1;
+                this.autoRotate = 0.5;
+                
+                this.setupMouseControl();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.canvas.width = this.canvas.parentElement.clientWidth;
+                this.canvas.height = this.canvas.parentElement.clientHeight;
+                this.centerX = this.canvas.width / 2;
+                this.centerY = this.canvas.height / 2;
+            }
+            
+            setupMouseControl() {
+                let dragging = false;
+                let lastX, lastY;
+                
+                this.canvas.addEventListener('mousedown', (e) => {
+                    dragging = true;
+                    lastX = e.clientX;
+                    lastY = e.clientY;
+                });
+                
+                window.addEventListener('mousemove', (e) => {
+                    if (!dragging) return;
+                    const dx = e.clientX - lastX;
+                    const dy = e.clientY - lastY;
+                    this.rotationY += dx * 0.005;
+                    this.rotationX += dy * 0.005;
+                    lastX = e.clientX;
+                    lastY = e.clientY;
+                });
+                
+                window.addEventListener('mouseup', () => dragging = false);
+                
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.zoom *= e.deltaY > 0 ? 0.95 : 1.05;
+                    this.zoom = Math.max(0.2, Math.min(5, this.zoom));
+                });
+            }
+            
+            project(x, y, z, scale, vrOffset = 0) {
+                // 旋转变换
+                let x1 = x, y1 = y, z1 = z;
+                
+                // 绕X轴旋转
+                const cosX = Math.cos(this.rotationX);
+                const sinX = Math.sin(this.rotationX);
+                let y2 = y1 * cosX - z1 * sinX;
+                let z2 = y1 * sinX + z1 * cosX;
+                y1 = y2; z1 = z2;
+                
+                // 绕Y轴旋转
+                const cosY = Math.cos(this.rotationY);
+                const sinY = Math.sin(this.rotationY);
+                let x2 = x1 * cosY + z1 * sinY;
+                z2 = -x1 * sinY + z1 * cosY;
+                x1 = x2; z1 = z2;
+                
+                // 透视投影
+                const fov = 500;
+                const distance = fov + z1 * scale * this.zoom;
+                const factor = fov / Math.max(distance, 1);
+                
+                return {
+                    x: this.centerX + vrOffset + x1 * scale * this.zoom * factor,
+                    y: this.centerY - y1 * scale * this.zoom * factor,
+                    z: z1,
+                    depth: distance
+                };
+            }
+            
+            clear() {
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            
+            drawAxes(scale, showGrid, vrOffset = 0) {
+                const ctx = this.ctx;
+                const axisLength = 30;
+                const axes = [
+                    { dir: [axisLength, 0, 0], color: '#f00', label: 'X' },
+                    { dir: [0, axisLength, 0], color: '#0f0', label: 'Y' },
+                    { dir: [0, 0, axisLength], color: '#00f', label: 'Z' }
+                ];
+                
+                const origin = this.project(0, 0, 0, scale, vrOffset);
+                
+                axes.forEach(axis => {
+                    const end = this.project(...axis.dir, scale, vrOffset);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(origin.x, origin.y);
+                    ctx.lineTo(end.x, end.y);
+                    ctx.strokeStyle = axis.color;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = axis.color;
+                    ctx.font = '12px Arial';
+                    ctx.fillText(axis.label, end.x + 5, end.y);
+                });
+                
+                if (showGrid) {
+                    ctx.strokeStyle = 'rgba(50, 50, 50, 0.5)';
+                    ctx.lineWidth = 0.5;
+                    
+                    for (let i = -20; i <= 20; i += 5) {
+                        const p1 = this.project(i, 0, -20, scale, vrOffset);
+                        const p2 = this.project(i, 0, 20, scale, vrOffset);
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                        
+                        const p3 = this.project(-20, 0, i, scale, vrOffset);
+                        const p4 = this.project(20, 0, i, scale, vrOffset);
+                        ctx.beginPath();
+                        ctx.moveTo(p3.x, p3.y);
+                        ctx.lineTo(p4.x, p4.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            getColor(point, index, total, mode, velocity, curvature) {
+                let hue, saturation = 100, lightness = 50;
+                
+                switch(mode) {
+                    case 'speed':
+                        hue = Math.min(velocity * 20, 300);
+                        break;
+                    case 'curvature':
+                        hue = Math.min(curvature * 50, 300);
+                        break;
+                    case 'height':
+                        hue = ((point[2] + 30) / 60) * 300;
+                        break;
+                    case 'rainbow':
+                        hue = (index / total) * 360;
+                        break;
+                    case 'fixed':
+                    default:
+                        hue = 120; // 绿色
+                }
+                
+                // 深度衰减
+                const depthFade = Math.max(0.3, 1 - point[2] / 100);
+                lightness *= depthFade;
+                
+                return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            }
+            
+            drawTrail(points, scale, colorMode, vrOffset = 0) {
+                if (points.length < 2) return;
+                
+                const ctx = this.ctx;
+                
+                for (let i = 1; i < points.length; i++) {
+                    const p1 = this.project(...points[i-1], scale, vrOffset);
+                    const p2 = this.project(...points[i], scale, vrOffset);
+                    
+                    // 计算速度和曲率
+                    const velocity = Math.sqrt(
+                        Math.pow(points[i][0] - points[i-1][0], 2) +
+                        Math.pow(points[i][1] - points[i-1][1], 2) +
+                        Math.pow(points[i][2] - points[i-1][2], 2)
+                    );
+                    
+                    let curvature = 0;
+                    if (i > 1 && i < points.length - 1) {
+                        const v1 = [points[i][0] - points[i-1][0], points[i][1] - points[i-1][1]];
+                        const v2 = [points[i+1][0] - points[i][0], points[i+1][1] - points[i][1]];
+                        curvature = Math.abs(v1[0] * v2[1] - v1[1] * v2[0]);
+                    }
+                    
+                    const color = this.getColor(points[i], i, points.length, colorMode, velocity, curvature);
+                    const alpha = 0.3 + (i / points.length) * 0.7;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = color;
+                    ctx.globalAlpha = alpha;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                
+                ctx.globalAlpha = 1;
+                
+                // 绘制当前点（发光效果）
+                const lastPoint = points[points.length - 1];
+                const p = this.project(...lastPoint, scale, vrOffset);
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = '#0f0';
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            
+            update(autoRotateSpeed) {
+                this.rotationY += autoRotateSpeed * 0.01;
+            }
+        }
+
+
+        // ==================== 主控制器 ====================
+        class ChaosSimulator {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.renderer = new Renderer3D(this.canvas);
+                
+                this.systemType = 'lorenz';
+                this.system = ChaosSystems[this.systemType];
+                this.params = { ...this.system.params };
+                
+                this.trails = [];
+                this.maxTrailLength = 5000;
+                this.isPaused = false;
+                this.multiTrail = false;
+                this.vrMode = false;
+                this.showAxes = true;
+                this.showGrid = false;
+                this.colorMode = 'speed';
+                this.rotateSpeed = 0.5;
+                
+                this.lastTime = performance.now();
+                this.frameCount = 0;
+                this.fps = 60;
+                
+                this.initTrails();
+                this.initControls();
+                this.animate();
+            }
+            
+            initTrails() {
+                this.trails = [];
+                const initial = [...this.system.initial];
+                this.trails.push({
+                    points: [initial],
+                    state: initial,
+                    color: '#0f0'
+                });
+                
+                if (this.multiTrail) {
+                    // 添加微小扰动的轨迹（蝴蝶效应演示）
+                    for (let i = 0; i < 2; i++) {
+                        const perturbed = initial.map(v => v + (Math.random() - 0.5) * 0.001);
+                        this.trails.push({
+                            points: [perturbed],
+                            state: perturbed,
+                            color: i === 0 ? '#f00' : '#00f'
+                        });
+                    }
+                }
+            }
+            
+            initControls() {
+                // 吸引子类型
+                document.getElementById('attractorType').addEventListener('change', (e) => {
+                    this.systemType = e.target.value;
+                    this.system = ChaosSystems[this.systemType];
+                    this.params = { ...this.system.params };
+                    this.updateParamSliders();
+                    this.updateEquationDisplay();
+                    this.initTrails();
+                });
+                
+                // 参数滑块
+                const paramSliders = [
+                    { id: 'paramA', key: 'a', display: 'paramAVal' },
+                    { id: 'paramB', key: 'b', display: 'paramBVal' },
+                    { id: 'paramC', key: 'c', display: 'paramCVal' }
+                ];
+                
+                paramSliders.forEach(s => {
+                    document.getElementById(s.id).addEventListener('input', (e) => {
+                        const range = this.system.ranges[s.key];
+                        const value = range[0] + (parseFloat(e.target.value) / 100) * (range[1] - range[0]);
+                        this.params[s.key] = value;
+                        document.getElementById(s.display).textContent = value.toFixed(2);
+                        this.initTrails();
+                    });
+                });
+                
+                // 可视化设置
+                document.getElementById('trailLength').addEventListener('input', (e) => {
+                    this.maxTrailLength = parseInt(e.target.value);
+                    document.getElementById('trailVal').textContent = this.maxTrailLength;
+                });
+                
+                document.getElementById('rotateSpeed').addEventListener('input', (e) => {
+                    this.rotateSpeed = parseFloat(e.target.value) / 100;
+                    document.getElementById('rotateVal').textContent = this.rotateSpeed.toFixed(2);
+                });
+                
+                document.getElementById('zoom').addEventListener('input', (e) => {
+                    this.renderer.zoom = parseFloat(e.target.value) / 100;
+                    document.getElementById('zoomVal').textContent = this.renderer.zoom.toFixed(2);
+                });
+                
+                document.getElementById('colorMode').addEventListener('change', (e) => {
+                    this.colorMode = e.target.value;
+                });
+                
+                // 复选框
+                document.getElementById('showAxes').addEventListener('change', (e) => {
+                    this.showAxes = e.target.checked;
+                });
+                
+                document.getElementById('showGrid').addEventListener('change', (e) => {
+                    this.showGrid = e.target.checked;
+                });
+                
+                document.getElementById('multiTrail').addEventListener('change', (e) => {
+                    this.multiTrail = e.target.checked;
+                    this.initTrails();
+                });
+                
+                document.getElementById('vrMode').addEventListener('change', (e) => {
+                    this.vrMode = e.target.checked;
+                });
+                
+                // 按钮
+                document.getElementById('resetBtn').addEventListener('click', () => this.initTrails());
+                
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    this.isPaused = !this.isPaused;
+                    document.getElementById('pauseBtn').textContent = this.isPaused ? '▶ 继续' : '⏸ 暂停';
+                });
+                
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+                document.getElementById('screenshotBtn').addEventListener('click', () => this.screenshot());
+                
+                this.updateParamSliders();
+                this.updateEquationDisplay();
+            }
+            
+            updateParamSliders() {
+                const keys = ['a', 'b', 'c'];
+                const ids = ['paramA', 'paramB', 'paramC'];
+                const displays = ['paramAVal', 'paramBVal', 'paramCVal'];
+                
+                keys.forEach((key, i) => {
+                    const range = this.system.ranges[key];
+                    const value = this.system.params[key];
+                    const sliderValue = ((value - range[0]) / (range[1] - range[0])) * 100;
+                    document.getElementById(ids[i]).value = sliderValue;
+                    document.getElementById(displays[i]).textContent = value.toFixed(2);
+                });
+            }
+            
+            updateEquationDisplay() {
+                document.getElementById('equationDisplay').innerHTML = this.system.equations.replace(/\n/g, '<br>');
+                document.getElementById('typeDisplay').textContent = this.system.name;
+            }
+            
+            step() {
+                if (this.isPaused) return;
+                
+                const dt = 0.005;
+                const stepsPerFrame = 5;
+                
+                this.trails.forEach(trail => {
+                    for (let i = 0; i < stepsPerFrame; i++) {
+                        trail.state = Integrator.rk4(
+                            this.system.derivative,
+                            trail.state,
+                            this.params,
+                            dt
+                        );
+                        
+                        // 检查数值稳定性
+                        if (trail.state.some(v => !isFinite(v) || Math.abs(v) > 1000)) {
+                            trail.state = [...this.system.initial];
+                            trail.points = [trail.state];
+                            return;
+                        }
+                        
+                        trail.points.push([...trail.state]);
+                        
+                        if (trail.points.length > this.maxTrailLength) {
+                            trail.points.shift();
+                        }
+                    }
+                });
+            }
+            
+            render() {
+                const scale = this.system.scale;
+                
+                if (this.vrMode) {
+                    // VR分屏模式
+                    const halfWidth = this.canvas.width / 2;
+                    const eyeSeparation = 30;
+                    
+                    // 左眼
+                    this.renderer.ctx.save();
+                    this.renderer.ctx.beginPath();
+                    this.renderer.ctx.rect(0, 0, halfWidth, this.canvas.height);
+                    this.renderer.ctx.clip();
+                    this.renderer.centerX = halfWidth / 2;
+                    
+                    if (this.showAxes) this.renderer.drawAxes(scale, this.showGrid, -eyeSeparation);
+                    this.trails.forEach(trail => {
+                        this.renderer.drawTrail(trail.points, scale, this.colorMode, -eyeSeparation);
+                    });
+                    this.renderer.ctx.restore();
+                    
+                    // 右眼
+                    this.renderer.ctx.save();
+                    this.renderer.ctx.beginPath();
+                    this.renderer.ctx.rect(halfWidth, 0, halfWidth, this.canvas.height);
+                    this.renderer.ctx.clip();
+                    this.renderer.centerX = halfWidth + halfWidth / 2;
+                    
+                    if (this.showAxes) this.renderer.drawAxes(scale, this.showGrid, eyeSeparation);
+                    this.trails.forEach(trail => {
+                        this.renderer.drawTrail(trail.points, scale, this.colorMode, eyeSeparation);
+                    });
+                    this.renderer.ctx.restore();
+                    
+                    // 分隔线
+                    this.renderer.ctx.strokeStyle = '#333';
+                    this.renderer.ctx.beginPath();
+                    this.renderer.ctx.moveTo(halfWidth, 0);
+                    this.renderer.ctx.lineTo(halfWidth, this.canvas.height);
+                    this.renderer.ctx.stroke();
+                    
+                    this.renderer.centerX = this.canvas.width / 2;
+                } else {
+                    // 普通模式
+                    if (this.showAxes) this.renderer.drawAxes(scale, this.showGrid);
+                    this.trails.forEach(trail => {
+                        this.renderer.drawTrail(trail.points, scale, this.colorMode);
+                    });
+                }
+            }
+            
+            updateInfo() {
+                // FPS计算
+                this.frameCount++;
+                const now = performance.now();
+                if (now - this.lastTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastTime = now;
+                }
+                
+                document.getElementById('pointsDisplay').textContent = this.trails[0].points.length;
+                document.getElementById('fpsDisplay').textContent = this.fps;
+                
+                // 李雅普诺夫指数估计（简化）
+                const lyapunov = this.systemType === 'lorenz' ? '~0.9' :
+                                this.systemType === 'rossler' ? '~0.07' :
+                                this.systemType === 'chen' ? '~2.0' : '~0.5';
+                document.getElementById('lyapunovDisplay').textContent = lyapunov;
+            }
+            
+            exportData() {
+                const data = this.trails[0].points.map(p => p.join(',')).join('\n');
+                const blob = new Blob([`x,y,z\n${data}`], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${this.systemType}_attractor.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            
+            screenshot() {
+                const link = document.createElement('a');
+                link.download = `${this.systemType}_attractor.png`;
+                link.href = this.canvas.toDataURL();
+                link.click();
+            }
+            
+            animate() {
+                this.renderer.clear();
+                this.renderer.update(this.rotateSpeed);
+                this.step();
+                this.render();
+                this.updateInfo();
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 启动模拟器
+        new ChaosSimulator();
+    </script>
+</body>
+</html>

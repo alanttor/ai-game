@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>篮球投篮力学模拟器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container { display: flex; height: 100vh; }
+        .court-area { flex: 1; position: relative; }
+        .right-panel {
+            width: 320px;
+            background: rgba(0,0,0,0.4);
+            border-left: 1px solid #ff6b35;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        #courtCanvas { width: 100%; height: 100%; }
+        .panel-title {
+            color: #ff6b35;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,107,53,0.3);
+        }
+        .control-group { margin-bottom: 15px; }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        .control-value { color: #ff6b35; }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #1a1a2e;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            background: #ff6b35;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .position-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+        .pos-btn {
+            padding: 6px 10px;
+            background: rgba(255,107,53,0.1);
+            border: 1px solid rgba(255,107,53,0.3);
+            border-radius: 5px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .pos-btn:hover { background: rgba(255,107,53,0.2); }
+        .pos-btn.active { background: #ff6b35; color: #fff; }
+        .stats-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+        }
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #ff6b35, #f7931e);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .action-btn:hover { transform: scale(1.02); }
+        .result-display {
+            text-align: center;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .result-made { background: rgba(76,175,80,0.3); color: #4caf50; }
+        .result-missed { background: rgba(244,67,54,0.3); color: #f44336; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="court-area">
+        <canvas id="courtCanvas"></canvas>
+    </div>
+    <div class="right-panel">
+        <div class="panel-title">🏀 投篮参数</div>
+        
+        <div style="color:#888;font-size:0.85em;margin-bottom:8px;">投篮位置</div>
+        <div class="position-btns" id="positionBtns"></div>
+
+        <div class="control-group">
+            <div class="control-label"><span>出手角度</span><span class="control-value" id="angleVal">45°</span></div>
+            <input type="range" id="angle" min="30" max="70" value="45">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>出手速度</span><span class="control-value" id="speedVal">7.0 m/s</span></div>
+            <input type="range" id="speed" min="50" max="120" value="70">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>出手高度</span><span class="control-value" id="heightVal">2.2m</span></div>
+            <input type="range" id="releaseHeight" min="180" max="280" value="220">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>后旋转速</span><span class="control-value" id="spinVal">3 转/秒</span></div>
+            <input type="range" id="backspin" min="0" max="60" value="30">
+        </div>
+        <div class="control-group">
+            <div class="control-label"><span>左右偏移</span><span class="control-value" id="offsetVal">0 cm</span></div>
+            <input type="range" id="offset" min="-20" max="20" value="0">
+        </div>
+        
+        <button class="action-btn" onclick="shoot()">🏀 投篮</button>
+        <button class="action-btn" style="background:linear-gradient(135deg,#4a6a8a,#2a4a6a);" onclick="resetBall()">🔄 重置</button>
+        
+        <div id="resultDisplay"></div>
+        
+        <div class="stats-box">
+            <div class="panel-title" style="margin-bottom:10px;">📊 投篮统计</div>
+            <div class="stat-row"><span>投篮次数</span><span id="statAttempts">0</span></div>
+            <div class="stat-row"><span>命中次数</span><span id="statMade">0</span></div>
+            <div class="stat-row"><span>命中率</span><span id="statPct">0%</span></div>
+            <div class="stat-row"><span>最大高度</span><span id="statMaxH">0 m</span></div>
+            <div class="stat-row"><span>飞行时间</span><span id="statTime">0 s</span></div>
+        </div>
+        
+        <div class="stats-box">
+            <div class="panel-title" style="margin-bottom:10px;">💡 投篮建议</div>
+            <div id="suggestion" style="font-size:0.9em;color:#aaa;line-height:1.5;"></div>
+        </div>
+    </div>
+</div>
+<script>
+const canvas = document.getElementById('courtCanvas');
+const ctx = canvas.getContext('2d');
+
+// 篮球场参数（米）
+const HOOP = { x: 1.575, y: 3.05, radius: 0.225 }; // 篮筐位置和半径
+const BACKBOARD = { x: 1.2, y: 2.9, width: 0.05, height: 1.05 };
+const THREE_LINE = 7.25; // 三分线距离
+
+// 篮球参数
+const BALL = { radius: 0.12, mass: 0.625 };
+const GRAVITY = 9.81;
+
+// 投篮位置预设
+const positions = [
+    { id: 'paint', name: '油漆区', dist: 2, points: 2 },
+    { id: 'midrange', name: '中距离', dist: 4.5, points: 2 },
+    { id: 'elbow', name: '肘区', dist: 5, points: 2 },
+    { id: 'three', name: '三分线', dist: 7.25, points: 3 },
+    { id: 'deep', name: '深三分', dist: 9, points: 3 }
+];
+
+let currentPos = 'midrange';
+let ball = null;
+let trajectory = [];
+let animating = false;
+let stats = { attempts: 0, made: 0 };
+
+// 参数
+let params = {
+    angle: 45,
+    speed: 7.0,
+    releaseHeight: 2.2,
+    backspin: 3,
+    offset: 0,
+    distance: 4.5
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    renderPositions();
+    setupControls();
+    resetBall();
+    animate();
+}
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+
+function renderPositions() {
+    const container = document.getElementById('positionBtns');
+    container.innerHTML = positions.map(p => `
+        <button class="pos-btn ${p.id === currentPos ? 'active' : ''}" 
+                onclick="selectPosition('${p.id}')">${p.name} (${p.dist}m)</button>
+    `).join('');
+}
+
+function selectPosition(id) {
+    currentPos = id;
+    const pos = positions.find(p => p.id === id);
+    params.distance = pos.dist;
+    
+    // 根据距离调整建议参数
+    const optimalSpeed = calculateOptimalSpeed(pos.dist, params.angle, params.releaseHeight);
+    document.getElementById('speed').value = optimalSpeed * 10;
+    params.speed = optimalSpeed;
+    updateDisplays();
+    
+    renderPositions();
+    resetBall();
+}
+
+function calculateOptimalSpeed(dist, angle, height) {
+    // 简化的最优速度计算
+    const angleRad = angle * Math.PI / 180;
+    const dy = HOOP.y - height;
+    const dx = dist - HOOP.x;
+    
+    // v² = g*dx² / (2*cos²θ*(dx*tanθ - dy))
+    const tanA = Math.tan(angleRad);
+    const cosA = Math.cos(angleRad);
+    const v2 = (GRAVITY * dx * dx) / (2 * cosA * cosA * (dx * tanA - dy));
+    
+    return Math.sqrt(Math.max(v2, 25)); // 最小5m/s
+}
+
+function setupControls() {
+    document.getElementById('angle').addEventListener('input', (e) => {
+        params.angle = parseFloat(e.target.value);
+        updateDisplays();
+    });
+    document.getElementById('speed').addEventListener('input', (e) => {
+        params.speed = parseFloat(e.target.value) / 10;
+        updateDisplays();
+    });
+    document.getElementById('releaseHeight').addEventListener('input', (e) => {
+        params.releaseHeight = parseFloat(e.target.value) / 100;
+        updateDisplays();
+    });
+    document.getElementById('backspin').addEventListener('input', (e) => {
+        params.backspin = parseFloat(e.target.value) / 10;
+        updateDisplays();
+    });
+    document.getElementById('offset').addEventListener('input', (e) => {
+        params.offset = parseFloat(e.target.value);
+        updateDisplays();
+    });
+}
+
+function updateDisplays() {
+    document.getElementById('angleVal').textContent = params.angle + '°';
+    document.getElementById('speedVal').textContent = params.speed.toFixed(1) + ' m/s';
+    document.getElementById('heightVal').textContent = params.releaseHeight.toFixed(1) + 'm';
+    document.getElementById('spinVal').textContent = params.backspin.toFixed(0) + ' 转/秒';
+    document.getElementById('offsetVal').textContent = params.offset + ' cm';
+    
+    updateSuggestion();
+}
+
+function updateSuggestion() {
+    const optSpeed = calculateOptimalSpeed(params.distance, params.angle, params.releaseHeight);
+    const speedDiff = params.speed - optSpeed;
+    
+    let suggestion = '';
+    if (Math.abs(speedDiff) < 0.3) {
+        suggestion = '✓ 出手速度接近最优值';
+    } else if (speedDiff > 0) {
+        suggestion = '⚠ 出手速度偏大，可能会打铁或过长';
+    } else {
+        suggestion = '⚠ 出手速度偏小，可能会短球';
+    }
+    
+    if (params.angle < 40) {
+        suggestion += '<br>💡 较低的出手角度容错率较低';
+    } else if (params.angle > 55) {
+        suggestion += '<br>💡 高弧度投篮需要更精确的力量控制';
+    }
+    
+    if (params.backspin > 0) {
+        suggestion += '<br>✓ 后旋有助于提高命中率';
+    }
+    
+    document.getElementById('suggestion').innerHTML = suggestion;
+}
+
+function resetBall() {
+    ball = {
+        x: params.distance,
+        y: params.releaseHeight,
+        vx: 0, vy: 0,
+        active: false
+    };
+    trajectory = [];
+    animating = false;
+    document.getElementById('resultDisplay').innerHTML = '';
+}
+
+function shoot() {
+    const angleRad = params.angle * Math.PI / 180;
+    const offsetM = params.offset / 100;
+    
+    ball = {
+        x: params.distance,
+        y: params.releaseHeight,
+        vx: -params.speed * Math.cos(angleRad),
+        vy: params.speed * Math.sin(angleRad),
+        spin: params.backspin,
+        active: true
+    };
+    
+    // 添加偏移影响
+    ball.lateralOffset = offsetM;
+    
+    trajectory = [{ x: ball.x, y: ball.y }];
+    animating = true;
+    stats.attempts++;
+    updateStats();
+}
+
+function simulateStep(dt) {
+    if (!ball.active) return;
+    
+    // 空气阻力（简化）
+    const v = Math.sqrt(ball.vx**2 + ball.vy**2);
+    const drag = 0.01 * v * v;
+    
+    if (v > 0.1) {
+        ball.vx -= (ball.vx / v) * drag * dt;
+        ball.vy -= (ball.vy / v) * drag * dt;
+    }
+    
+    // 重力
+    ball.vy -= GRAVITY * dt;
+    
+    // 后旋效应（马格努斯力，简化为增加升力）
+    if (ball.spin > 0) {
+        ball.vy += ball.spin * 0.01 * dt;
+    }
+    
+    // 更新位置
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    
+    trajectory.push({ x: ball.x, y: ball.y });
+    
+    // 检测是否进入篮筐区域
+    const dx = ball.x - HOOP.x;
+    const dy = ball.y - HOOP.y;
+    const distToHoop = Math.sqrt(dx*dx + dy*dy);
+    
+    // 篮筐碰撞检测
+    if (ball.y <= HOOP.y + 0.1 && ball.y >= HOOP.y - 0.3) {
+        if (Math.abs(ball.x - HOOP.x) < HOOP.radius + BALL.radius) {
+            // 检查是否命中
+            const lateralError = Math.abs(ball.lateralOffset || 0);
+            const entryAngle = Math.atan2(-ball.vy, -ball.vx) * 180 / Math.PI;
+            
+            // 命中条件：进入篮筐范围，角度合适，偏移不大
+            if (Math.abs(ball.x - HOOP.x) < HOOP.radius - BALL.radius * 0.5 &&
+                ball.vy < 0 && entryAngle > 30 && lateralError < 0.1) {
+                showResult(true);
+                stats.made++;
+            } else {
+                // 打铁
+                ball.vy = -ball.vy * 0.5;
+                ball.vx *= 0.7;
+            }
+        }
+    }
+    
+    // 篮板碰撞
+    if (ball.x <= BACKBOARD.x + BALL.radius && 
+        ball.y >= BACKBOARD.y && ball.y <= BACKBOARD.y + BACKBOARD.height) {
+        ball.vx = -ball.vx * 0.6;
+        ball.x = BACKBOARD.x + BALL.radius;
+    }
+    
+    // 落地
+    if (ball.y <= BALL.radius) {
+        ball.y = BALL.radius;
+        ball.active = false;
+        animating = false;
+        if (!document.getElementById('resultDisplay').innerHTML) {
+            showResult(false);
+        }
+        
+        const maxH = Math.max(...trajectory.map(p => p.y));
+        const time = trajectory.length * dt;
+        document.getElementById('statMaxH').textContent = maxH.toFixed(2) + ' m';
+        document.getElementById('statTime').textContent = time.toFixed(2) + ' s';
+    }
+    
+    updateStats();
+}
+
+function showResult(made) {
+    const display = document.getElementById('resultDisplay');
+    const pos = positions.find(p => p.id === currentPos);
+    
+    if (made) {
+        display.className = 'result-display result-made';
+        display.innerHTML = `🎯 命中！+${pos.points}分`;
+    } else {
+        display.className = 'result-display result-missed';
+        display.innerHTML = '❌ 未命中';
+    }
+    
+    ball.active = false;
+    animating = false;
+}
+
+function updateStats() {
+    document.getElementById('statAttempts').textContent = stats.attempts;
+    document.getElementById('statMade').textContent = stats.made;
+    const pct = stats.attempts > 0 ? (stats.made / stats.attempts * 100).toFixed(1) : 0;
+    document.getElementById('statPct').textContent = pct + '%';
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const scale = 60;
+    const offsetX = 100;
+    const offsetY = canvas.height - 80;
+    
+    // 绘制地板
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(0, offsetY, canvas.width, 80);
+    
+    // 三分线标记
+    ctx.strokeStyle = 'rgba(255,107,53,0.3)';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(offsetX + THREE_LINE * scale, offsetY);
+    ctx.lineTo(offsetX + THREE_LINE * scale, offsetY - 200);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.fillStyle = '#666';
+    ctx.font = '12px Arial';
+    ctx.fillText('三分线', offsetX + THREE_LINE * scale + 5, offsetY - 10);
+    
+    // 绘制篮板
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(
+        offsetX + BACKBOARD.x * scale - 5,
+        offsetY - (BACKBOARD.y + BACKBOARD.height) * scale,
+        10,
+        BACKBOARD.height * scale
+    );
+    
+    // 绘制篮筐
+    ctx.strokeStyle = '#ff6b35';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(offsetX + (HOOP.x - HOOP.radius) * scale, offsetY - HOOP.y * scale);
+    ctx.lineTo(offsetX + (HOOP.x + HOOP.radius) * scale, offsetY - HOOP.y * scale);
+    ctx.stroke();
+    
+    // 篮网（简化）
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(offsetX + (HOOP.x - HOOP.radius + i * HOOP.radius * 0.5) * scale, offsetY - HOOP.y * scale);
+        ctx.lineTo(offsetX + (HOOP.x - HOOP.radius * 0.5 + i * HOOP.radius * 0.25) * scale, offsetY - (HOOP.y - 0.4) * scale);
+        ctx.stroke();
+    }
+    
+    // 绘制轨迹
+    if (trajectory.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,107,53,0.5)';
+        ctx.lineWidth = 2;
+        
+        trajectory.forEach((p, i) => {
+            const px = offsetX + p.x * scale;
+            const py = offsetY - p.y * scale;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+    }
+    
+    // 绘制篮球
+    if (ball) {
+        const bx = offsetX + ball.x * scale;
+        const by = offsetY - ball.y * scale;
+        
+        // 球体
+        const gradient = ctx.createRadialGradient(bx - 3, by - 3, 0, bx, by, BALL.radius * scale);
+        gradient.addColorStop(0, '#ff8c42');
+        gradient.addColorStop(1, '#c65d00');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL.radius * scale, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 球纹
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL.radius * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx - BALL.radius * scale, by);
+        ctx.lineTo(bx + BALL.radius * scale, by);
+        ctx.stroke();
+    }
+    
+    // 投篮位置标记
+    const posX = offsetX + params.distance * scale;
+    ctx.fillStyle = 'rgba(255,107,53,0.3)';
+    ctx.beginPath();
+    ctx.arc(posX, offsetY - 5, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ff6b35';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(params.distance + 'm', posX, offsetY + 20);
+}
+
+function animate() {
+    if (animating) {
+        for (let i = 0; i < 2; i++) {
+            simulateStep(0.016);
+        }
+    }
+    draw();
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>

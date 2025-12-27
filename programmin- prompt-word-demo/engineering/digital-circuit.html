@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字电路仿真实验室</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Consolas', monospace;
+            background: linear-gradient(135deg, #1a2a1a 0%, #0d1a0d 100%);
+            min-height: 100vh;
+            color: #00ff00;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .left-panel {
+            width: 200px;
+            background: rgba(0,20,0,0.95);
+            border-right: 2px solid #00aa00;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            height: 40px;
+            background: rgba(0,30,0,0.9);
+            border-bottom: 1px solid #00aa00;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 10px;
+        }
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: #0a1a0a;
+            background-image: 
+                linear-gradient(rgba(0,100,0,0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,100,0,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        #circuitCanvas { display: block; }
+        .right-panel {
+            width: 280px;
+            background: rgba(0,20,0,0.95);
+            border-left: 2px solid #00aa00;
+            display: flex;
+            flex-direction: column;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="left-panel" id="leftPanel"></div>
+    <div class="main-area">
+        <div class="toolbar" id="toolbar"></div>
+        <div class="canvas-area">
+            <canvas id="circuitCanvas"></canvas>
+        </div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('circuitCanvas');
+const ctx = canvas.getContext('2d');
+
+let components = [];
+let wires = [];
+let selectedComponent = null;
+let dragging = null;
+let wireStart = null;
+let simRunning = false;
+let simTime = 0;
+let clockFreq = 1;
+let simSpeed = 1;
+
+const GRID = 20;
+const componentTypes = {
+    input: { name: '输入', icon: '▶', color: '#00ff00', inputs: 0, outputs: 1 },
+    output: { name: '输出', icon: '◀', color: '#ffaa00', inputs: 1, outputs: 0 },
+    clock: { name: '时钟', icon: '⏱', color: '#00ffff', inputs: 0, outputs: 1 },
+    and: { name: 'AND', icon: '&', color: '#ff6600', inputs: 2, outputs: 1 },
+    or: { name: 'OR', icon: '≥1', color: '#ff00ff', inputs: 2, outputs: 1 },
+    not: { name: 'NOT', icon: '1', color: '#ffff00', inputs: 1, outputs: 1 },
+    nand: { name: 'NAND', icon: '&̄', color: '#ff3366', inputs: 2, outputs: 1 },
+    nor: { name: 'NOR', icon: '≥̄1', color: '#9966ff', inputs: 2, outputs: 1 },
+    xor: { name: 'XOR', icon: '=1', color: '#66ff66', inputs: 2, outputs: 1 },
+    dff: { name: 'D触发器', icon: 'D', color: '#6699ff', inputs: 2, outputs: 2 },
+    srff: { name: 'SR触发器', icon: 'SR', color: '#ff9966', inputs: 2, outputs: 2 }
+};
+
+let waveformData = [];
+let probeNodes = [];
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    renderLeftPanel();
+    renderToolbar();
+    renderRightPanel();
+    
+    setInterval(simulate, 16);
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+}
+
+function renderLeftPanel() {
+    const panel = document.getElementById('leftPanel');
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 0.9em; color: #00ff00; border-bottom: 1px solid #00aa00; padding-bottom: 5px; margin-bottom: 10px; }
+            .comp-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; margin: 4px 0; background: rgba(0,50,0,0.5); border: 1px solid #00aa00; border-radius: 4px; color: #00ff00; cursor: grab; font-size: 0.8em; }
+            .comp-btn:hover { background: rgba(0,100,0,0.5); }
+            .comp-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 3px; }
+            .section { margin-bottom: 15px; }
+        </style>
+        <div class="section">
+            <div class="panel-title">📥 输入/输出</div>
+            ${['input', 'output', 'clock'].map(t => `
+                <div class="comp-btn" draggable="true" data-type="${t}">
+                    <div class="comp-icon" style="background:${componentTypes[t].color}33;color:${componentTypes[t].color}">${componentTypes[t].icon}</div>
+                    <span>${componentTypes[t].name}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="section">
+            <div class="panel-title">🔲 基本门</div>
+            ${['and', 'or', 'not', 'nand', 'nor', 'xor'].map(t => `
+                <div class="comp-btn" draggable="true" data-type="${t}">
+                    <div class="comp-icon" style="background:${componentTypes[t].color}33;color:${componentTypes[t].color}">${componentTypes[t].icon}</div>
+                    <span>${componentTypes[t].name}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="section">
+            <div class="panel-title">⏰ 触发器</div>
+            ${['dff', 'srff'].map(t => `
+                <div class="comp-btn" draggable="true" data-type="${t}">
+                    <div class="comp-icon" style="background:${componentTypes[t].color}33;color:${componentTypes[t].color}">${componentTypes[t].icon}</div>
+                    <span>${componentTypes[t].name}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    panel.querySelectorAll('.comp-btn').forEach(btn => {
+        btn.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('type', btn.dataset.type);
+        });
+    });
+    
+    canvas.addEventListener('dragover', e => e.preventDefault());
+    canvas.addEventListener('drop', e => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('type');
+        if (type) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) / GRID) * GRID;
+            const y = Math.round((e.clientY - rect.top) / GRID) * GRID;
+            addComponent(type, x, y);
+        }
+    });
+}
+
+function renderToolbar() {
+    const toolbar = document.getElementById('toolbar');
+    toolbar.innerHTML = `
+        <style>
+            .tool-btn { padding: 5px 12px; background: rgba(0,80,0,0.5); border: 1px solid #00aa00; border-radius: 4px; color: #00ff00; cursor: pointer; font-size: 0.8em; }
+            .tool-btn:hover { background: rgba(0,120,0,0.5); }
+            .tool-btn.active { background: #00aa00; color: #000; }
+            .tool-sep { width: 1px; height: 20px; background: #00aa00; margin: 0 5px; }
+            .tool-label { font-size: 0.75em; color: #00aa00; }
+            .tool-input { width: 60px; padding: 3px 6px; background: rgba(0,50,0,0.8); border: 1px solid #00aa00; border-radius: 3px; color: #00ff00; font-size: 0.8em; }
+        </style>
+        <button class="tool-btn ${simRunning ? 'active' : ''}" onclick="toggleSim()">
+            ${simRunning ? '⏸ 暂停' : '▶ 运行'}
+        </button>
+        <button class="tool-btn" onclick="stepSim()">⏭ 单步</button>
+        <button class="tool-btn" onclick="resetSim()">🔄 重置</button>
+        <div class="tool-sep"></div>
+        <span class="tool-label">时钟:</span>
+        <input type="number" class="tool-input" value="${clockFreq}" min="0.1" max="100" step="0.1" onchange="clockFreq=parseFloat(this.value)">
+        <span class="tool-label">Hz</span>
+        <div class="tool-sep"></div>
+        <span class="tool-label">速度:</span>
+        <input type="number" class="tool-input" value="${simSpeed}" min="0.1" max="10" step="0.1" onchange="simSpeed=parseFloat(this.value)">
+        <span class="tool-label">x</span>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" onclick="clearAll()">🗑 清空</button>
+        <div style="flex:1"></div>
+        <span class="tool-label">时间: ${simTime.toFixed(2)}s</span>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    panel.innerHTML = `
+        <style>
+            .scope-area { flex: 1; background: #001a00; border-bottom: 1px solid #00aa00; position: relative; }
+            .scope-canvas { width: 100%; height: 100%; }
+            .info-area { height: 200px; padding: 10px; overflow-y: auto; }
+            .info-title { font-size: 0.85em; color: #00ff00; margin-bottom: 8px; border-bottom: 1px solid #00aa00; padding-bottom: 5px; }
+            .info-row { display: flex; justify-content: space-between; font-size: 0.75em; padding: 3px 0; color: #00cc00; }
+            .probe-item { display: flex; align-items: center; gap: 5px; padding: 4px; margin: 2px 0; background: rgba(0,50,0,0.3); border-radius: 3px; font-size: 0.75em; }
+            .probe-color { width: 12px; height: 12px; border-radius: 2px; }
+        </style>
+        <div class="scope-area">
+            <canvas id="scopeCanvas" class="scope-canvas"></canvas>
+        </div>
+        <div class="info-area">
+            <div class="info-title">📊 示波器通道</div>
+            <div id="probeList">
+                ${probeNodes.length === 0 ? '<div style="color:#006600;font-size:0.75em;">右键点击元件输出添加探针</div>' : ''}
+                ${probeNodes.map((p, i) => `
+                    <div class="probe-item">
+                        <div class="probe-color" style="background:${getProbeColor(i)}"></div>
+                        <span>${p.comp.type.toUpperCase()} #${p.comp.id}</span>
+                        <span style="margin-left:auto;color:${p.value ? '#00ff00' : '#006600'}">${p.value ? 'HIGH' : 'LOW'}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="info-title" style="margin-top:15px;">📋 电路信息</div>
+            <div class="info-row"><span>元件数量</span><span>${components.length}</span></div>
+            <div class="info-row"><span>连线数量</span><span>${wires.length}</span></div>
+            <div class="info-row"><span>仿真状态</span><span style="color:${simRunning ? '#00ff00' : '#ffaa00'}">${simRunning ? '运行中' : '已暂停'}</span></div>
+            <div class="info-title" style="margin-top:15px;">💡 操作提示</div>
+            <div style="font-size:0.7em;color:#008800;line-height:1.5;">
+                • 拖拽左侧元件到画布<br>
+                • 点击输出端口开始连线<br>
+                • 点击输入端口完成连线<br>
+                • 右键删除元件/连线<br>
+                • 点击输入切换状态
+            </div>
+        </div>
+    `;
+    
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    if (scopeCanvas) {
+        scopeCanvas.width = scopeCanvas.parentElement.clientWidth;
+        scopeCanvas.height = scopeCanvas.parentElement.clientHeight;
+        drawScope();
+    }
+}
+
+function getProbeColor(index) {
+    const colors = ['#00ff00', '#ffff00', '#00ffff', '#ff00ff', '#ff6600', '#6699ff'];
+    return colors[index % colors.length];
+}
+
+function addComponent(type, x, y) {
+    const comp = {
+        id: Date.now(),
+        type: type,
+        x: x,
+        y: y,
+        width: type === 'not' ? 60 : 80,
+        height: 60,
+        inputs: [],
+        outputs: [],
+        state: type === 'input' ? false : (type === 'clock' ? false : null),
+        prevState: null
+    };
+    
+    const info = componentTypes[type];
+    for (let i = 0; i < info.inputs; i++) {
+        comp.inputs.push({ value: false, connected: false });
+    }
+    for (let i = 0; i < info.outputs; i++) {
+        comp.outputs.push({ value: false });
+    }
+    
+    components.push(comp);
+}
+
+function handleMouseDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (e.button === 2) {
+        // 右键删除或添加探针
+        const comp = findComponentAt(x, y);
+        if (comp) {
+            const port = findPortAt(comp, x, y);
+            if (port && port.type === 'output') {
+                // 添加探针
+                const existing = probeNodes.findIndex(p => p.comp.id === comp.id && p.portIndex === port.index);
+                if (existing >= 0) {
+                    probeNodes.splice(existing, 1);
+                } else {
+                    probeNodes.push({ comp, portIndex: port.index, value: false });
+                }
+                renderRightPanel();
+            } else {
+                // 删除元件
+                components = components.filter(c => c.id !== comp.id);
+                wires = wires.filter(w => w.from.comp.id !== comp.id && w.to.comp.id !== comp.id);
+                probeNodes = probeNodes.filter(p => p.comp.id !== comp.id);
+            }
+        } else {
+            // 检查是否点击了连线
+            const wire = findWireAt(x, y);
+            if (wire) {
+                wires = wires.filter(w => w !== wire);
+            }
+        }
+        return;
+    }
+    
+    // 检查是否点击了端口
+    for (const comp of components) {
+        const port = findPortAt(comp, x, y);
+        if (port) {
+            if (port.type === 'output') {
+                wireStart = { comp, portIndex: port.index, x: port.x, y: port.y };
+            } else if (port.type === 'input' && wireStart) {
+                // 完成连线
+                wires.push({
+                    from: { comp: wireStart.comp, portIndex: wireStart.portIndex },
+                    to: { comp, portIndex: port.index }
+                });
+                comp.inputs[port.index].connected = true;
+                wireStart = null;
+            }
+            return;
+        }
+    }
+    
+    // 检查是否点击了元件
+    const comp = findComponentAt(x, y);
+    if (comp) {
+        if (comp.type === 'input') {
+            comp.state = !comp.state;
+            comp.outputs[0].value = comp.state;
+        } else {
+            dragging = { comp, offsetX: x - comp.x, offsetY: y - comp.y };
+            selectedComponent = comp;
+        }
+    } else {
+        wireStart = null;
+        selectedComponent = null;
+    }
+}
+
+function handleMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (dragging) {
+        dragging.comp.x = Math.round((x - dragging.offsetX) / GRID) * GRID;
+        dragging.comp.y = Math.round((y - dragging.offsetY) / GRID) * GRID;
+    }
+}
+
+function handleMouseUp() {
+    dragging = null;
+}
+
+function findComponentAt(x, y) {
+    for (const comp of components) {
+        if (x >= comp.x && x <= comp.x + comp.width &&
+            y >= comp.y && y <= comp.y + comp.height) {
+            return comp;
+        }
+    }
+    return null;
+}
+
+function findPortAt(comp, x, y) {
+    const info = componentTypes[comp.type];
+    
+    // 输入端口（左侧）
+    for (let i = 0; i < info.inputs; i++) {
+        const py = comp.y + comp.height * (i + 1) / (info.inputs + 1);
+        const px = comp.x;
+        if (Math.hypot(x - px, y - py) < 10) {
+            return { type: 'input', index: i, x: px, y: py };
+        }
+    }
+    
+    // 输出端口（右侧）
+    for (let i = 0; i < info.outputs; i++) {
+        const py = comp.y + comp.height * (i + 1) / (info.outputs + 1);
+        const px = comp.x + comp.width;
+        if (Math.hypot(x - px, y - py) < 10) {
+            return { type: 'output', index: i, x: px, y: py };
+        }
+    }
+    
+    return null;
+}
+
+function findWireAt(x, y) {
+    for (const wire of wires) {
+        const from = getPortPosition(wire.from.comp, 'output', wire.from.portIndex);
+        const to = getPortPosition(wire.to.comp, 'input', wire.to.portIndex);
+        
+        // 简单的线段距离检测
+        const d = pointToLineDistance(x, y, from.x, from.y, to.x, to.y);
+        if (d < 8) return wire;
+    }
+    return null;
+}
+
+function pointToLineDistance(px, py, x1, y1, x2, y2) {
+    const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = lenSq !== 0 ? dot / lenSq : -1;
+    
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    
+    return Math.hypot(px - xx, py - yy);
+}
+
+function getPortPosition(comp, type, index) {
+    const info = componentTypes[comp.type];
+    const count = type === 'input' ? info.inputs : info.outputs;
+    const py = comp.y + comp.height * (index + 1) / (count + 1);
+    const px = type === 'input' ? comp.x : comp.x + comp.width;
+    return { x: px, y: py };
+}
+
+function simulate() {
+    if (!simRunning) return;
+    
+    const dt = 0.016 * simSpeed;
+    simTime += dt;
+    
+    // 更新时钟
+    components.filter(c => c.type === 'clock').forEach(c => {
+        const period = 1 / clockFreq;
+        c.state = (simTime % period) < (period / 2);
+        c.outputs[0].value = c.state;
+    });
+    
+    // 传播信号
+    for (let iter = 0; iter < 10; iter++) {
+        let changed = false;
+        
+        for (const comp of components) {
+            // 更新输入值
+            for (let i = 0; i < comp.inputs.length; i++) {
+                const wire = wires.find(w => w.to.comp.id === comp.id && w.to.portIndex === i);
+                if (wire) {
+                    comp.inputs[i].value = wire.from.comp.outputs[wire.from.portIndex].value;
+                }
+            }
+            
+            // 计算输出
+            const oldOutput = comp.outputs.map(o => o.value);
+            computeOutput(comp);
+            
+            if (comp.outputs.some((o, i) => o.value !== oldOutput[i])) {
+                changed = true;
+            }
+        }
+        
+        if (!changed) break;
+    }
+    
+    // 更新探针
+    probeNodes.forEach(p => {
+        p.value = p.comp.outputs[p.portIndex].value;
+    });
+    
+    // 记录波形
+    if (waveformData.length > 500) waveformData.shift();
+    waveformData.push({
+        time: simTime,
+        values: probeNodes.map(p => p.value)
+    });
+    
+    renderToolbar();
+    renderRightPanel();
+}
+
+function computeOutput(comp) {
+    const a = comp.inputs[0]?.value || false;
+    const b = comp.inputs[1]?.value || false;
+    
+    switch (comp.type) {
+        case 'input':
+            comp.outputs[0].value = comp.state;
+            break;
+        case 'clock':
+            comp.outputs[0].value = comp.state;
+            break;
+        case 'and':
+            comp.outputs[0].value = a && b;
+            break;
+        case 'or':
+            comp.outputs[0].value = a || b;
+            break;
+        case 'not':
+            comp.outputs[0].value = !a;
+            break;
+        case 'nand':
+            comp.outputs[0].value = !(a && b);
+            break;
+        case 'nor':
+            comp.outputs[0].value = !(a || b);
+            break;
+        case 'xor':
+            comp.outputs[0].value = a !== b;
+            break;
+        case 'dff':
+            // D触发器：a=D, b=CLK
+            if (b && !comp.prevState) {
+                comp.state = a;
+            }
+            comp.prevState = b;
+            comp.outputs[0].value = comp.state || false;
+            comp.outputs[1].value = !comp.outputs[0].value;
+            break;
+        case 'srff':
+            // SR触发器：a=S, b=R
+            if (a && !b) comp.state = true;
+            else if (!a && b) comp.state = false;
+            comp.outputs[0].value = comp.state || false;
+            comp.outputs[1].value = !comp.outputs[0].value;
+            break;
+    }
+}
+
+function stepSim() {
+    simRunning = true;
+    simulate();
+    simRunning = false;
+    renderToolbar();
+}
+
+function toggleSim() {
+    simRunning = !simRunning;
+    renderToolbar();
+}
+
+function resetSim() {
+    simTime = 0;
+    waveformData = [];
+    components.forEach(c => {
+        if (c.type !== 'input') c.state = false;
+        c.prevState = null;
+        c.outputs.forEach(o => o.value = false);
+    });
+    renderToolbar();
+    renderRightPanel();
+}
+
+function clearAll() {
+    components = [];
+    wires = [];
+    probeNodes = [];
+    waveformData = [];
+    simTime = 0;
+    renderToolbar();
+    renderRightPanel();
+}
+
+function drawScope() {
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    if (!scopeCanvas) return;
+    
+    const sctx = scopeCanvas.getContext('2d');
+    const w = scopeCanvas.width;
+    const h = scopeCanvas.height;
+    
+    sctx.fillStyle = '#001a00';
+    sctx.fillRect(0, 0, w, h);
+    
+    // 网格
+    sctx.strokeStyle = '#003300';
+    sctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 20) {
+        sctx.beginPath();
+        sctx.moveTo(x, 0);
+        sctx.lineTo(x, h);
+        sctx.stroke();
+    }
+    for (let y = 0; y < h; y += 20) {
+        sctx.beginPath();
+        sctx.moveTo(0, y);
+        sctx.lineTo(w, y);
+        sctx.stroke();
+    }
+    
+    if (waveformData.length < 2 || probeNodes.length === 0) return;
+    
+    const channelHeight = h / probeNodes.length;
+    
+    probeNodes.forEach((probe, pi) => {
+        const baseY = pi * channelHeight;
+        const highY = baseY + 10;
+        const lowY = baseY + channelHeight - 10;
+        
+        sctx.strokeStyle = getProbeColor(pi);
+        sctx.lineWidth = 2;
+        sctx.beginPath();
+        
+        const startIdx = Math.max(0, waveformData.length - Math.floor(w / 2));
+        
+        for (let i = startIdx; i < waveformData.length; i++) {
+            const x = (i - startIdx) * 2;
+            const y = waveformData[i].values[pi] ? highY : lowY;
+            
+            if (i === startIdx) {
+                sctx.moveTo(x, y);
+            } else {
+                const prevY = waveformData[i-1].values[pi] ? highY : lowY;
+                if (y !== prevY) {
+                    sctx.lineTo(x, prevY);
+                }
+                sctx.lineTo(x, y);
+            }
+        }
+        sctx.stroke();
+    });
+}
+
+function animate() {
+    draw();
+    drawScope();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制连线
+    wires.forEach(wire => {
+        const from = getPortPosition(wire.from.comp, 'output', wire.from.portIndex);
+        const to = getPortPosition(wire.to.comp, 'input', wire.to.portIndex);
+        const value = wire.from.comp.outputs[wire.from.portIndex].value;
+        
+        ctx.strokeStyle = value ? '#00ff00' : '#006600';
+        ctx.lineWidth = value ? 3 : 2;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        
+        // 曲线连接
+        const midX = (from.x + to.x) / 2;
+        ctx.bezierCurveTo(midX, from.y, midX, to.y, to.x, to.y);
+        ctx.stroke();
+        
+        // 信号流动动画
+        if (value && simRunning) {
+            const t = (simTime * 3) % 1;
+            const px = from.x + (to.x - from.x) * t;
+            const py = from.y + (to.y - from.y) * t;
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+    
+    // 绘制正在连接的线
+    if (wireStart) {
+        const rect = canvas.getBoundingClientRect();
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(wireStart.x, wireStart.y);
+        ctx.lineTo(wireStart.x + 50, wireStart.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // 绘制元件
+    components.forEach(comp => {
+        const info = componentTypes[comp.type];
+        const isSelected = selectedComponent === comp;
+        
+        // 元件背景
+        ctx.fillStyle = isSelected ? '#003300' : '#001a00';
+        ctx.strokeStyle = info.color;
+        ctx.lineWidth = isSelected ? 3 : 2;
+        
+        ctx.beginPath();
+        ctx.roundRect(comp.x, comp.y, comp.width, comp.height, 8);
+        ctx.fill();
+        ctx.stroke();
+        
+        // 元件图标
+        ctx.fillStyle = info.color;
+        ctx.font = 'bold 16px Consolas';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(info.icon, comp.x + comp.width/2, comp.y + comp.height/2 - 8);
+        
+        // 元件名称
+        ctx.font = '10px Consolas';
+        ctx.fillStyle = '#00aa00';
+        ctx.fillText(info.name, comp.x + comp.width/2, comp.y + comp.height/2 + 12);
+        
+        // 输入端口
+        for (let i = 0; i < info.inputs; i++) {
+            const py = comp.y + comp.height * (i + 1) / (info.inputs + 1);
+            const value = comp.inputs[i]?.value;
+            
+            ctx.fillStyle = value ? '#00ff00' : '#004400';
+            ctx.beginPath();
+            ctx.arc(comp.x, py, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#00aa00';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        // 输出端口
+        for (let i = 0; i < info.outputs; i++) {
+            const py = comp.y + comp.height * (i + 1) / (info.outputs + 1);
+            const value = comp.outputs[i]?.value;
+            
+            ctx.fillStyle = value ? '#00ff00' : '#004400';
+            ctx.beginPath();
+            ctx.arc(comp.x + comp.width, py, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#00aa00';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // 探针标记
+            if (probeNodes.some(p => p.comp.id === comp.id && p.portIndex === i)) {
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(comp.x + comp.width, py, 10, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        // 输入开关状态
+        if (comp.type === 'input') {
+            ctx.fillStyle = comp.state ? '#00ff00' : '#660000';
+            ctx.font = 'bold 12px Consolas';
+            ctx.fillText(comp.state ? 'ON' : 'OFF', comp.x + comp.width/2, comp.y + comp.height - 8);
+        }
+        
+        // 时钟脉冲指示
+        if (comp.type === 'clock' && comp.state) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(comp.x + comp.width/2, comp.y + comp.height/2, 25, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    });
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

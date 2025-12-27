@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>齿轮传动系统设计器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #2a2a3a 0%, #1a1a2a 100%);
+            min-height: 100vh;
+            color: #c0c0c0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: #1a1a2a;
+            background-image: 
+                linear-gradient(rgba(100,100,120,0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(100,100,120,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        #gearCanvas { display: block; }
+        .right-panel {
+            width: 320px;
+            background: rgba(30,30,40,0.95);
+            border-left: 2px solid #4a4a6a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .bottom-panel {
+            height: 100px;
+            background: rgba(30,30,40,0.95);
+            border-top: 2px solid #4a4a6a;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="main-area">
+        <div class="canvas-area">
+            <canvas id="gearCanvas"></canvas>
+        </div>
+        <div class="bottom-panel" id="bottomPanel"></div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('gearCanvas');
+const ctx = canvas.getContext('2d');
+
+let gears = [];
+let selectedGear = null;
+let dragging = null;
+let simRunning = true;
+let time = 0;
+
+// 默认参数
+let inputRPM = 1000;
+let inputTorque = 10;
+
+const materials = {
+    steel: { name: '钢', color: '#708090', strength: 800, density: 7.85 },
+    castiron: { name: '铸铁', color: '#4a4a4a', strength: 400, density: 7.2 },
+    brass: { name: '黄铜', color: '#b5a642', strength: 300, density: 8.5 },
+    plastic: { name: '塑料', color: '#4a90a4', strength: 80, density: 1.4 }
+};
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('wheel', handleWheel);
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    // 添加示例齿轮
+    addGear(300, 300, 30, 2, true);
+    addGear(420, 300, 60, 2, false);
+    
+    renderBottomPanel();
+    renderRightPanel();
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+}
+
+function addGear(x, y, teeth, module, isDriver) {
+    const gear = {
+        id: Date.now() + Math.random(),
+        x: x,
+        y: y,
+        teeth: teeth,
+        module: module,
+        pressureAngle: 20,
+        faceWidth: 10,
+        material: 'steel',
+        isDriver: isDriver,
+        angle: 0,
+        rpm: isDriver ? inputRPM : 0,
+        torque: isDriver ? inputTorque : 0,
+        meshWith: null
+    };
+    gear.radius = (gear.teeth * gear.module) / 2;
+    gears.push(gear);
+    updateMeshRelations();
+    return gear;
+}
+
+function updateMeshRelations() {
+    // 清除所有啮合关系
+    gears.forEach(g => {
+        g.meshWith = null;
+        if (!g.isDriver) {
+            g.rpm = 0;
+            g.torque = 0;
+        }
+    });
+    
+    // 检测啮合
+    for (let i = 0; i < gears.length; i++) {
+        for (let j = i + 1; j < gears.length; j++) {
+            const g1 = gears[i], g2 = gears[j];
+            const dist = Math.hypot(g1.x - g2.x, g1.y - g2.y);
+            const meshDist = g1.radius + g2.radius;
+            
+            if (Math.abs(dist - meshDist) < 10) {
+                g1.meshWith = g2.id;
+                g2.meshWith = g1.id;
+            }
+        }
+    }
+    
+    // 传递动力
+    propagatePower();
+}
+
+function propagatePower() {
+    const visited = new Set();
+    const queue = gears.filter(g => g.isDriver);
+    queue.forEach(g => visited.add(g.id));
+    
+    while (queue.length > 0) {
+        const current = queue.shift();
+        
+        if (current.meshWith) {
+            const meshed = gears.find(g => g.id === current.meshWith);
+            if (meshed && !visited.has(meshed.id)) {
+                visited.add(meshed.id);
+                
+                // 传动比计算
+                const ratio = current.teeth / meshed.teeth;
+                meshed.rpm = current.rpm * ratio;
+                meshed.torque = current.torque / ratio * 0.98; // 98%效率
+                
+                queue.push(meshed);
+            }
+        }
+    }
+}
+
+function renderBottomPanel() {
+    const panel = document.getElementById('bottomPanel');
+    panel.innerHTML = `
+        <style>
+            .gear-btn { width: 80px; height: 80px; background: rgba(60,60,80,0.5); border: 2px solid #4a4a6a; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #c0c0c0; transition: all 0.2s; }
+            .gear-btn:hover { background: rgba(80,80,100,0.5); border-color: #6a6a8a; }
+            .gear-icon { font-size: 2em; margin-bottom: 5px; }
+            .gear-label { font-size: 0.7em; }
+        </style>
+        <div class="gear-btn" onclick="addGear(canvas.width/2, canvas.height/2, 20, 2, false)">
+            <div class="gear-icon">⚙️</div>
+            <div class="gear-label">小齿轮 Z20</div>
+        </div>
+        <div class="gear-btn" onclick="addGear(canvas.width/2, canvas.height/2, 40, 2, false)">
+            <div class="gear-icon">⚙️</div>
+            <div class="gear-label">中齿轮 Z40</div>
+        </div>
+        <div class="gear-btn" onclick="addGear(canvas.width/2, canvas.height/2, 60, 2, false)">
+            <div class="gear-icon">⚙️</div>
+            <div class="gear-label">大齿轮 Z60</div>
+        </div>
+        <div class="gear-btn" onclick="addGear(canvas.width/2, canvas.height/2, 80, 2, false)">
+            <div class="gear-icon">⚙️</div>
+            <div class="gear-label">特大齿轮 Z80</div>
+        </div>
+        <div class="gear-btn" onclick="addGear(canvas.width/2, canvas.height/2, 30, 2, true)">
+            <div class="gear-icon">🔄</div>
+            <div class="gear-label">驱动轮</div>
+        </div>
+        <div class="gear-btn" onclick="clearGears()">
+            <div class="gear-icon">🗑️</div>
+            <div class="gear-label">清空</div>
+        </div>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    const gear = selectedGear;
+    
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 1em; color: #8080a0; border-bottom: 1px solid #4a4a6a; padding-bottom: 8px; margin-bottom: 12px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #3a3a5a; }
+            .param-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 0.85em; }
+            .param-label { color: #8080a0; }
+            .param-value { color: #a0a0c0; font-weight: bold; }
+            input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: #3a3a5a; -webkit-appearance: none; margin: 5px 0; }
+            input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #6080a0; cursor: pointer; }
+            input[type="number"] { width: 70px; padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid #4a4a6a; border-radius: 4px; color: #c0c0c0; font-size: 0.85em; }
+            select { padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid #4a4a6a; border-radius: 4px; color: #c0c0c0; font-size: 0.85em; }
+            .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin: 3px; }
+            .btn-primary { background: linear-gradient(135deg, #4a6080, #3a4a60); color: #c0c0c0; border: 1px solid #5a7090; }
+            .btn-danger { background: linear-gradient(135deg, #804040, #603030); color: #c0c0c0; border: 1px solid #905050; }
+            .stat-bar { height: 8px; background: #2a2a3a; border-radius: 4px; margin-top: 4px; overflow: hidden; }
+            .stat-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:15px;">
+            <h2 style="color:#8080a0;font-size:1.2em;">⚙️ 齿轮传动设计器</h2>
+            <p style="color:#5a5a7a;font-size:0.75em;">参数化齿轮系统仿真</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🔧 输入参数</div>
+            <div class="param-row">
+                <span class="param-label">输入转速 (RPM)</span>
+                <input type="number" value="${inputRPM}" min="10" max="10000" 
+                       onchange="inputRPM=parseInt(this.value);updateDrivers();updateMeshRelations();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <span class="param-label">输入扭矩 (Nm)</span>
+                <input type="number" value="${inputTorque}" min="0.1" max="1000" step="0.1"
+                       onchange="inputTorque=parseFloat(this.value);updateDrivers();updateMeshRelations();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <span class="param-label">仿真</span>
+                <button class="btn btn-primary" onclick="simRunning=!simRunning;renderRightPanel()">
+                    ${simRunning ? '⏸ 暂停' : '▶ 运行'}
+                </button>
+            </div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 系统概览</div>
+            <div class="param-row"><span class="param-label">齿轮数量</span><span class="param-value">${gears.length}</span></div>
+            <div class="param-row"><span class="param-label">总传动比</span><span class="param-value">${calculateTotalRatio().toFixed(2)}</span></div>
+            <div class="param-row"><span class="param-label">输出转速</span><span class="param-value">${calculateOutputRPM().toFixed(1)} RPM</span></div>
+            <div class="param-row"><span class="param-label">输出扭矩</span><span class="param-value">${calculateOutputTorque().toFixed(2)} Nm</span></div>
+            <div class="param-row"><span class="param-label">传动效率</span><span class="param-value">${(calculateEfficiency() * 100).toFixed(1)}%</span></div>
+        </div>
+        
+        ${gear ? `
+        <div class="panel-section">
+            <div class="panel-title">${gear.isDriver ? '🔄 驱动齿轮' : '⚙️ 从动齿轮'} #${gears.indexOf(gear) + 1}</div>
+            <div class="param-row">
+                <span class="param-label">齿数 Z</span>
+                <input type="number" value="${gear.teeth}" min="10" max="200" 
+                       onchange="gear.teeth=parseInt(this.value);gear.radius=(gear.teeth*gear.module)/2;updateMeshRelations();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <span class="param-label">模数 m (mm)</span>
+                <input type="number" value="${gear.module}" min="0.5" max="10" step="0.5"
+                       onchange="gear.module=parseFloat(this.value);gear.radius=(gear.teeth*gear.module)/2;updateMeshRelations();renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <span class="param-label">压力角 (°)</span>
+                <input type="number" value="${gear.pressureAngle}" min="14.5" max="25" step="0.5"
+                       onchange="gear.pressureAngle=parseFloat(this.value);renderRightPanel();">
+            </div>
+            <div class="param-row">
+                <span class="param-label">材料</span>
+                <select onchange="gear.material=this.value;renderRightPanel();">
+                    ${Object.entries(materials).map(([k, m]) => 
+                        `<option value="${k}" ${gear.material === k ? 'selected' : ''}>${m.name}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="param-row"><span class="param-label">分度圆直径</span><span class="param-value">${(gear.teeth * gear.module).toFixed(1)} mm</span></div>
+            <div class="param-row"><span class="param-label">转速</span><span class="param-value">${gear.rpm.toFixed(1)} RPM</span></div>
+            <div class="param-row"><span class="param-label">扭矩</span><span class="param-value">${gear.torque.toFixed(2)} Nm</span></div>
+            
+            <div style="margin-top:10px;">
+                <div class="param-label">齿面应力</div>
+                <div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, calculateStress(gear) / 5)}%;background:${calculateStress(gear) > 400 ? '#ff6666' : '#66aa66'}"></div></div>
+                <div style="font-size:0.75em;color:#6a6a8a;text-align:right;">${calculateStress(gear).toFixed(0)} MPa</div>
+            </div>
+            
+            <div style="margin-top:10px;display:flex;gap:5px;">
+                <button class="btn btn-primary" onclick="gear.isDriver=!gear.isDriver;updateDrivers();updateMeshRelations();renderRightPanel();">
+                    ${gear.isDriver ? '设为从动' : '设为驱动'}
+                </button>
+                <button class="btn btn-danger" onclick="deleteGear(gear)">删除</button>
+            </div>
+        </div>
+        ` : `
+        <div class="panel-section">
+            <div class="panel-title">💡 操作提示</div>
+            <div style="font-size:0.8em;color:#6a6a8a;line-height:1.6;">
+                • 点击底部按钮添加齿轮<br>
+                • 拖拽齿轮调整位置<br>
+                • 齿轮靠近自动啮合<br>
+                • 点击齿轮查看参数<br>
+                • 滚轮调整齿轮大小<br>
+                • 右键删除齿轮
+            </div>
+        </div>
+        `}
+    `;
+}
+
+function updateDrivers() {
+    gears.filter(g => g.isDriver).forEach(g => {
+        g.rpm = inputRPM;
+        g.torque = inputTorque;
+    });
+}
+
+function calculateTotalRatio() {
+    const drivers = gears.filter(g => g.isDriver);
+    const outputs = gears.filter(g => !g.isDriver && g.rpm > 0);
+    if (drivers.length === 0 || outputs.length === 0) return 1;
+    
+    const lastOutput = outputs[outputs.length - 1];
+    return drivers[0].rpm / lastOutput.rpm;
+}
+
+function calculateOutputRPM() {
+    const outputs = gears.filter(g => !g.isDriver && g.rpm > 0);
+    if (outputs.length === 0) return inputRPM;
+    return outputs[outputs.length - 1].rpm;
+}
+
+function calculateOutputTorque() {
+    const outputs = gears.filter(g => !g.isDriver && g.torque > 0);
+    if (outputs.length === 0) return inputTorque;
+    return outputs[outputs.length - 1].torque;
+}
+
+function calculateEfficiency() {
+    const meshCount = gears.filter(g => g.meshWith).length / 2;
+    return Math.pow(0.98, meshCount);
+}
+
+function calculateStress(gear) {
+    // 简化的齿面接触应力计算
+    const Ft = gear.torque * 1000 / gear.radius; // 切向力
+    const b = gear.faceWidth;
+    const d = gear.teeth * gear.module;
+    return Ft * 2.5 / (b * d) * 1000;
+}
+
+function deleteGear(gear) {
+    gears = gears.filter(g => g.id !== gear.id);
+    selectedGear = null;
+    updateMeshRelations();
+    renderRightPanel();
+}
+
+function clearGears() {
+    gears = [];
+    selectedGear = null;
+    renderRightPanel();
+}
+
+function handleMouseDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (e.button === 2) {
+        // 右键删除
+        const gear = findGearAt(x, y);
+        if (gear) {
+            deleteGear(gear);
+        }
+        return;
+    }
+    
+    const gear = findGearAt(x, y);
+    if (gear) {
+        selectedGear = gear;
+        dragging = { gear, offsetX: x - gear.x, offsetY: y - gear.y };
+        renderRightPanel();
+    } else {
+        selectedGear = null;
+        renderRightPanel();
+    }
+}
+
+function handleMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (dragging) {
+        dragging.gear.x = x - dragging.offsetX;
+        dragging.gear.y = y - dragging.offsetY;
+        updateMeshRelations();
+    }
+}
+
+function handleMouseUp() {
+    dragging = null;
+}
+
+function handleWheel(e) {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const gear = findGearAt(x, y);
+    if (gear) {
+        const delta = e.deltaY > 0 ? -5 : 5;
+        gear.teeth = Math.max(10, Math.min(200, gear.teeth + delta));
+        gear.radius = (gear.teeth * gear.module) / 2;
+        updateMeshRelations();
+        renderRightPanel();
+    }
+}
+
+function findGearAt(x, y) {
+    for (const gear of gears) {
+        const dist = Math.hypot(x - gear.x, y - gear.y);
+        if (dist <= gear.radius) {
+            return gear;
+        }
+    }
+    return null;
+}
+
+function animate() {
+    if (simRunning) {
+        time += 0.016;
+        
+        // 更新齿轮角度
+        gears.forEach(gear => {
+            const angularVel = gear.rpm * Math.PI / 30; // rad/s
+            
+            // 检查啮合方向
+            if (gear.meshWith) {
+                const meshed = gears.find(g => g.id === gear.meshWith);
+                if (meshed) {
+                    // 啮合齿轮反向旋转
+                    const sign = gear.isDriver ? 1 : -1;
+                    gear.angle += angularVel * 0.016 * sign;
+                } else {
+                    gear.angle += angularVel * 0.016;
+                }
+            } else {
+                gear.angle += angularVel * 0.016;
+            }
+        });
+    }
+    
+    draw();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制啮合线
+    gears.forEach(gear => {
+        if (gear.meshWith) {
+            const meshed = gears.find(g => g.id === gear.meshWith);
+            if (meshed && gear.id < meshed.id) {
+                ctx.strokeStyle = 'rgba(100,150,200,0.3)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(gear.x, gear.y);
+                ctx.lineTo(meshed.x, meshed.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+    });
+    
+    // 绘制齿轮
+    gears.forEach(gear => {
+        drawGear(gear);
+    });
+    
+    // 绘制信息
+    ctx.fillStyle = '#6a6a8a';
+    ctx.font = '12px Segoe UI';
+    ctx.textAlign = 'left';
+    ctx.fillText(`齿轮数: ${gears.length} | 传动比: ${calculateTotalRatio().toFixed(2)} | 效率: ${(calculateEfficiency()*100).toFixed(1)}%`, 10, 20);
+}
+
+function drawGear(gear) {
+    const mat = materials[gear.material];
+    const isSelected = selectedGear === gear;
+    
+    ctx.save();
+    ctx.translate(gear.x, gear.y);
+    ctx.rotate(gear.angle);
+    
+    // 齿轮本体
+    const r = gear.radius;
+    const teeth = gear.teeth;
+    const toothDepth = gear.module * 2.25;
+    
+    // 绘制齿
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+        const angle = (i / teeth) * Math.PI * 2;
+        const nextAngle = ((i + 0.5) / teeth) * Math.PI * 2;
+        
+        const x1 = Math.cos(angle) * (r - toothDepth/2);
+        const y1 = Math.sin(angle) * (r - toothDepth/2);
+        const x2 = Math.cos(angle + 0.02) * (r + toothDepth/2);
+        const y2 = Math.sin(angle + 0.02) * (r + toothDepth/2);
+        const x3 = Math.cos(nextAngle - 0.02) * (r + toothDepth/2);
+        const y3 = Math.sin(nextAngle - 0.02) * (r + toothDepth/2);
+        const x4 = Math.cos(nextAngle) * (r - toothDepth/2);
+        const y4 = Math.sin(nextAngle) * (r - toothDepth/2);
+        
+        if (i === 0) ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(x3, y3);
+        ctx.lineTo(x4, y4);
+    }
+    ctx.closePath();
+    
+    // 渐变填充
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    grad.addColorStop(0, mat.color);
+    grad.addColorStop(0.7, mat.color);
+    grad.addColorStop(1, shadeColor(mat.color, -30));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    
+    ctx.strokeStyle = isSelected ? '#ffaa00' : shadeColor(mat.color, -50);
+    ctx.lineWidth = isSelected ? 3 : 1;
+    ctx.stroke();
+    
+    // 中心孔
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1a2a';
+    ctx.fill();
+    ctx.strokeStyle = shadeColor(mat.color, -50);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 辐条
+    ctx.strokeStyle = shadeColor(mat.color, -20);
+    ctx.lineWidth = r * 0.08;
+    for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * r * 0.2, Math.sin(angle) * r * 0.2);
+        ctx.lineTo(Math.cos(angle) * r * 0.7, Math.sin(angle) * r * 0.7);
+        ctx.stroke();
+    }
+    
+    // 驱动标记
+    if (gear.isDriver) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,150,0,0.5)';
+        ctx.fill();
+        ctx.strokeStyle = '#ffaa00';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    
+    ctx.restore();
+    
+    // 齿轮信息
+    ctx.fillStyle = '#8080a0';
+    ctx.font = '11px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Z${gear.teeth}`, gear.x, gear.y + gear.radius + 15);
+    ctx.fillText(`${gear.rpm.toFixed(0)} RPM`, gear.x, gear.y + gear.radius + 28);
+}
+
+function shadeColor(color, percent) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+    const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

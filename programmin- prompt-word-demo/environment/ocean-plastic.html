@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋塑料污染追踪器</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #001830 0%, #002040 100%);
+            min-height: 100vh;
+            color: #80c0e0;
+            overflow: hidden;
+        }
+        .container { display: flex; height: 100vh; }
+        .main-area { flex: 1; display: flex; flex-direction: column; }
+        .map-area { flex: 1; position: relative; }
+        #mapCanvas { display: block; }
+        .timeline-bar {
+            height: 60px;
+            background: rgba(0,20,40,0.95);
+            border-top: 1px solid #1a4a6a;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .right-panel {
+            width: 300px;
+            background: rgba(0,20,40,0.95);
+            border-left: 2px solid #1a4a6a;
+            padding: 15px;
+            overflow-y: auto;
+        }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="main-area">
+        <div class="map-area">
+            <canvas id="mapCanvas"></canvas>
+        </div>
+        <div class="timeline-bar" id="timelineBar"></div>
+    </div>
+    <div class="right-panel" id="rightPanel"></div>
+</div>
+<script>
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+
+// 塑料粒子
+let plastics = [];
+let simRunning = true;
+let simDay = 0;
+let simSpeed = 1;
+
+// 垃圾带位置
+const garbagePatches = [
+    { name: '北太平洋垃圾带', x: 0.25, y: 0.35, radius: 0.08 },
+    { name: '南太平洋垃圾带', x: 0.22, y: 0.65, radius: 0.05 },
+    { name: '北大西洋垃圾带', x: 0.6, y: 0.38, radius: 0.05 },
+    { name: '南大西洋垃圾带', x: 0.55, y: 0.62, radius: 0.04 },
+    { name: '印度洋垃圾带', x: 0.75, y: 0.58, radius: 0.05 }
+];
+
+// 主要河流排放源
+const riverSources = [
+    { name: '长江', x: 0.15, y: 0.4, rate: 100 },
+    { name: '恒河', x: 0.78, y: 0.42, rate: 80 },
+    { name: '湄公河', x: 0.82, y: 0.48, rate: 60 },
+    { name: '尼罗河', x: 0.58, y: 0.45, rate: 30 },
+    { name: '亚马逊河', x: 0.42, y: 0.55, rate: 40 },
+    { name: '密西西比河', x: 0.32, y: 0.38, rate: 35 }
+];
+
+// 洋流场
+function getOceanCurrent(x, y) {
+    // 简化的洋流模型
+    let vx = 0, vy = 0;
+    
+    // 北太平洋环流
+    if (x < 0.4 && y > 0.25 && y < 0.5) {
+        const cx = 0.25, cy = 0.38;
+        const dx = x - cx, dy = y - cy;
+        vx = -dy * 0.02;
+        vy = dx * 0.02;
+    }
+    
+    // 北大西洋环流
+    if (x > 0.45 && x < 0.7 && y > 0.3 && y < 0.5) {
+        const cx = 0.58, cy = 0.4;
+        const dx = x - cx, dy = y - cy;
+        vx = -dy * 0.015;
+        vy = dx * 0.015;
+    }
+    
+    // 赤道流
+    if (y > 0.45 && y < 0.55) {
+        vx = -0.005;
+    }
+    
+    return { vx, vy };
+}
+
+// 塑料类型
+const plasticTypes = {
+    bottle: { name: 'PET瓶', color: '#44aaff', density: 1.38, degradeYears: 450 },
+    bag: { name: '塑料袋', color: '#88ff88', density: 0.92, degradeYears: 20 },
+    foam: { name: '泡沫塑料', color: '#ffffff', density: 0.03, degradeYears: 500 },
+    fishing: { name: '渔网', color: '#ffaa44', density: 1.15, degradeYears: 600 },
+    micro: { name: '微塑料', color: '#ff4488', density: 1.0, degradeYears: 1000 }
+};
+
+let selectedType = 'bottle';
+let stats = { total: 0, inOcean: 0, inPatches: 0, degraded: 0 };
+
+function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    canvas.addEventListener('click', handleClick);
+    
+    renderTimelineBar();
+    renderRightPanel();
+    
+    // 初始排放
+    for (let i = 0; i < 50; i++) {
+        emitFromRiver(riverSources[Math.floor(Math.random() * riverSources.length)]);
+    }
+    
+    setInterval(simulate, 50);
+    animate();
+}
+
+function resizeCanvas() {
+    const area = canvas.parentElement;
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+}
+
+function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / canvas.width;
+    const y = (e.clientY - rect.top) / canvas.height;
+    
+    // 在点击位置释放塑料
+    for (let i = 0; i < 10; i++) {
+        createPlastic(x + (Math.random() - 0.5) * 0.02, y + (Math.random() - 0.5) * 0.02, selectedType);
+    }
+}
+
+function createPlastic(x, y, type) {
+    const info = plasticTypes[type];
+    plastics.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 0.001,
+        vy: (Math.random() - 0.5) * 0.001,
+        type,
+        age: 0,
+        size: 1,
+        inPatch: false
+    });
+    stats.total++;
+    stats.inOcean++;
+}
+
+function emitFromRiver(river) {
+    const types = Object.keys(plasticTypes);
+    const type = types[Math.floor(Math.random() * types.length)];
+    createPlastic(
+        river.x + (Math.random() - 0.5) * 0.02,
+        river.y + (Math.random() - 0.5) * 0.02,
+        type
+    );
+}
+
+function simulate() {
+    if (!simRunning) return;
+    
+    simDay += simSpeed;
+    
+    // 河流持续排放
+    if (Math.random() < 0.1 * simSpeed) {
+        const river = riverSources[Math.floor(Math.random() * riverSources.length)];
+        emitFromRiver(river);
+    }
+    
+    // 更新塑料粒子
+    plastics.forEach(p => {
+        // 洋流影响
+        const current = getOceanCurrent(p.x, p.y);
+        p.vx += current.vx * 0.1;
+        p.vy += current.vy * 0.1;
+        
+        // 随机扩散
+        p.vx += (Math.random() - 0.5) * 0.0005;
+        p.vy += (Math.random() - 0.5) * 0.0005;
+        
+        // 阻尼
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+        
+        // 移动
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // 边界
+        p.x = Math.max(0.05, Math.min(0.95, p.x));
+        p.y = Math.max(0.15, Math.min(0.85, p.y));
+        
+        // 老化
+        p.age += simSpeed / 365;
+        
+        // 检查是否在垃圾带
+        p.inPatch = false;
+        garbagePatches.forEach(patch => {
+            const dist = Math.hypot(p.x - patch.x, p.y - patch.y);
+            if (dist < patch.radius) {
+                p.inPatch = true;
+                // 垃圾带吸引效应
+                p.vx += (patch.x - p.x) * 0.001;
+                p.vy += (patch.y - p.y) * 0.001;
+            }
+        });
+        
+        // 降解
+        const info = plasticTypes[p.type];
+        if (p.age > info.degradeYears * 0.1) {
+            p.size *= 0.999;
+        }
+    });
+    
+    // 移除完全降解的
+    const before = plastics.length;
+    plastics = plastics.filter(p => p.size > 0.1);
+    stats.degraded += before - plastics.length;
+    
+    // 更新统计
+    stats.inOcean = plastics.length;
+    stats.inPatches = plastics.filter(p => p.inPatch).length;
+    
+    renderRightPanel();
+}
+
+function renderTimelineBar() {
+    const bar = document.getElementById('timelineBar');
+    bar.innerHTML = `
+        <style>
+            .time-btn { padding: 6px 12px; background: rgba(26,74,106,0.5); border: 1px solid #1a4a6a; border-radius: 4px; color: #80c0e0; cursor: pointer; }
+            .time-btn:hover { background: rgba(26,74,106,0.8); }
+            .time-btn.active { background: #1a4a6a; }
+            .time-display { font-size: 1.2em; color: #44aaff; }
+        </style>
+        <button class="time-btn ${simRunning ? 'active' : ''}" onclick="simRunning=!simRunning;renderTimelineBar()">
+            ${simRunning ? '⏸ 暂停' : '▶ 开始'}
+        </button>
+        <button class="time-btn" onclick="resetSim()">🔄 重置</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.8em;">速度:</span>
+            <input type="range" min="1" max="30" value="${simSpeed}" style="width:100px" 
+                   oninput="simSpeed=parseInt(this.value)">
+            <span>${simSpeed}x</span>
+        </div>
+        <div style="flex:1"></div>
+        <div class="time-display">📅 第 ${Math.floor(simDay)} 天 (${(simDay/365).toFixed(1)} 年)</div>
+    `;
+}
+
+function renderRightPanel() {
+    const panel = document.getElementById('rightPanel');
+    panel.innerHTML = `
+        <style>
+            .panel-title { font-size: 0.9em; color: #44aaff; border-bottom: 1px solid #1a4a6a; padding-bottom: 8px; margin-bottom: 10px; }
+            .panel-section { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 10px; margin-bottom: 10px; border: 1px solid #1a4a6a; }
+            .stat-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 0.85em; }
+            .type-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; margin: 4px 0; background: rgba(255,255,255,0.03); border: 1px solid #1a4a6a; border-radius: 4px; color: #80c0e0; cursor: pointer; font-size: 0.8em; }
+            .type-btn:hover { background: rgba(255,255,255,0.08); }
+            .type-btn.active { border-color: #44aaff; background: rgba(68,170,255,0.2); }
+            .type-dot { width: 12px; height: 12px; border-radius: 50%; }
+            .river-item { padding: 6px; margin: 3px 0; background: rgba(255,255,255,0.03); border-radius: 4px; font-size: 0.75em; display: flex; justify-content: space-between; }
+        </style>
+        
+        <div style="text-align:center;margin-bottom:12px;">
+            <h2 style="color:#44aaff;font-size:1.1em;">🌊 海洋塑料追踪</h2>
+            <p style="color:#4a6a8a;font-size:0.7em;">从河流到垃圾带</p>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">📊 污染统计</div>
+            <div class="stat-row"><span>总排放量</span><span style="color:#ff8844">${stats.total}</span></div>
+            <div class="stat-row"><span>海洋中</span><span style="color:#44aaff">${stats.inOcean}</span></div>
+            <div class="stat-row"><span>垃圾带内</span><span style="color:#ff4488">${stats.inPatches}</span></div>
+            <div class="stat-row"><span>已降解</span><span style="color:#44ff88">${stats.degraded}</span></div>
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🗑️ 塑料类型 (点击地图释放)</div>
+            ${Object.entries(plasticTypes).map(([k, t]) => `
+                <button class="type-btn ${selectedType === k ? 'active' : ''}" onclick="selectedType='${k}';renderRightPanel()">
+                    <div class="type-dot" style="background:${t.color}"></div>
+                    <span>${t.name}</span>
+                    <span style="margin-left:auto;color:#6a8aa0">${t.degradeYears}年</span>
+                </button>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🏞️ 主要河流排放源</div>
+            ${riverSources.map(r => `
+                <div class="river-item">
+                    <span>${r.name}</span>
+                    <span style="color:#ff8844">${r.rate} 吨/天</span>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">🌀 垃圾带</div>
+            ${garbagePatches.map(p => `
+                <div class="river-item">
+                    <span>${p.name}</span>
+                    <span style="color:#ff4488">${plastics.filter(pl => Math.hypot(pl.x - p.x, pl.y - p.y) < p.radius).length}</span>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div class="panel-section">
+            <div class="panel-title">💡 知识</div>
+            <div style="font-size:0.7em;color:#6a8aa0;line-height:1.5;">
+                每年约800万吨塑料进入海洋。塑料可在海洋中漂流数十年，最终聚集在五大垃圾带。
+            </div>
+        </div>
+    `;
+}
+
+function resetSim() {
+    plastics = [];
+    simDay = 0;
+    stats = { total: 0, inOcean: 0, inPatches: 0, degraded: 0 };
+    renderTimelineBar();
+    renderRightPanel();
+}
+
+function animate() {
+    draw();
+    renderTimelineBar();
+    requestAnimationFrame(animate);
+}
+
+function draw() {
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    
+    // 海洋背景
+    const oceanGrad = ctx.createLinearGradient(0, 0, 0, h);
+    oceanGrad.addColorStop(0, '#001830');
+    oceanGrad.addColorStop(1, '#002850');
+    ctx.fillStyle = oceanGrad;
+    ctx.fillRect(0, 0, w, h);
+    
+    // 简化大陆
+    ctx.fillStyle = '#1a3a2a';
+    drawContinents();
+    
+    // 洋流指示
+    drawCurrents();
+    
+    // 垃圾带
+    garbagePatches.forEach(patch => {
+        const x = patch.x * w, y = patch.y * h, r = patch.radius * w;
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, 'rgba(255,68,136,0.3)');
+        grad.addColorStop(1, 'rgba(255,68,136,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // 河流排放点
+    riverSources.forEach(river => {
+        ctx.fillStyle = '#ffaa44';
+        ctx.beginPath();
+        ctx.arc(river.x * w, river.y * h, 5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    
+    // 塑料粒子
+    plastics.forEach(p => {
+        const info = plasticTypes[p.type];
+        ctx.fillStyle = p.inPatch ? '#ff4488' : info.color;
+        ctx.globalAlpha = Math.min(1, p.size);
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, 2 + p.size * 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    
+    // 图例
+    ctx.fillStyle = '#6a8aa0';
+    ctx.font = '11px Segoe UI';
+    ctx.fillText('🔴 垃圾带  🟠 河流排放点  点击释放塑料', 10, h - 10);
+}
+
+function drawContinents() {
+    const w = canvas.width, h = canvas.height;
+    // 简化大陆轮廓
+    ctx.beginPath();
+    // 北美
+    ctx.ellipse(w * 0.28, h * 0.3, w * 0.08, h * 0.12, 0, 0, Math.PI * 2);
+    // 南美
+    ctx.ellipse(w * 0.38, h * 0.6, w * 0.04, h * 0.15, 0, 0, Math.PI * 2);
+    // 欧洲
+    ctx.ellipse(w * 0.52, h * 0.28, w * 0.05, h * 0.08, 0, 0, Math.PI * 2);
+    // 非洲
+    ctx.ellipse(w * 0.55, h * 0.5, w * 0.06, h * 0.15, 0, 0, Math.PI * 2);
+    // 亚洲
+    ctx.ellipse(w * 0.75, h * 0.32, w * 0.12, h * 0.12, 0, 0, Math.PI * 2);
+    // 澳洲
+    ctx.ellipse(w * 0.85, h * 0.65, w * 0.05, h * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawCurrents() {
+    ctx.strokeStyle = 'rgba(68,170,255,0.2)';
+    ctx.lineWidth = 1;
+    
+    // 北太平洋环流
+    ctx.beginPath();
+    ctx.arc(canvas.width * 0.25, canvas.height * 0.38, canvas.width * 0.12, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // 北大西洋环流
+    ctx.beginPath();
+    ctx.arc(canvas.width * 0.58, canvas.height * 0.4, canvas.width * 0.08, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
