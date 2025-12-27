@@ -727,22 +727,17 @@
         ];
 
         // ========== GitHub 配置 ==========
-        // ⚠️ 重要：部署前请修改以下配置
+        // Token 在构建时通过 GitHub Actions 自动注入
         const GITHUB_CONFIG = {
-            // 你的 GitHub 用户名
-            owner: 'YOUR_GITHUB_USERNAME',
-            // 你的仓库名
-            repo: 'html-projects',
-            // 数据文件路径
-            path: 'data/projects.json',
-            // GitHub Personal Access Token（有 repo 权限）
-            // 注意：在公开仓库中暴露 Token 有安全风险，建议使用后端代理
-            // 如果只是个人/小范围使用，可以直接填写
-            token: ''
+            owner: 'alanttor-jenasi',
+            repo: 'ai-game',
+            path: 'programmin- prompt-word-demo/data/projects.json',
+            // %%GITHUB_TOKEN%% 会在部署时被替换为真实 Token
+            token: '%%GITHUB_TOKEN%%'
         };
 
-        // 是否使用 GitHub 存储（设为 false 则使用本地 localStorage）
-        const USE_GITHUB_STORAGE = GITHUB_CONFIG.token !== '';
+        // 是否使用 GitHub 存储
+        const USE_GITHUB_STORAGE = GITHUB_CONFIG.token !== '' && !GITHUB_CONFIG.token.includes('%%');
 
         // ========== 存储层抽象 ==========
         const Storage = {
