@@ -729,7 +729,7 @@
         // ========== GitHub 配置 ==========
         // Token 在构建时通过 GitHub Actions 自动注入
         const GITHUB_CONFIG = {
-            owner: 'alanttor-jenasi',
+            owner: 'alanttor',
             repo: 'ai-game',
             path: 'programmin- prompt-word-demo/data/projects.json',
             // %%GITHUB_TOKEN%% 会在部署时被替换为真实 Token
@@ -750,8 +750,9 @@
                 }
 
                 try {
+                    const encodedPath = encodeURIComponent(GITHUB_CONFIG.path).replace(/%2F/g, '/');
                     const res = await fetch(
-                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`,
+                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`,
                         {
                             headers: {
                                 'Authorization': `token ${GITHUB_CONFIG.token}`,
@@ -789,15 +790,16 @@
                     const body = {
                         message: `更新项目数据 - ${new Date().toLocaleString('zh-CN')}`,
                         content: content,
-                        branch: 'main'
+                        branch: 'master'
                     };
                     
                     if (this.fileSha) {
                         body.sha = this.fileSha;
                     }
 
+                    const encodedPath = encodeURIComponent(GITHUB_CONFIG.path).replace(/%2F/g, '/');
                     const res = await fetch(
-                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`,
+                        `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${encodedPath}`,
                         {
                             method: 'PUT',
                             headers: {
