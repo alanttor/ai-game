@@ -34,7 +34,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'programmin- prompt-word-demo'
+          path: '.'  # 部署整个仓库
       
       - name: Deploy to GitHub Pages
         id: deployment

@@ -1,1 +1,102 @@
-111
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Game 项目集合</title>
+    <link rel="icon" type="image/svg+xml" href="programmin- prompt-word-demo/favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff006e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: #8892b0; margin-bottom: 50px; }
+        .projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            max-width: 1000px;
+            width: 100%;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            background: rgba(255,255,255,0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .card-icon { font-size: 2.5em; margin-bottom: 15px; }
+        .card-title { font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
+        .card-desc { color: #8892b0; line-height: 1.6; }
+        .tag {
+            display: inline-block;
+            background: rgba(0,212,255,0.15);
+            color: #00d4ff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 AI Game 项目集合</h1>
+    <p class="subtitle">选择一个项目开始探索</p>
+    
+    <div class="projects">
+        <a href="programmin- prompt-word-demo/index.html" class="card">
+            <div class="card-icon">🎨</div>
+            <div class="card-title">HTML 互动项目展示</div>
+            <div class="card-desc">包含多个纯前端互动项目：太阳系模拟、粒子漩涡、量子模拟器等，支持在线添加自定义项目</div>
+            <span class="tag">纯前端</span>
+        </a>
+        
+        <a href="chinese_horror_game/index.html" class="card">
+            <div class="card-icon">👻</div>
+            <div class="card-title">中式恐怖游戏</div>
+            <div class="card-desc">基于 Flask 的中式恐怖文字冒险游戏，需要后端支持运行</div>
+            <span class="tag">Flask</span>
+        </a>
+        
+        <a href="Fanren-Attack on Titan/index.html" class="card">
+            <div class="card-icon">⚔️</div>
+            <div class="card-title">凡人修仙 - 进击的巨人</div>
+            <div class="card-desc">基于 Python 的游戏项目，需要本地运行</div>
+            <span class="tag">Python</span>
+        </a>
+        
+        <a href="zombie_world_war/frontend/index.html" class="card">
+            <div class="card-icon">🧟</div>
+            <div class="card-title">僵尸世界大战</div>
+            <div class="card-desc">前后端分离的游戏项目</div>
+            <span class="tag">全栈</span>
+        </a>
+    </div>
+    
+    <p style="margin-top:50px;color:#666;font-size:0.9em;">
+        ⚠️ 注意：部分项目需要后端支持，在 GitHub Pages 上可能无法完整运行
+    </p>
+</body>
+</html>

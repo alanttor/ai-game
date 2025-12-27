@@ -517,8 +517,11 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>或直接粘贴HTML代码</label>
-                <textarea id="htmlCode" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&#10;..."></textarea>
+                <label>或直接粘贴HTML代码 <span style="color:#8892b0;font-size:0.85em">(单个项目限制 100KB)</span></label>
+                <textarea id="htmlCode" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&#10;..." maxlength="102400"></textarea>
+                <div style="text-align:right;color:#8892b0;font-size:0.8em;margin-top:5px;">
+                    <span id="codeSize">0</span> / 100 KB
+                </div>
             </div>
             <div class="btn-group">
                 <button class="btn btn-secondary" id="cancelBtn">取消</button>
@@ -731,6 +734,7 @@
         const GITHUB_CONFIG = {
             owner: 'alanttor',
             repo: 'ai-game',
+            // 数据文件在仓库中的路径
             path: 'programmin- prompt-word-demo/data/projects.json',
             // %%GITHUB_TOKEN%% 会在部署时被替换为真实 Token
             token: '%%GITHUB_TOKEN%%'
@@ -853,7 +857,6 @@
         async function deleteUserProject(id) {
             const projects = getUserProjects().filter(p => p.id !== id);
             await saveUserProjects(projects);
-            localStorage.removeItem(`project_html_${id}`);
             renderProjects();
         }
 
@@ -928,12 +931,14 @@
                 if (e.target.classList.contains('delete-btn')) return;
                 
                 if (isUserProject) {
-                    // 用户项目：从localStorage读取HTML并在新窗口打开
-                    const htmlContent = localStorage.getItem(`project_html_${project.id}`);
+                    // 用户项目：从项目数据中读取HTML并在新窗口打开
+                    const htmlContent = project.htmlContent;
                     if (htmlContent) {
                         const blob = new Blob([htmlContent], { type: 'text/html' });
                         const url = URL.createObjectURL(blob);
                         window.open(url, '_blank');
+                    } else {
+                        Dialog.toast('该项目没有HTML内容', 'error');
                     }
                 } else {
                     // 内置项目：直接跳转
@@ -981,14 +986,33 @@
         htmlFile.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                fileLabel.textContent = `✅ 已选择: ${file.name}`;
+                if (file.size > 100 * 1024) {
+                    Dialog.alert({
+                        icon: '⚠️',
+                        title: '文件过大',
+                        message: `文件大小 ${(file.size/1024).toFixed(1)}KB 超过限制（100KB），请压缩后重试`
+                    });
+                    return;
+                }
+                fileLabel.textContent = `✅ 已选择: ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     htmlCode.value = e.target.result;
+                    updateCodeSize();
                 };
                 reader.readAsText(file);
             }
         });
+
+        // 更新代码大小显示
+        function updateCodeSize() {
+            const size = new Blob([htmlCode.value]).size;
+            const sizeKB = (size / 1024).toFixed(1);
+            document.getElementById('codeSize').textContent = sizeKB;
+            document.getElementById('codeSize').style.color = size > 100 * 1024 ? '#ff6b6b' : '#8892b0';
+        }
+
+        htmlCode.addEventListener('input', updateCodeSize);
 
         // 拖拽上传
         fileLabel.addEventListener('dragover', (e) => {
@@ -1038,6 +1062,17 @@
                 return;
             }
 
+            // 检查文件大小
+            const codeSize = new Blob([code]).size;
+            if (codeSize > 100 * 1024) {
+                await Dialog.alert({
+                    icon: '⚠️',
+                    title: '内容过大',
+                    message: `HTML内容 ${(codeSize/1024).toFixed(1)}KB 超过限制（100KB），请精简代码后重试`
+                });
+                return;
+            }
+
             // 验证HTML代码
             if (!code.includes('<html') && !code.includes('<body') && !code.includes('<div')) {
                 const confirmed = await Dialog.confirm({
@@ -1050,20 +1085,17 @@
                 if (!confirmed) return;
             }
 
+            // 将HTML内容也存入项目数据中（这样所有人都能访问）
             const project = {
                 title,
                 desc: desc || '用户自定义项目',
                 icon,
                 color: '#ffd700',
-                tags: ['自定义']
+                tags: ['自定义'],
+                htmlContent: code  // HTML内容存到GitHub
             };
 
-            addUserProject(project);
-            
-            // 存储HTML内容
-            const projects = getUserProjects();
-            const newProject = projects[projects.length - 1];
-            localStorage.setItem(`project_html_${newProject.id}`, code);
+            await addUserProject(project);
 
             // 重置表单
             document.getElementById('projectTitle').value = '';
