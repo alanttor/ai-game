@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML 互动项目展示</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" href="logo.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -201,6 +201,22 @@
         }
         .project-card:hover .delete-btn { opacity: 1; }
         .delete-btn:hover { background: rgba(255, 0, 0, 0.4); }
+
+        .prompt-btn {
+            position: absolute;
+            top: 8px; right: 40px;
+            background: rgba(0, 212, 255, 0.2);
+            border: none;
+            color: #00d4ff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s;
+            font-size: 0.7em;
+        }
+        .project-card:hover .prompt-btn { opacity: 1; }
+        .prompt-btn:hover { background: rgba(0, 212, 255, 0.4); }
 
         .user-section-title {
             color: #ffd700;
@@ -473,6 +489,33 @@
         <span id="toastMessage">操作成功</span>
     </div>
 
+    <!-- 提示词模态框 -->
+    <div class="modal" id="promptModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📝 <span id="promptModalTitle">提示词</span></h2>
+                <button class="close-btn" id="closePromptModal">&times;</button>
+            </div>
+            <div id="promptViewMode">
+                <div id="promptContent" style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 16px; white-space: pre-wrap; line-height: 1.8; font-size: 0.9em; max-height: 400px; overflow-y: auto;"></div>
+                <div class="btn-group" style="margin-top: 16px;">
+                    <button class="btn btn-secondary" id="editPromptBtn">✏️ 编辑</button>
+                    <button class="btn btn-secondary" id="copyPromptBtn">📋 复制</button>
+                </div>
+            </div>
+            <div id="promptEditMode" style="display: none;">
+                <div class="form-group">
+                    <label>输入提示词（支持Markdown格式，会自动排版）</label>
+                    <textarea id="promptInput" style="min-height: 300px;" placeholder="请输入该项目的提示词..."></textarea>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="cancelPromptBtn">取消</button>
+                    <button class="btn btn-primary" id="savePromptBtn">💾 保存提示词</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
 
         // ========== 对话框系统 ==========
@@ -583,7 +626,7 @@
             // 生命科学
             { title: '神经网络可视化', file: 'biology/neural-network.html', icon: '🧠', color: '#00ff00', category: 'biology',
               desc: '交互式神经网络学习器，前向/反向传播', tags: ['机器学习', 'AI'] },
-            { title: '人体生理模拟器', file: 'biology/body-physiology.html', icon: '🫀', color: '#ff4466', category: 'biology',
+            { title: '人体生理模拟器', file: 'biology/body-physiology.html', icon: '🧍🏼', color: '#ff4466', category: 'biology',
               desc: '多系统协调的人体生理学仿真', tags: ['生理学', '医学'] },
             { title: '流行病传播模拟', file: 'biology/epidemic-spread.html', icon: '🦠', color: '#44ff88', category: 'biology',
               desc: 'SEIR网络传播模型，干预措施分析', tags: ['流行病学', '网络'] },
@@ -664,7 +707,15 @@
             { title: '方案平台模板', file: 'web/solution-platform.html', icon: '💡', color: '#6366f1', category: 'web',
               desc: '企业解决方案平台，方案展示、服务商入驻', tags: ['方案', '平台模板'] },
             { title: 'MES系统模板', file: 'web/mes-system.html', icon: '🏭', color: '#3b82f6', category: 'web',
-              desc: '数字化制造执行系统，生产看板、工单管理', tags: ['MES', '系统模板'] }
+              desc: '数字化制造执行系统，生产看板、工单管理', tags: ['MES', '系统模板'] },
+            { title: '小红书风格页面', file: 'web/xiaohongshu.html', icon: '📕', color: '#FF2442', category: 'web',
+              desc: '小红书风格瀑布流页面，搜索筛选、详情弹窗、点赞收藏', tags: ['社交', '瀑布流'] },
+            { title: '音乐播放器UI展示', file: 'web/music-player-ui.html', icon: '🎵', color: '#1DB954', category: 'web',
+              desc: '8个精美音乐播放器界面，手机框架展示，深色主题', tags: ['UI展示', '音乐播放器'] },
+            { title: '冥想APP界面展示', file: 'web/meditation-app-ui.html', icon: '🧘', color: '#667eea', category: 'web',
+              desc: '6个冥想APP界面，紫色渐变主题，粒子动画', tags: ['UI展示', '冥想APP'] },
+            { title: '记账理财APP展示', file: 'web/finance-app-ui.html', icon: '💰', color: '#667eea', category: 'web',
+              desc: '6个记账APP界面，Bento风格，Canvas图表', tags: ['UI展示', '记账APP'] }
         ];
 
         // ========== GitHub 配置 ==========
@@ -860,16 +911,21 @@
                 });
             });
 
+            // 绑定提示词按钮事件
+            bindPromptButtons();
+
             // 更新统计
             document.getElementById('statsInfo').textContent = `共 ${builtInProjects.length} 个内置项目，${Object.keys(categories).length - 1} 个分类`;
         }
 
         function createProjectCardHTML(project, isUserProject) {
             const deleteBtn = isUserProject ? `<button class="delete-btn" data-id="${project.id}">×</button>` : '';
+            const promptBtn = `<button class="prompt-btn" data-title="${project.title}">📝 提示词</button>`;
             return `
                 <div class="project-card" style="--card-color: ${project.color || '#00d4ff'};" 
-                     data-file="${project.file || ''}" data-user="${isUserProject}" data-id="${project.id || ''}">
+                     data-file="${project.file || ''}" data-user="${isUserProject}" data-id="${project.id || ''}" data-title="${project.title}">
                     ${deleteBtn}
+                    ${promptBtn}
                     <div class="project-icon">${project.icon}</div>
                     <div class="project-title">${project.title}</div>
                     <div class="project-desc">${project.desc}</div>
@@ -885,6 +941,246 @@
         document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
         document.getElementById('cancelBtn').addEventListener('click', () => modal.classList.remove('show'));
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+        // ========== 提示词功能 ==========
+        let promptsData = [];
+        let currentPromptTitle = '';
+        let promptsFileSha = null;
+        const promptModal = document.getElementById('promptModal');
+        const promptViewMode = document.getElementById('promptViewMode');
+        const promptEditMode = document.getElementById('promptEditMode');
+        const promptContent = document.getElementById('promptContent');
+        const promptInput = document.getElementById('promptInput');
+
+        // 提示词存储配置（使用与用户项目相同的GitHub配置）
+        const PROMPTS_CONFIG = {
+            owner: 'alanttor',
+            repo: 'ai-game',
+            path: 'prompt-word-demo/data/prompts.json',
+            token: '%%GITHUB_TOKEN%%'
+        };
+        const USE_GITHUB_PROMPTS = PROMPTS_CONFIG.token !== '' && !PROMPTS_CONFIG.token.includes('%%');
+
+        // 加载提示词数据
+        async function loadPrompts() {
+            // 优先从GitHub加载
+            if (USE_GITHUB_PROMPTS) {
+                try {
+                    const encodedPath = encodeURIComponent(PROMPTS_CONFIG.path).replace(/%2F/g, '/');
+                    const res = await fetch(`https://api.github.com/repos/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/contents/${encodedPath}`, {
+                        headers: { 'Authorization': `token ${PROMPTS_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        promptsFileSha = data.sha;
+                        promptsData = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+                        console.log('从GitHub加载提示词成功:', promptsData.length, '条');
+                        return;
+                    }
+                } catch (e) {
+                    console.log('GitHub加载失败，尝试本地文件');
+                }
+            }
+            
+            // 从本地JSON文件加载
+            try {
+                const res = await fetch('data/prompts.json');
+                if (res.ok) {
+                    promptsData = await res.json();
+                    console.log('从本地文件加载提示词成功:', promptsData.length, '条');
+                }
+            } catch (e) {
+                console.log('本地文件加载失败，使用空数据');
+                promptsData = [];
+            }
+            
+            // 合并localStorage中的数据（本地备份）
+            const localData = localStorage.getItem('promptsData');
+            if (localData) {
+                const localPrompts = JSON.parse(localData);
+                localPrompts.forEach(lp => {
+                    const existingIndex = promptsData.findIndex(p => p.title === lp.title);
+                    if (existingIndex >= 0) {
+                        promptsData[existingIndex] = lp;
+                    } else {
+                        promptsData.push(lp);
+                    }
+                });
+            }
+        }
+
+        // 保存提示词到GitHub
+        async function savePromptsToGitHub() {
+            if (!USE_GITHUB_PROMPTS) {
+                // 仅保存到localStorage
+                localStorage.setItem('promptsData', JSON.stringify(promptsData));
+                return true;
+            }
+            
+            try {
+                const content = btoa(unescape(encodeURIComponent(JSON.stringify(promptsData, null, 2))));
+                const body = { 
+                    message: `更新提示词 - ${new Date().toLocaleString('zh-CN')}`, 
+                    content: content, 
+                    branch: 'master' 
+                };
+                if (promptsFileSha) body.sha = promptsFileSha;
+                
+                const encodedPath = encodeURIComponent(PROMPTS_CONFIG.path).replace(/%2F/g, '/');
+                const res = await fetch(`https://api.github.com/repos/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/contents/${encodedPath}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `token ${PROMPTS_CONFIG.token}`, 
+                        'Accept': 'application/vnd.github.v3+json', 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    promptsFileSha = data.content.sha;
+                    // 同时保存到localStorage作为备份
+                    localStorage.setItem('promptsData', JSON.stringify(promptsData));
+                    return true;
+                }
+                throw new Error('保存失败');
+            } catch (e) {
+                console.error('GitHub保存失败:', e);
+                // 降级到localStorage
+                localStorage.setItem('promptsData', JSON.stringify(promptsData));
+                return false;
+            }
+        }
+
+        // 格式化提示词（自动排版）
+        function formatPrompt(text) {
+            if (!text) return '';
+            // 处理Markdown格式
+            let formatted = text
+                .replace(/\n{3,}/g, '\n\n')  // 多个换行合并为两个
+                .replace(/^(#{1,6})\s*(.+)$/gm, '<strong style="color:#00d4ff;font-size:1.1em;">$2</strong>')  // 标题
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // 粗体
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')  // 斜体
+                .replace(/`(.+?)`/g, '<code style="background:rgba(0,212,255,0.2);padding:2px 6px;border-radius:4px;">$1</code>')  // 行内代码
+                .replace(/^\* /gm, '• ')  // 无序列表
+                .replace(/^\d+\.\s/gm, (match) => match)  // 有序列表保持
+                .replace(/\n/g, '<br>');  // 换行
+            return formatted;
+        }
+
+        // 查找提示词
+        function findPrompt(title) {
+            return promptsData.find(p => p.title === title);
+        }
+
+        // 打开提示词模态框
+        function openPromptModal(title) {
+            currentPromptTitle = title;
+            document.getElementById('promptModalTitle').textContent = `提示词 - ${title}`;
+            
+            const prompt = findPrompt(title);
+            if (prompt && prompt.prompt) {
+                promptContent.innerHTML = formatPrompt(prompt.prompt);
+                promptViewMode.style.display = 'block';
+                promptEditMode.style.display = 'none';
+            } else {
+                promptInput.value = '';
+                promptViewMode.style.display = 'none';
+                promptEditMode.style.display = 'block';
+            }
+            
+            promptModal.classList.add('show');
+        }
+
+        // 关闭提示词模态框
+        document.getElementById('closePromptModal').addEventListener('click', () => {
+            promptModal.classList.remove('show');
+        });
+        promptModal.addEventListener('click', (e) => {
+            if (e.target === promptModal) promptModal.classList.remove('show');
+        });
+
+        // 编辑按钮
+        document.getElementById('editPromptBtn').addEventListener('click', () => {
+            const prompt = findPrompt(currentPromptTitle);
+            promptInput.value = prompt ? prompt.prompt : '';
+            promptViewMode.style.display = 'none';
+            promptEditMode.style.display = 'block';
+        });
+
+        // 复制按钮
+        document.getElementById('copyPromptBtn').addEventListener('click', async () => {
+            const prompt = findPrompt(currentPromptTitle);
+            if (prompt && prompt.prompt) {
+                try {
+                    await navigator.clipboard.writeText(prompt.prompt);
+                    Dialog.toast('提示词已复制到剪贴板', 'success');
+                } catch (e) {
+                    Dialog.toast('复制失败', 'error');
+                }
+            }
+        });
+
+        // 取消编辑
+        document.getElementById('cancelPromptBtn').addEventListener('click', () => {
+            const prompt = findPrompt(currentPromptTitle);
+            if (prompt && prompt.prompt) {
+                promptViewMode.style.display = 'block';
+                promptEditMode.style.display = 'none';
+            } else {
+                promptModal.classList.remove('show');
+            }
+        });
+
+        // 保存提示词
+        document.getElementById('savePromptBtn').addEventListener('click', async () => {
+            const text = promptInput.value.trim();
+            if (!text) {
+                await Dialog.alert({ icon: '⚠️', title: '提示', message: '请输入提示词内容' });
+                return;
+            }
+
+            // 更新或添加提示词
+            const existingIndex = promptsData.findIndex(p => p.title === currentPromptTitle);
+            if (existingIndex >= 0) {
+                promptsData[existingIndex].prompt = text;
+            } else {
+                promptsData.push({ title: currentPromptTitle, prompt: text });
+            }
+
+            // 保存到GitHub或localStorage
+            const saved = await savePromptsToGitHub();
+            
+            // 显示格式化后的内容
+            promptContent.innerHTML = formatPrompt(text);
+            promptViewMode.style.display = 'block';
+            promptEditMode.style.display = 'none';
+
+            if (saved && USE_GITHUB_PROMPTS) {
+                Dialog.toast('提示词已保存到云端', 'success');
+            } else if (saved) {
+                Dialog.toast('提示词已保存到本地', 'success');
+            } else {
+                Dialog.toast('云端保存失败，已保存到本地', 'warning');
+            }
+        });
+
+        // 绑定提示词按钮事件
+        function bindPromptButtons() {
+            document.querySelectorAll('.prompt-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const title = btn.dataset.title;
+                    openPromptModal(title);
+                });
+            });
+        }
+
+        // 初始化时加载提示词
+        async function initPrompts() {
+            await loadPrompts();
+        }
 
         const htmlFile = document.getElementById('htmlFile');
         const htmlCode = document.getElementById('htmlCode');
@@ -962,8 +1258,11 @@
         });
 
         // 初始化
-        renderCategoryNav();
-        renderProjects();
+        (async function init() {
+            await initPrompts();
+            renderCategoryNav();
+            renderProjects();
+        })();
 
         // ========== 主题切换 ==========
         const themeToggle = document.getElementById('themeToggle');
@@ -990,7 +1289,7 @@
         // 修改项目跳转，传递主题参数
         document.getElementById('projectsContainer').addEventListener('click', (e) => {
             const card = e.target.closest('.project-card');
-            if (!card || e.target.classList.contains('delete-btn')) return;
+            if (!card || e.target.classList.contains('delete-btn') || e.target.classList.contains('prompt-btn')) return;
             
             const file = card.dataset.file;
             const isUser = card.dataset.user === 'true';

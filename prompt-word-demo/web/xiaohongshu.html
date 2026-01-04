@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书风格页面</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📕</text></svg>">
+    <style>
+        /* ========== CSS变量 ========== */
+        :root {
+            --primary: #FF2442;
+            --bg-body: #f5f5f5;
+            --bg-card: #fff;
+            --bg-nav: #fff;
+            --bg-input: #f0f0f0;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --border: #eee;
+            --shadow: rgba(0,0,0,0.08);
+        }
+        [data-theme="dark"] {
+            --bg-body: #121212;
+            --bg-card: #1e1e1e;
+            --bg-nav: #1a1a1a;
+            --bg-input: #2a2a2a;
+            --text-primary: #eee;
+            --text-secondary: #aaa;
+            --text-muted: #777;
+            --border: #333;
+            --shadow: rgba(0,0,0,0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* ========== 顶部导航 ========== */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: var(--bg-nav);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex; align-items: center; gap: 20px;
+        }
+        .logo {
+            font-size: 1.5em; font-weight: bold; color: var(--primary);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .search-box {
+            flex: 1; max-width: 400px; position: relative;
+        }
+        .search-input {
+            width: 100%; padding: 10px 40px 10px 16px;
+            border: none; border-radius: 20px;
+            background: var(--bg-input); color: var(--text-primary);
+            font-size: 14px; outline: none;
+            transition: box-shadow 0.3s;
+        }
+        .search-input:focus { box-shadow: 0 0 0 2px var(--primary); }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-icon {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); font-size: 14px;
+        }
+        /* 热搜建议 */
+        .search-suggest {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--bg-card); border-radius: 12px;
+            box-shadow: 0 4px 20px var(--shadow);
+            margin-top: 8px; padding: 12px 0;
+            display: none; z-index: 10;
+        }
+        .search-suggest.show { display: block; }
+        .suggest-title { padding: 8px 16px; font-size: 12px; color: var(--text-muted); }
+        .suggest-item {
+            padding: 10px 16px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+            transition: background 0.2s;
+        }
+        .suggest-item:hover { background: var(--bg-input); }
+        .suggest-rank {
+            width: 20px; height: 20px; border-radius: 4px;
+            background: var(--primary); color: #fff;
+            font-size: 12px; display: flex; align-items: center; justify-content: center;
+        }
+        .suggest-rank.gray { background: var(--text-muted); }
+        
+        .nav-right { display: flex; align-items: center; gap: 15px; }
+        .theme-btn {
+            width: 36px; height: 36px; border-radius: 50%;
+            border: none; background: var(--bg-input);
+            cursor: pointer; font-size: 16px;
+            transition: transform 0.3s;
+        }
+        .theme-btn:hover { transform: rotate(30deg); }
+        .user-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #ff6b81);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 14px; cursor: pointer;
+        }
+
+        /* ========== 分类标签 ========== */
+        .tabs-wrapper {
+            position: fixed; top: 61px; left: 0; right: 0; z-index: 90;
+            background: var(--bg-nav); border-bottom: 1px solid var(--border);
+            padding: 12px 20px; overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tabs-wrapper::-webkit-scrollbar { display: none; }
+        .tabs {
+            display: flex; gap: 12px; white-space: nowrap;
+        }
+        .tab {
+            padding: 8px 18px; border-radius: 20px;
+            background: var(--bg-input); color: var(--text-secondary);
+            font-size: 14px; cursor: pointer;
+            transition: all 0.3s; border: none;
+        }
+        .tab:hover { color: var(--primary); }
+        .tab.active {
+            background: var(--primary); color: #fff;
+        }
+
+        /* ========== 瀑布流主体 ========== */
+        .main { padding: 130px 20px 80px; max-width: 1400px; margin: 0 auto; }
+        .waterfall {
+            column-count: 2; column-gap: 16px;
+        }
+        @media (min-width: 768px) { .waterfall { column-count: 3; } }
+        @media (min-width: 1024px) { .waterfall { column-count: 4; } }
+
+        .card {
+            break-inside: avoid; margin-bottom: 16px;
+            background: var(--bg-card); border-radius: 12px;
+            overflow: hidden; cursor: pointer;
+            box-shadow: 0 2px 12px var(--shadow);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 8px 25px var(--shadow);
+        }
+        .card-img {
+            width: 100%; aspect-ratio: 3/4;
+            object-fit: cover; display: block;
+            background: var(--bg-input);
+        }
+        .card-content { padding: 12px; }
+        .card-title {
+            font-size: 14px; line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .card-footer {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card-user {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .card-avatar {
+            width: 24px; height: 24px; border-radius: 50%;
+            object-fit: cover;
+        }
+        .card-username { font-size: 12px; color: var(--text-muted); }
+        .card-likes {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 12px; color: var(--text-muted);
+        }
+
+        /* ========== 详情弹窗 ========== */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.6);
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--bg-card); border-radius: 16px;
+            max-width: 900px; width: 100%; max-height: 90vh;
+            overflow: hidden; display: flex;
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-img {
+            width: 50%; object-fit: cover;
+            background: var(--bg-input);
+        }
+        .modal-body {
+            width: 50%; padding: 24px;
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 20px;
+        }
+        .modal-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+        .modal-user-info { flex: 1; }
+        .modal-username { font-weight: 600; }
+        .modal-time { font-size: 12px; color: var(--text-muted); }
+        .follow-btn {
+            padding: 8px 20px; border-radius: 20px;
+            background: var(--primary); color: #fff;
+            border: none; font-size: 14px; cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .follow-btn:hover { opacity: 0.9; }
+        .follow-btn.followed {
+            background: var(--bg-input); color: var(--text-secondary);
+        }
+        .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+        .modal-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.8; flex: 1; }
+        .modal-actions {
+            display: flex; gap: 20px; padding-top: 20px;
+            border-top: 1px solid var(--border); margin-top: 20px;
+        }
+        .action-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            background: none; border: none; cursor: pointer;
+            color: var(--text-secondary); font-size: 12px;
+            transition: color 0.3s, transform 0.2s;
+        }
+        .action-btn:hover { color: var(--text-primary); }
+        .action-btn.active { color: var(--primary); }
+        .action-btn .icon { font-size: 24px; }
+        .action-btn.active .icon { animation: pop 0.3s ease; }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .modal-close {
+            position: absolute; top: 16px; right: 16px;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(0,0,0,0.5); color: #fff;
+            border: none; font-size: 20px; cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .modal { flex-direction: column; max-height: 95vh; }
+            .modal-img { width: 100%; height: 300px; }
+            .modal-body { width: 100%; }
+        }
+
+        /* ========== 底部导航(手机) ========== */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--bg-nav); border-top: 1px solid var(--border);
+            display: none; justify-content: space-around; align-items: center;
+            padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        @media (max-width: 768px) { .bottom-nav { display: flex; } }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            color: var(--text-muted); font-size: 10px;
+            background: none; border: none; cursor: pointer;
+            transition: color 0.3s;
+        }
+        .nav-item.active { color: var(--primary); }
+        .nav-item .icon { font-size: 22px; }
+        .nav-item.publish {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: var(--primary); color: #fff;
+            font-size: 28px; margin-top: -20px;
+            box-shadow: 0 4px 12px rgba(255,36,66,0.4);
+        }
+        .nav-item.publish .icon { font-size: 28px; }
+
+        /* ========== 加载更多 ========== */
+        .loading {
+            text-align: center; padding: 30px;
+            color: var(--text-muted); font-size: 14px;
+        }
+        .loading-spinner {
+            width: 24px; height: 24px; border: 2px solid var(--border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 隐藏桌面端底部导航占位 */
+        @media (max-width: 768px) {
+            .main { padding-bottom: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="logo">📕 小红书</div>
+        <div class="search-box">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索笔记、用户">
+            <span class="search-icon">🔍</span>
+            <div class="search-suggest" id="searchSuggest">
+                <div class="suggest-title">热门搜索</div>
+                <div class="suggest-item"><span class="suggest-rank">1</span>成都旅游攻略</div>
+                <div class="suggest-item"><span class="suggest-rank">2</span>日式穿搭</div>
+                <div class="suggest-item"><span class="suggest-rank">3</span>咖啡探店</div>
+                <div class="suggest-item"><span class="suggest-rank gray">4</span>美食推荐</div>
+                <div class="suggest-item"><span class="suggest-rank gray">5</span>摄影技巧</div>
+            </div>
+        </div>
+        <div class="nav-right">
+            <button class="theme-btn" id="themeBtn">🌙</button>
+            <div class="user-avatar">U</div>
+        </div>
+    </nav>
+
+    <!-- 分类标签 -->
+    <div class="tabs-wrapper">
+        <div class="tabs" id="tabs">
+            <button class="tab active" data-cat="all">发现</button>
+            <button class="tab" data-cat="travel">旅行</button>
+            <button class="tab" data-cat="food">美食</button>
+            <button class="tab" data-cat="fashion">时尚</button>
+            <button class="tab" data-cat="photo">摄影</button>
+            <button class="tab" data-cat="coffee">咖啡</button>
+        </div>
+    </div>
+
+    <!-- 主体内容 -->
+    <main class="main">
+        <div class="waterfall" id="waterfall"></div>
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>加载中...</div>
+        </div>
+    </main>
+
+    <!-- 详情弹窗 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <button class="modal-close" id="modalClose">×</button>
+        <div class="modal">
+            <img class="modal-img" id="modalImg" src="" alt="">
+            <div class="modal-body">
+                <div class="modal-header">
+                    <img class="modal-avatar" id="modalAvatar" src="" alt="">
+                    <div class="modal-user-info">
+                        <div class="modal-username" id="modalUsername"></div>
+                        <div class="modal-time" id="modalTime"></div>
+                    </div>
+                    <button class="follow-btn" id="followBtn">关注</button>
+                </div>
+                <div class="modal-title" id="modalTitle"></div>
+                <div class="modal-desc" id="modalDesc"></div>
+                <div class="modal-actions">
+                    <button class="action-btn" id="likeBtn"><span class="icon">🤍</span><span id="likeCount">0</span></button>
+                    <button class="action-btn" id="collectBtn"><span class="icon">☆</span><span>收藏</span></button>
+                    <button class="action-btn"><span class="icon">💬</span><span>评论</span></button>
+                    <button class="action-btn"><span class="icon">↗</span><span>分享</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <nav class="bottom-nav">
+        <button class="nav-item active"><span class="icon">🏠</span>首页</button>
+        <button class="nav-item"><span class="icon">▶️</span>视频</button>
+        <button class="nav-item publish"><span class="icon">+</span></button>
+        <button class="nav-item"><span class="icon">💬</span>消息</button>
+        <button class="nav-item"><span class="icon">👤</span>我</button>
+    </nav>
+
+    <script>
+        // ========== 模拟数据 ==========
+        const mockData = [
+            { id: 1, title: '成都三日游攻略🎒 这些小众景点太绝了', cat: 'travel', img: 'https://picsum.photos/400/533?random=1', user: '旅行达人小美', avatar: 'https://i.pravatar.cc/100?img=1', likes: 2341, desc: '成都真的太好玩了！这次去了很多小众景点，人少景美，强烈推荐给大家～第一天去了人民公园喝茶，感受老成都的慢生活；第二天打卡了东郊记忆，文艺气息满满；第三天去了青城山，空气超级好！' },
+            { id: 2, title: '这家日料太绝了😋 人均80吃到撑', cat: 'food', img: 'https://picsum.photos/400/533?random=2', user: '吃货小王', avatar: 'https://i.pravatar.cc/100?img=2', likes: 1892, desc: '藏在巷子里的宝藏日料店！刺身新鲜到爆，三文鱼入口即化，寿司米饭粒粒分明。最推荐他家的�的�的鳗鱼饭，酱汁浓郁，鳗鱼烤得外焦里嫩～' },
+            { id: 3, title: '秋冬穿搭分享🧥 这几套太显瘦了', cat: 'fashion', img: 'https://picsum.photos/400/533?random=3', user: '时尚博主Luna', avatar: 'https://i.pravatar.cc/100?img=3', likes: 3567, desc: '分享几套我最近超爱的秋冬穿搭！大衣+阔腿裤的组合真的太显瘦了，而且很有气质。颜色搭配上我选择了驼色系，百搭又高级～' },
+            { id: 4, title: '手机摄影技巧📱 教你拍出大片感', cat: 'photo', img: 'https://picsum.photos/400/533?random=4', user: '摄影师阿杰', avatar: 'https://i.pravatar.cc/100?img=4', likes: 4521, desc: '不需要专业相机，手机也能拍出大片！关键是要掌握光线和构图。黄金时段拍摄效果最好，三分法构图让画面更有层次感。' },
+            { id: 5, title: '探店｜藏在胡同里的咖啡馆☕', cat: 'coffee', img: 'https://picsum.photos/400/533?random=5', user: '咖啡控小李', avatar: 'https://i.pravatar.cc/100?img=5', likes: 1234, desc: '这家咖啡馆真的太有氛围了！复古的装修风格，暖黄的灯光，坐在窗边看着外面的胡同，时间仿佛都慢了下来。他家的手冲咖啡很专业，豆子都是自己烘焙的。' },
+            { id: 6, title: '云南大理｜洱海边的浪漫日落🌅', cat: 'travel', img: 'https://picsum.photos/400/533?random=6', user: '旅行vlogger', avatar: 'https://i.pravatar.cc/100?img=6', likes: 5678, desc: '大理的日落真的太美了！坐在洱海边，看着太阳慢慢落下，天空被染成橙红色，整个人都被治愈了。推荐大家一定要来感受一下～' },
+            { id: 7, title: '自制提拉米苏🍰 零失败教程', cat: 'food', img: 'https://picsum.photos/400/533?random=7', user: '烘焙小厨娘', avatar: 'https://i.pravatar.cc/100?img=7', likes: 2890, desc: '在家也能做出咖啡店级别的提拉米苏！材料简单，步骤也不复杂。关键是马斯卡彭芝士要打发到位，咖啡液不要泡太久，这样口感才会绵密顺滑～' },
+            { id: 8, title: '极简风穿搭💫 高级感满满', cat: 'fashion', img: 'https://picsum.photos/400/533?random=8', user: '穿搭博主Coco', avatar: 'https://i.pravatar.cc/100?img=8', likes: 4123, desc: '极简风真的太适合日常了！基础款单品搭配出高级感，关键是颜色要统一，黑白灰+大地色系永远不会出错。' },
+            { id: 9, title: '街拍技巧分享📸 捕捉城市瞬间', cat: 'photo', img: 'https://picsum.photos/400/533?random=9', user: '街拍摄影师', avatar: 'https://i.pravatar.cc/100?img=9', likes: 3456, desc: '街拍最重要的是观察力和反应速度。多留意光影的变化，等待有趣的人物出现在画面中。耐心是街拍最好的朋友～' },
+            { id: 10, title: '上海网红咖啡馆合集☕', cat: 'coffee', img: 'https://picsum.photos/400/533?random=10', user: '魔都探店', avatar: 'https://i.pravatar.cc/100?img=10', likes: 2567, desc: '整理了上海最值得打卡的10家咖啡馆！从复古风到工业风，从社区小店到设计师品牌，总有一家适合你～' },
+            { id: 11, title: '西藏自驾游🚗 318国道全攻略', cat: 'travel', img: 'https://picsum.photos/400/533?random=11', user: '自驾达人', avatar: 'https://i.pravatar.cc/100?img=11', likes: 6789, desc: '318国道真的是此生必走的一条路！沿途风景美到窒息，从成都出发，经过康定、理塘、林芝，最后到达拉萨。建议预留15天以上的时间，慢慢感受～' },
+            { id: 12, title: '火锅蘸料调配秘方🍲', cat: 'food', img: 'https://picsum.photos/400/533?random=12', user: '火锅爱好者', avatar: 'https://i.pravatar.cc/100?img=12', likes: 3890, desc: '吃火锅蘸料很重要！分享我的万能蘸料配方：蒜泥+香油+蚝油+香菜+小米辣+葱花，再加一勺火锅汤底，绝了！' },
+            { id: 13, title: '韩系穿搭🇰🇷 温柔又气质', cat: 'fashion', img: 'https://picsum.photos/400/533?random=13', user: '韩风穿搭', avatar: 'https://i.pravatar.cc/100?img=13', likes: 2345, desc: '韩系穿搭的精髓就是温柔和气质！针织衫+半裙的组合超级百搭，颜色选择莫兰迪色系，整体看起来很舒服～' },
+            { id: 14, title: '人像摄影布光教程💡', cat: 'photo', img: 'https://picsum.photos/400/533?random=14', user: '人像摄影师', avatar: 'https://i.pravatar.cc/100?img=14', likes: 4567, desc: '人像摄影中光线是灵魂！分享几种常用的布光方式：伦勃朗光、蝴蝶光、分割光...不同的光线能营造出完全不同的氛围。' },
+            { id: 15, title: '杭州宝藏咖啡馆🏠', cat: 'coffee', img: 'https://picsum.photos/400/533?random=15', user: '杭州本地人', avatar: 'https://i.pravatar.cc/100?img=15', likes: 1890, desc: '杭州除了西湖，还有很多宝藏咖啡馆！这家藏在老小区里的店，环境超级温馨，老板是个很有故事的人，咖啡也做得很用心。' },
+            { id: 16, title: '厦门鼓浪屿两日游🏝️', cat: 'travel', img: 'https://picsum.photos/400/533?random=16', user: '海岛控', avatar: 'https://i.pravatar.cc/100?img=16', likes: 3456, desc: '鼓浪屿真的太适合慢慢逛了！建议住一晚，感受夜晚安静的小岛。白天可以去日光岩看全景，下午在巷子里找家咖啡馆发呆～' },
+            { id: 17, title: '减脂餐食谱分享🥗', cat: 'food', img: 'https://picsum.photos/400/533?random=17', user: '健身达人', avatar: 'https://i.pravatar.cc/100?img=17', likes: 5678, desc: '减脂期也能吃得很满足！分享我的一周减脂餐食谱，高蛋白低碳水，做法简单，味道也不错。关键是要坚持～' },
+            { id: 18, title: '法式复古穿搭🇫🇷', cat: 'fashion', img: 'https://picsum.photos/400/533?random=18', user: '复古女孩', avatar: 'https://i.pravatar.cc/100?img=18', likes: 2678, desc: '法式穿搭的精髓是慵懒和随性！碎花裙+针织开衫，再配上一条丝巾，优雅又不刻意。' },
+            { id: 19, title: '风光摄影后期调色🎨', cat: 'photo', img: 'https://picsum.photos/400/533?random=19', user: '后期大师', avatar: 'https://i.pravatar.cc/100?img=19', likes: 3789, desc: '风光摄影后期很重要！分享我的调色思路：先调整曝光和对比度，再处理色温和色调，最后加一点清晰度和锐化。' },
+            { id: 20, title: '成都咖啡地图☕', cat: 'coffee', img: 'https://picsum.photos/400/533?random=20', user: '成都咖啡', avatar: 'https://i.pravatar.cc/100?img=20', likes: 2123, desc: '成都的咖啡文化越来越浓了！从太古里到玉林路，到处都是有特色的咖啡馆。这份地图收藏好，够你喝一个月～' },
+            { id: 21, title: '新疆独库公路自驾🛣️', cat: 'travel', img: 'https://picsum.photos/400/533?random=21', user: '新疆旅行', avatar: 'https://i.pravatar.cc/100?img=21', likes: 7890, desc: '独库公路被称为中国最美公路！一天之内可以经历四季，从雪山到草原，从峡谷到湖泊，每一帧都是壁纸级别的风景。' },
+            { id: 22, title: '广东早茶必点清单🥟', cat: 'food', img: 'https://picsum.photos/400/533?random=22', user: '广东吃货', avatar: 'https://i.pravatar.cc/100?img=22', likes: 4567, desc: '来广东一定要体验早茶文化！虾饺、烧卖、肠粉、叉烧包...这些经典必点。记得早点去，不然要排很久的队～' },
+            { id: 23, title: '日系穿搭合集🎌', cat: 'fashion', img: 'https://picsum.photos/400/533?random=23', user: '日系女孩', avatar: 'https://i.pravatar.cc/100?img=23', likes: 3234, desc: '日系穿搭的特点是层次感和细节！叠穿是关键，颜色不要超过三种，配饰要精致。' },
+            { id: 24, title: '夜景摄影入门🌃', cat: 'photo', img: 'https://picsum.photos/400/533?random=24', user: '夜景摄影', avatar: 'https://i.pravatar.cc/100?img=24', likes: 2890, desc: '夜景摄影需要三脚架！快门速度放慢，ISO不要太高，光圈收小一点可以拍出星芒效果。' },
+            { id: 25, title: '北京胡同咖啡探店🏘️', cat: 'coffee', img: 'https://picsum.photos/400/533?random=25', user: '北京探店', avatar: 'https://i.pravatar.cc/100?img=25', likes: 1567, desc: '北京胡同里藏着很多有意思的咖啡馆！老北京的建筑配上现代的咖啡文化，别有一番风味。' },
+            { id: 26, title: '青海湖环湖骑行🚴', cat: 'travel', img: 'https://picsum.photos/400/533?random=26', user: '骑行爱好者', avatar: 'https://i.pravatar.cc/100?img=26', likes: 4321, desc: '青海湖环湖骑行是很多人的梦想！全程360公里，建议分4-5天完成。沿途风景绝美，油菜花季节更是美到爆！' },
+            { id: 27, title: '家常菜谱｜红烧肉🥩', cat: 'food', img: 'https://picsum.photos/400/533?random=27', user: '家常菜达人', avatar: 'https://i.pravatar.cc/100?img=27', likes: 6543, desc: '红烧肉是很多人的童年味道！分享我妈妈的秘方：五花肉要先焯水，冰糖炒糖色，小火慢炖两小时，肥而不腻，入口即化～' },
+            { id: 28, title: '美式复古穿搭🇺🇸', cat: 'fashion', img: 'https://picsum.photos/400/533?random=28', user: '复古男孩', avatar: 'https://i.pravatar.cc/100?img=28', likes: 2456, desc: '美式复古的精髓是工装和牛仔！宽松的版型，做旧的质感，再配上一双马丁靴，帅气又有型。' },
+            { id: 29, title: '产品摄影技巧📦', cat: 'photo', img: 'https://picsum.photos/400/533?random=29', user: '商业摄影师', avatar: 'https://i.pravatar.cc/100?img=29', likes: 3678, desc: '产品摄影要注意光线的均匀和细节的呈现。使用柔光箱可以让光线更柔和，反光板可以补充暗部细节。' },
+            { id: 30, title: '深圳精品咖啡推荐☕', cat: 'coffee', img: 'https://picsum.photos/400/533?random=30', user: '深圳咖啡', avatar: 'https://i.pravatar.cc/100?img=30', likes: 1789, desc: '深圳的精品咖啡馆越来越多了！从南山到福田，每个区都有值得打卡的店。这几家是我的心头好，豆子品质都很高～' }
+        ];
+
+        // ========== 状态管理 ==========
+        let currentCat = 'all';
+        let searchKeyword = '';
+        let displayedCount = 0;
+        const pageSize = 12;
+        let isLoading = false;
+        let currentItem = null;
+        let likedItems = new Set();
+        let collectedItems = new Set();
+
+        // ========== DOM元素 ==========
+        const waterfall = document.getElementById('waterfall');
+        const loading = document.getElementById('loading');
+        const searchInput = document.getElementById('searchInput');
+        const searchSuggest = document.getElementById('searchSuggest');
+        const tabs = document.getElementById('tabs');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const themeBtn = document.getElementById('themeBtn');
+
+        // ========== 主题切换 ==========
+        function initTheme() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlTheme = urlParams.get('theme');
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            const theme = urlTheme || savedTheme;
+            document.documentElement.setAttribute('data-theme', theme);
+            themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        themeBtn.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+        });
+
+        // ========== 搜索功能 ==========
+        searchInput.addEventListener('focus', () => {
+            searchSuggest.classList.add('show');
+        });
+
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => searchSuggest.classList.remove('show'), 200);
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            searchKeyword = e.target.value.trim().toLowerCase();
+            resetAndLoad();
+        });
+
+        // 热搜点击
+        document.querySelectorAll('.suggest-item').forEach(item => {
+            item.addEventListener('click', () => {
+                searchInput.value = item.textContent.trim();
+                searchKeyword = item.textContent.trim().toLowerCase();
+                searchSuggest.classList.remove('show');
+                resetAndLoad();
+            });
+        });
+
+        // ========== 分类切换 ==========
+        tabs.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab')) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentCat = e.target.dataset.cat;
+                resetAndLoad();
+            }
+        });
+
+        // ========== 数据过滤 ==========
+        function getFilteredData() {
+            return mockData.filter(item => {
+                const catMatch = currentCat === 'all' || item.cat === currentCat;
+                const searchMatch = !searchKeyword || 
+                    item.title.toLowerCase().includes(searchKeyword) ||
+                    item.user.toLowerCase().includes(searchKeyword) ||
+                    item.desc.toLowerCase().includes(searchKeyword);
+                return catMatch && searchMatch;
+            });
+        }
+
+        // ========== 渲染卡片 ==========
+        function renderCards(items) {
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img class="card-img" src="${item.img}" alt="${item.title}" loading="lazy">
+                    <div class="card-content">
+                        <div class="card-title">${item.title}</div>
+                        <div class="card-footer">
+                            <div class="card-user">
+                                <img class="card-avatar" src="${item.avatar}" alt="${item.user}">
+                                <span class="card-username">${item.user}</span>
+                            </div>
+                            <div class="card-likes">❤️ ${formatNumber(item.likes)}</div>
+                        </div>
+                    </div>
+                `;
+                card.addEventListener('click', () => openModal(item));
+                waterfall.appendChild(card);
+            });
+        }
+
+        function formatNumber(num) {
+            if (num >= 10000) return (num / 10000).toFixed(1) + 'w';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+            return num;
+        }
+
+        // ========== 加载更多 ==========
+        function loadMore() {
+            if (isLoading) return;
+            
+            const filtered = getFilteredData();
+            if (displayedCount >= filtered.length) {
+                loading.innerHTML = '<div>没有更多了～</div>';
+                return;
+            }
+
+            isLoading = true;
+            loading.style.display = 'block';
+
+            setTimeout(() => {
+                const items = filtered.slice(displayedCount, displayedCount + pageSize);
+                renderCards(items);
+                displayedCount += items.length;
+                isLoading = false;
+
+                if (displayedCount >= filtered.length) {
+                    loading.innerHTML = '<div>没有更多了～</div>';
+                } else {
+                    loading.style.display = 'none';
+                }
+            }, 500);
+        }
+
+        function resetAndLoad() {
+            waterfall.innerHTML = '';
+            displayedCount = 0;
+            loading.innerHTML = '<div class="loading-spinner"></div><div>加载中...</div>';
+            loadMore();
+        }
+
+        // ========== 无限滚动 ==========
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const docHeight = document.documentElement.scrollHeight;
+
+            if (scrollTop + windowHeight >= docHeight - 200) {
+                loadMore();
+            }
+        });
+
+        // ========== 弹窗功能 ==========
+        function openModal(item) {
+            currentItem = item;
+            document.getElementById('modalImg').src = item.img;
+            document.getElementById('modalAvatar').src = item.avatar;
+            document.getElementById('modalUsername').textContent = item.user;
+            document.getElementById('modalTime').textContent = '2小时前';
+            document.getElementById('modalTitle').textContent = item.title;
+            document.getElementById('modalDesc').textContent = item.desc;
+            document.getElementById('likeCount').textContent = formatNumber(item.likes);
+
+            // 更新点赞收藏状态
+            const likeBtn = document.getElementById('likeBtn');
+            const collectBtn = document.getElementById('collectBtn');
+            
+            if (likedItems.has(item.id)) {
+                likeBtn.classList.add('active');
+                likeBtn.querySelector('.icon').textContent = '❤️';
+            } else {
+                likeBtn.classList.remove('active');
+                likeBtn.querySelector('.icon').textContent = '🤍';
+            }
+
+            if (collectedItems.has(item.id)) {
+                collectBtn.classList.add('active');
+                collectBtn.querySelector('.icon').textContent = '⭐';
+            } else {
+                collectBtn.classList.remove('active');
+                collectBtn.querySelector('.icon').textContent = '☆';
+            }
+
+            modalOverlay.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('show');
+            document.body.style.overflow = '';
+            currentItem = null;
+        }
+
+        document.getElementById('modalClose').addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // ESC关闭弹窗
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ========== 点赞收藏 ==========
+        document.getElementById('likeBtn').addEventListener('click', function() {
+            if (!currentItem) return;
+            
+            if (likedItems.has(currentItem.id)) {
+                likedItems.delete(currentItem.id);
+                this.classList.remove('active');
+                this.querySelector('.icon').textContent = '🤍';
+                currentItem.likes--;
+            } else {
+                likedItems.add(currentItem.id);
+                this.classList.add('active');
+                this.querySelector('.icon').textContent = '❤️';
+                currentItem.likes++;
+            }
+            document.getElementById('likeCount').textContent = formatNumber(currentItem.likes);
+        });
+
+        document.getElementById('collectBtn').addEventListener('click', function() {
+            if (!currentItem) return;
+            
+            if (collectedItems.has(currentItem.id)) {
+                collectedItems.delete(currentItem.id);
+                this.classList.remove('active');
+                this.querySelector('.icon').textContent = '☆';
+            } else {
+                collectedItems.add(currentItem.id);
+                this.classList.add('active');
+                this.querySelector('.icon').textContent = '⭐';
+            }
+        });
+
+        // ========== 关注按钮 ==========
+        document.getElementById('followBtn').addEventListener('click', function() {
+            if (this.classList.contains('followed')) {
+                this.classList.remove('followed');
+                this.textContent = '关注';
+            } else {
+                this.classList.add('followed');
+                this.textContent = '已关注';
+            }
+        });
+
+        // ========== 初始化 ==========
+        initTheme();
+        loadMore();
+    </script>
+</body>
+</html>
