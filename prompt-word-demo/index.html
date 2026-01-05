@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML 互动项目展示</title>
-    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -963,7 +963,7 @@
 
         // 加载提示词数据
         async function loadPrompts() {
-            // 优先从GitHub加载
+            // 优先从GitHub API加载（需要Token）
             if (USE_GITHUB_PROMPTS) {
                 try {
                     const encodedPath = encodeURIComponent(PROMPTS_CONFIG.path).replace(/%2F/g, '/');
@@ -974,38 +974,46 @@
                         const data = await res.json();
                         promptsFileSha = data.sha;
                         promptsData = JSON.parse(decodeURIComponent(escape(atob(data.content))));
-                        console.log('从GitHub加载提示词成功:', promptsData.length, '条');
+                        console.log('从GitHub API加载提示词成功:', promptsData.length, '条');
                         return;
                     }
                 } catch (e) {
-                    console.log('GitHub加载失败，尝试本地文件');
+                    console.log('GitHub API加载失败:', e.message);
                 }
             }
             
-            // 从本地JSON文件加载
+            // 尝试从GitHub raw文件加载（无需Token，公开仓库可用）
+            try {
+                const res = await fetch(`https://raw.githubusercontent.com/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/master/${PROMPTS_CONFIG.path}`);
+                if (res.ok) {
+                    promptsData = await res.json();
+                    console.log('从GitHub Raw加载提示词成功:', promptsData.length, '条');
+                    return;
+                }
+            } catch (e) {
+                console.log('GitHub Raw加载失败:', e.message);
+            }
+            
+            // 从本地JSON文件加载（需要HTTP服务器）
             try {
                 const res = await fetch('data/prompts.json');
                 if (res.ok) {
                     promptsData = await res.json();
                     console.log('从本地文件加载提示词成功:', promptsData.length, '条');
+                    return;
                 }
             } catch (e) {
-                console.log('本地文件加载失败，使用空数据');
-                promptsData = [];
+                console.log('本地文件加载失败:', e.message);
             }
             
-            // 合并localStorage中的数据（本地备份）
+            // 最后从localStorage加载
             const localData = localStorage.getItem('promptsData');
             if (localData) {
-                const localPrompts = JSON.parse(localData);
-                localPrompts.forEach(lp => {
-                    const existingIndex = promptsData.findIndex(p => p.title === lp.title);
-                    if (existingIndex >= 0) {
-                        promptsData[existingIndex] = lp;
-                    } else {
-                        promptsData.push(lp);
-                    }
-                });
+                promptsData = JSON.parse(localData);
+                console.log('从localStorage加载提示词:', promptsData.length, '条');
+            } else {
+                promptsData = [];
+                console.log('无提示词数据');
             }
         }
 
