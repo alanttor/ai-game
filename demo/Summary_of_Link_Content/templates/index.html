@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能链接摘要工具 - 完整版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .input-section {
+            padding: 40px 30px;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 18px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .url-input::placeholder {
+            color: #999;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+
+        .result-section {
+            padding: 0 30px 40px;
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .source-tag {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .source-article {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .source-bilibili {
+            background: linear-gradient(135deg, #00c6fb 0%, #005bea 100%);
+            color: white;
+        }
+
+        .result-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .result-summary {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 24px;
+        }
+
+        .summary-label {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .summary-content {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #444;
+        }
+
+        .key-points {
+            margin-bottom: 24px;
+        }
+
+        .key-points h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .points-list {
+            list-style: none;
+        }
+
+        .points-list li {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .points-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .meta-info {
+            display: flex;
+            gap: 20px;
+            padding: 16px;
+            background: #f0f2f5;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .meta-item {
+            flex: 1;
+        }
+
+        .meta-label {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .meta-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .copy-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .input-section {
+                padding: 30px 20px;
+            }
+
+            .result-section {
+                padding: 0 20px 30px;
+            }
+
+            .meta-info {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>智能链接摘要工具</h1>
+            <p>支持 B站视频（含CC字幕） • 知乎 • CSDN • 通用网页</p>
+        </div>
+
+        <div class="input-section">
+            <input
+                type="text"
+                class="url-input"
+                id="urlInput"
+                placeholder="请输入链接（支持 B站视频、知乎、CSDN等）"
+            />
+            <div class="button-group">
+                <button class="btn btn-primary" id="summarizeBtn" onclick="summarize()">生成摘要</button>
+                <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">正在分析内容，请稍候...</div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <span class="source-tag" id="sourceTag">文章</span>
+            <div class="result-title" id="resultTitle"></div>
+
+            <div class="warning-box" id="warningBox" style="display: none;"></div>
+
+            <div class="result-summary">
+                <div class="summary-label">内容摘要</div>
+                <div class="summary-content" id="summaryContent"></div>
+            </div>
+
+            <div class="key-points">
+                <h3>📌 核心要点</h3>
+                <ul class="points-list" id="keyPoints"></ul>
+            </div>
+
+            <div class="meta-info">
+                <div class="meta-item">
+                    <div class="meta-label">内容来源</div>
+                    <div class="meta-value" id="sourceUrl"></div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">平台</div>
+                    <div class="meta-value" id="platform"></div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">摘要时间</div>
+                    <div class="meta-value" id="summaryTime"></div>
+                </div>
+            </div>
+
+            <button class="copy-btn" id="copyBtn" onclick="copyResult()">复制摘要</button>
+        </div>
+    </div>
+
+    <script>
+        function showLoading(text) {
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('loadingText').textContent = text || '正在分析内容，请稍候...';
+            document.getElementById('resultSection').classList.remove('active');
+            document.getElementById('summarizeBtn').disabled = true;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('summarizeBtn').disabled = false;
+        }
+
+        function showResult() {
+            document.getElementById('resultSection').classList.add('active');
+        }
+
+        function detectSourceType(url) {
+            if (url.includes('bilibili.com')) {
+                return { type: 'bilibili', label: 'B站视频', className: 'source-bilibili' };
+            }
+            if (url.includes('zhihu.com')) {
+                return { type: 'article', label: '知乎文章', className: 'source-article' };
+            }
+            if (url.includes('csdn.net')) {
+                return { type: 'article', label: 'CSDN文章', className: 'source-article' };
+            }
+            return { type: 'article', label: '文章', className: 'source-article' };
+        }
+
+        async function summarize() {
+            const url = document.getElementById('urlInput').value.trim();
+
+            if (!url) {
+                alert('请输入有效的链接');
+                return;
+            }
+
+            if (!isValidUrl(url)) {
+                alert('请输入有效的 URL 格式');
+                return;
+            }
+
+            showLoading('正在提取内容并生成摘要...');
+
+            const sourceInfo = detectSourceType(url);
+            document.getElementById('sourceTag').textContent = sourceInfo.label;
+            document.getElementById('sourceTag').className = 'source-tag ' + sourceInfo.className;
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '摘要生成失败');
+                }
+
+                const data = result.data;
+
+                // 显示标题
+                document.getElementById('resultTitle').textContent = data.title || '未知标题';
+
+                // 显示警告信息（针对B站无字幕的情况）
+                const warningBox = document.getElementById('warningBox');
+                if (data.source_type === 'bilibili' && !data.has_subtitle) {
+                    warningBox.style.display = 'block';
+                    warningBox.textContent = '⚠️ 该视频未开启CC字幕，摘要基于标题、简介和弹幕生成，可能不够精准。建议选择开启字幕的视频。';
+                } else {
+                    warningBox.style.display = 'none';
+                }
+
+                // 显示摘要
+                document.getElementById('summaryContent').textContent = data.summary || '暂无摘要';
+
+                // 显示关键点
+                const pointsContainer = document.getElementById('keyPoints');
+                pointsContainer.innerHTML = '';
+
+                if (data.key_points && data.key_points.length > 0) {
+                    data.key_points.forEach(point => {
+                        const li = document.createElement('li');
+                        li.textContent = point;
+                        pointsContainer.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.textContent = '暂无关键点';
+                    pointsContainer.appendChild(li);
+                }
+
+                // 显示元数据
+                document.getElementById('sourceUrl').textContent = url;
+                document.getElementById('platform').textContent = data.platform || '未知平台';
+                document.getElementById('summaryTime').textContent = data.time;
+
+                showResult();
+
+            } catch (error) {
+                alert('生成摘要失败：' + error.message);
+                console.error('Error:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function copyResult() {
+            const title = document.getElementById('resultTitle').textContent;
+            const summary = document.getElementById('summaryContent').textContent;
+            const points = Array.from(document.querySelectorAll('#keyPoints li')).map(li => li.textContent);
+            const sourceUrl = document.getElementById('sourceUrl').textContent;
+            const platform = document.getElementById('platform').textContent;
+
+            const text = `【标题】${title}\n【平台】${platform}\n\n【内容摘要】${summary}\n\n【核心要点】\n${points.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n【来源】${sourceUrl}`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = '已复制';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = '复制摘要';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function clearAll() {
+            document.getElementById('urlInput').value = '';
+            document.getElementById('resultSection').classList.remove('active');
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        // 回车触发
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                summarize();
+            }
+        });
+    </script>
+</body>
+</html>

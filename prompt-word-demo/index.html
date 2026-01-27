@@ -158,20 +158,56 @@
             border-color: var(--card-color, #00d4ff);
         }
         .project-icon { font-size: 2em; margin-bottom: 10px; }
-        .project-title { font-size: 1.1em; font-weight: bold; margin-bottom: 8px; color: #fff; }
-        .project-desc { color: #8892b0; font-size: 0.85em; line-height: 1.5; margin-bottom: 12px; }
+        .project-title { font-size: 1.1em; font-weight: bold; margin-bottom: 8px; color: var(--text-primary); }
+        .project-desc { color: var(--text-secondary); font-size: 0.85em; line-height: 1.5; margin-bottom: 12px; }
         .project-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .tag {
             background: rgba(0, 212, 255, 0.15);
-            color: #00d4ff;
+            color: var(--accent);
             padding: 3px 10px;
             border-radius: 15px;
             font-size: 0.75em;
         }
+        [data-theme="light"] .tag {
+            background: rgba(59, 130, 246, 0.15);
+        }
+        [data-theme="light"] .project-card:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 浅色主题额外修复 */
+        [data-theme="light"] .cat-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+        [data-theme="light"] .file-input-label {
+            background: rgba(0, 0, 0, 0.03);
+            border-color: rgba(0, 0, 0, 0.15);
+            color: var(--text-secondary);
+        }
+        [data-theme="light"] .file-input-label:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        [data-theme="light"] #promptContent {
+            background: rgba(0, 0, 0, 0.03);
+        }
+        [data-theme="light"] #promptContent code {
+            background: rgba(59, 130, 246, 0.15);
+        }
+        [data-theme="light"] #promptContent pre {
+            background: rgba(59, 130, 246, 0.08);
+        }
+        [data-theme="light"] #promptContent div[style*="border-left"] {
+            border-left-color: var(--accent) !important;
+        }
+        [data-theme="light"] #promptContent div[style*="color:#00d4ff"] {
+            color: var(--accent) !important;
+        }
 
         .add-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 2px dashed rgba(255, 255, 255, 0.2);
+            background: var(--bg-card);
+            border: 2px dashed var(--border-color);
             border-radius: 12px;
             padding: 20px;
             cursor: pointer;
@@ -182,9 +218,10 @@
             justify-content: center;
             min-height: 180px;
         }
-        .add-card:hover { border-color: #00d4ff; background: rgba(0, 212, 255, 0.05); }
+        .add-card:hover { border-color: var(--accent); background: rgba(0, 212, 255, 0.05); }
+        [data-theme="light"] .add-card:hover { background: rgba(59, 130, 246, 0.05); }
         .add-card .icon { font-size: 2.5em; margin-bottom: 10px; opacity: 0.5; }
-        .add-card .text { color: #8892b0; font-size: 0.9em; }
+        .add-card .text { color: var(--text-secondary); font-size: 0.9em; }
 
         .delete-btn {
             position: absolute;
@@ -207,7 +244,7 @@
             top: 8px; right: 40px;
             background: rgba(0, 212, 255, 0.2);
             border: none;
-            color: #00d4ff;
+            color: var(--accent);
             padding: 4px 10px;
             border-radius: 12px;
             cursor: pointer;
@@ -239,14 +276,19 @@
         }
         .modal.show { display: flex; }
         .modal-content {
-            background: #1a1a2e;
-            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 25px;
             max-width: 700px;
             width: 100%;
             max-height: 85vh;
             overflow-y: auto;
+            backdrop-filter: blur(20px);
+        }
+        [data-theme="light"] .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
         }
         .modal-header {
             display: flex;
@@ -254,29 +296,29 @@
             align-items: center;
             margin-bottom: 20px;
         }
-        .modal-header h2 { color: #00d4ff; font-size: 1.2em; }
+        .modal-header h2 { color: var(--accent); font-size: 1.2em; }
         .close-btn {
             background: none;
             border: none;
-            color: #8892b0;
+            color: var(--text-secondary);
             font-size: 1.5em;
             cursor: pointer;
         }
-        .close-btn:hover { color: #fff; }
+        .close-btn:hover { color: var(--text-primary); }
         .form-group { margin-bottom: 18px; }
         .form-group label {
             display: block;
-            color: #8892b0;
+            color: var(--text-secondary);
             margin-bottom: 6px;
             font-size: 0.85em;
         }
         .form-group input, .form-group textarea {
             width: 100%;
             padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            color: #fff;
+            color: var(--text-primary);
             font-size: 0.95em;
             font-family: inherit;
         }
@@ -287,7 +329,7 @@
         }
         .form-group input:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #00d4ff;
+            border-color: var(--accent);
         }
         .btn-group { display: flex; gap: 10px; justify-content: flex-end; }
         .btn {
@@ -299,12 +341,12 @@
             transition: all 0.3s;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            background: var(--accent-gradient);
             color: #fff;
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3); }
-        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #8892b0; }
-        .btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
+        .btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background: var(--bg-nav); color: var(--text-primary); }
         .file-input-wrapper { position: relative; display: inline-block; width: 100%; }
         .file-input-wrapper input[type="file"] { display: none; }
         .file-input-label {
@@ -333,8 +375,8 @@
         .dialog-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .dialog-box {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 1px solid rgba(0, 212, 255, 0.4);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 25px;
             max-width: 400px;
@@ -342,11 +384,15 @@
             text-align: center;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
+        [data-theme="light"] .dialog-box {
+            background: rgba(255, 255, 255, 0.95);
         }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .dialog-icon { font-size: 2.5em; margin-bottom: 12px; }
-        .dialog-title { font-size: 1.2em; color: #fff; margin-bottom: 8px; }
-        .dialog-message { color: #8892b0; margin-bottom: 20px; line-height: 1.5; }
+        .dialog-title { font-size: 1.2em; color: var(--text-primary); margin-bottom: 8px; }
+        .dialog-message { color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
         .dialog-buttons { display: flex; gap: 10px; justify-content: center; }
         .dialog-btn {
             padding: 10px 25px;
@@ -359,9 +405,9 @@
         }
         .dialog-btn-confirm { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: #fff; }
         .dialog-btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4); }
-        .dialog-btn-cancel { background: rgba(255, 255, 255, 0.1); color: #8892b0; }
-        .dialog-btn-cancel:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
-        .dialog-btn-ok { background: linear-gradient(135deg, #00d4ff, #7b2cbf); color: #fff; min-width: 100px; }
+        .dialog-btn-cancel { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); }
+        .dialog-btn-cancel:hover { background: var(--bg-nav); color: var(--text-primary); }
+        .dialog-btn-ok { background: var(--accent-gradient); color: #fff; min-width: 100px; }
         .dialog-btn-ok:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4); }
 
         .toast {
@@ -369,11 +415,11 @@
             bottom: 25px;
             left: 50%;
             transform: translateX(-50%) translateY(100px);
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 1px solid rgba(0, 212, 255, 0.4);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 12px 25px;
-            color: #fff;
+            color: var(--text-primary);
             font-size: 0.95em;
             z-index: 3000;
             opacity: 0;
@@ -381,7 +427,9 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            backdrop-filter: blur(10px);
         }
+        [data-theme="light"] .toast { background: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         .toast.success { border-color: rgba(56, 239, 125, 0.5); }
         .toast.error { border-color: rgba(255, 107, 107, 0.5); }
@@ -391,8 +439,8 @@
             text-align: center;
             margin-top: 40px;
             padding-top: 25px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: #8892b0;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
             font-size: 0.9em;
         }
         @media (max-width: 768px) {
@@ -715,7 +763,9 @@
             { title: '冥想APP界面展示', file: 'web/meditation-app-ui.html', icon: '🧘', color: '#667eea', category: 'web',
               desc: '6个冥想APP界面，紫色渐变主题，粒子动画', tags: ['UI展示', '冥想APP'] },
             { title: '记账理财APP展示', file: 'web/finance-app-ui.html', icon: '💰', color: '#667eea', category: 'web',
-              desc: '6个记账APP界面，Bento风格，Canvas图表', tags: ['UI展示', '记账APP'] }
+              desc: '6个记账APP界面，Bento风格，Canvas图表', tags: ['UI展示', '记账APP'] },
+            { title: '雪纳瑞の家', file: 'web/schnauzer-website.html', icon: '🐕', color: '#1a1a1a', category: 'web',
+              desc: '雪纳瑞主题网站，写真日历、养护百科、周边商城、公益捐赠', tags: ['宠物', '电商'] }
         ];
 
         // ========== GitHub 配置 ==========
@@ -962,18 +1012,35 @@
         const USE_GITHUB_PROMPTS = PROMPTS_CONFIG.token !== '' && !PROMPTS_CONFIG.token.includes('%%');
 
         // 加载提示词数据
+        // 带超时的fetch
+        function fetchWithTimeout(url, options = {}, timeout = 3000) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), timeout))
+            ]);
+        }
+
         async function loadPrompts() {
+            // 先从localStorage快速加载（立即可用）
+            const localData = localStorage.getItem('promptsData');
+            if (localData) {
+                promptsData = JSON.parse(localData);
+                console.log('从localStorage快速加载提示词:', promptsData.length, '条');
+            }
+            
+            // 后台尝试从网络更新
             // 优先从GitHub API加载（需要Token）
             if (USE_GITHUB_PROMPTS) {
                 try {
                     const encodedPath = encodeURIComponent(PROMPTS_CONFIG.path).replace(/%2F/g, '/');
-                    const res = await fetch(`https://api.github.com/repos/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/contents/${encodedPath}`, {
+                    const res = await fetchWithTimeout(`https://api.github.com/repos/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/contents/${encodedPath}`, {
                         headers: { 'Authorization': `token ${PROMPTS_CONFIG.token}`, 'Accept': 'application/vnd.github.v3+json' }
-                    });
+                    }, 3000);
                     if (res.ok) {
                         const data = await res.json();
                         promptsFileSha = data.sha;
                         promptsData = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+                        localStorage.setItem('promptsData', JSON.stringify(promptsData));
                         console.log('从GitHub API加载提示词成功:', promptsData.length, '条');
                         return;
                     }
@@ -984,9 +1051,10 @@
             
             // 尝试从GitHub raw文件加载（无需Token，公开仓库可用）
             try {
-                const res = await fetch(`https://raw.githubusercontent.com/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/master/${PROMPTS_CONFIG.path}`);
+                const res = await fetchWithTimeout(`https://raw.githubusercontent.com/${PROMPTS_CONFIG.owner}/${PROMPTS_CONFIG.repo}/master/${PROMPTS_CONFIG.path}`, {}, 3000);
                 if (res.ok) {
                     promptsData = await res.json();
+                    localStorage.setItem('promptsData', JSON.stringify(promptsData));
                     console.log('从GitHub Raw加载提示词成功:', promptsData.length, '条');
                     return;
                 }
@@ -996,9 +1064,10 @@
             
             // 从本地JSON文件加载（需要HTTP服务器）
             try {
-                const res = await fetch('data/prompts.json');
+                const res = await fetchWithTimeout('data/prompts.json', {}, 2000);
                 if (res.ok) {
                     promptsData = await res.json();
+                    localStorage.setItem('promptsData', JSON.stringify(promptsData));
                     console.log('从本地文件加载提示词成功:', promptsData.length, '条');
                     return;
                 }
@@ -1006,13 +1075,8 @@
                 console.log('本地文件加载失败:', e.message);
             }
             
-            // 最后从localStorage加载
-            const localData = localStorage.getItem('promptsData');
-            if (localData) {
-                promptsData = JSON.parse(localData);
-                console.log('从localStorage加载提示词:', promptsData.length, '条');
-            } else {
-                promptsData = [];
+            // 如果都失败了且localStorage也没有数据
+            if (promptsData.length === 0) {
                 console.log('无提示词数据');
             }
         }
@@ -1064,17 +1128,108 @@
         // 格式化提示词（自动排版）
         function formatPrompt(text) {
             if (!text) return '';
-            // 处理Markdown格式
-            let formatted = text
-                .replace(/\n{3,}/g, '\n\n')  // 多个换行合并为两个
-                .replace(/^(#{1,6})\s*(.+)$/gm, '<strong style="color:#00d4ff;font-size:1.1em;">$2</strong>')  // 标题
-                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // 粗体
-                .replace(/\*(.+?)\*/g, '<em>$1</em>')  // 斜体
-                .replace(/`(.+?)`/g, '<code style="background:rgba(0,212,255,0.2);padding:2px 6px;border-radius:4px;">$1</code>')  // 行内代码
-                .replace(/^\* /gm, '• ')  // 无序列表
-                .replace(/^\d+\.\s/gm, (match) => match)  // 有序列表保持
-                .replace(/\n/g, '<br>');  // 换行
+            
+            let formatted = text;
+            
+            // 获取当前主题的强调色
+            const accentColor = currentTheme === 'light' ? '#3b82f6' : '#00d4ff';
+            const bgCodeColor = currentTheme === 'light' ? 'rgba(59,130,246,0.1)' : 'rgba(0,212,255,0.1)';
+            const bgCodeInlineColor = currentTheme === 'light' ? 'rgba(59,130,246,0.15)' : 'rgba(0,212,255,0.2)';
+            
+            // ========== 第一步：清理和规范化 ==========
+            // 统一换行符
+            formatted = formatted.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            // 去除行首行尾空白（保留缩进）
+            formatted = formatted.split('\n').map(line => line.trimEnd()).join('\n');
+            // 多个空行合并为两个换行
+            formatted = formatted.replace(/\n{3,}/g, '\n\n');
+            // 去除开头结尾空白
+            formatted = formatted.trim();
+            
+            // ========== 第二步：处理代码块（先处理，避免内部被其他规则影响） ==========
+            // 多行代码块 ```code```
+            formatted = formatted.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+                const escapedCode = code.trim()
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                return `<pre style="background:${bgCodeColor};padding:12px;border-radius:8px;overflow-x:auto;font-family:Consolas,monospace;font-size:0.85em;margin:8px 0;"><code>${escapedCode}</code></pre>`;
+            });
+            
+            // 行内代码 `code`
+            formatted = formatted.replace(/`([^`]+)`/g, `<code style="background:${bgCodeInlineColor};padding:2px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:0.9em;">$1</code>`);
+            
+            // ========== 第三步：处理Markdown标题 ==========
+            // # 到 ###### 标题
+            formatted = formatted.replace(/^######\s*(.+)$/gm, `<div style="color:${accentColor};font-size:0.95em;font-weight:600;margin:12px 0 6px;">$1</div>`);
+            formatted = formatted.replace(/^#####\s*(.+)$/gm, `<div style="color:${accentColor};font-size:1em;font-weight:600;margin:12px 0 6px;">$1</div>`);
+            formatted = formatted.replace(/^####\s*(.+)$/gm, `<div style="color:${accentColor};font-size:1.05em;font-weight:600;margin:14px 0 8px;">$1</div>`);
+            formatted = formatted.replace(/^###\s*(.+)$/gm, `<div style="color:${accentColor};font-size:1.1em;font-weight:600;margin:16px 0 8px;">$1</div>`);
+            formatted = formatted.replace(/^##\s*(.+)$/gm, `<div style="color:${accentColor};font-size:1.2em;font-weight:700;margin:18px 0 10px;">$1</div>`);
+            formatted = formatted.replace(/^#\s*(.+)$/gm, `<div style="color:${accentColor};font-size:1.3em;font-weight:700;margin:20px 0 12px;">$1</div>`);
+            
+            // ========== 第四步：处理文本样式 ==========
+            // 粗体 **text** 或 __text__
+            formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            // 斜体 *text* 或 _text_（注意不要匹配列表项）
+            formatted = formatted.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+            formatted = formatted.replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<em>$1</em>');
+            // 删除线 ~~text~~
+            formatted = formatted.replace(/~~(.+?)~~/g, '<del style="opacity:0.6;">$1</del>');
+            
+            // ========== 第五步：处理列表 ==========
+            // 无序列表 * - +
+            formatted = formatted.replace(/^[\*\-\+]\s+(.+)$/gm, '<div style="padding-left:20px;margin:4px 0;">• $1</div>');
+            // 有序列表 1. 2. 等
+            formatted = formatted.replace(/^(\d+)\.\s+(.+)$/gm, `<div style="padding-left:20px;margin:4px 0;"><span style="color:${accentColor};">$1.</span> $2</div>`);
+            // 缩进的子列表项（以空格或tab开头）
+            formatted = formatted.replace(/^[\s\t]+[\*\-\+]\s+(.+)$/gm, '<div style="padding-left:40px;margin:2px 0;">◦ $1</div>');
+            formatted = formatted.replace(/^[\s\t]+(\d+)\.\s+(.+)$/gm, '<div style="padding-left:40px;margin:2px 0;"><span style="opacity:0.8;">$1.</span> $2</div>');
+            
+            // ========== 第六步：处理引用块 ==========
+            // > 引用
+            formatted = formatted.replace(/^>\s*(.+)$/gm, `<div style="border-left:3px solid ${accentColor};padding-left:12px;margin:8px 0;opacity:0.8;font-style:italic;">$1</div>`);
+            
+            // ========== 第七步：处理分隔线 ==========
+            // --- 或 *** 或 ___
+            formatted = formatted.replace(/^[\-\*_]{3,}$/gm, '<hr style="border:none;border-top:1px solid var(--border-color);margin:16px 0;">');
+            
+            // ========== 第八步：处理链接和图片 ==========
+            // [text](url)
+            formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" style="color:${accentColor};text-decoration:underline;">$1</a>`);
+            // ![alt](url) 图片
+            formatted = formatted.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:8px 0;">');
+            
+            // ========== 第九步：处理换行 ==========
+            // 段落之间（两个换行）变成段落间距
+            formatted = formatted.replace(/\n\n/g, '</p><p style="margin:12px 0;">');
+            // 单个换行变成<br>
+            formatted = formatted.replace(/\n/g, '<br>');
+            
+            // ========== 第十步：包装和清理 ==========
+            // 包装在段落中
+            formatted = '<p style="margin:0;">' + formatted + '</p>';
+            // 清理空段落
+            formatted = formatted.replace(/<p style="margin:12px 0;"><\/p>/g, '');
+            formatted = formatted.replace(/<p style="margin:0;"><\/p>/g, '');
+            // 清理多余的<br>
+            formatted = formatted.replace(/(<br>){3,}/g, '<br><br>');
+            formatted = formatted.replace(/<p style="margin:12px 0;"><br>/g, '<p style="margin:12px 0;">');
+            formatted = formatted.replace(/<br><\/p>/g, '</p>');
+            
             return formatted;
+        }
+
+        // 清理用户输入的提示词（保存前预处理）
+        function cleanPromptText(text) {
+            if (!text) return '';
+            return text
+                .replace(/\r\n/g, '\n')  // 统一换行符
+                .replace(/\r/g, '\n')
+                .replace(/\n{4,}/g, '\n\n\n')  // 最多保留3个换行
+                .replace(/[ \t]+$/gm, '')  // 去除行尾空白
+                .trim();
         }
 
         // 查找提示词
@@ -1143,11 +1298,14 @@
 
         // 保存提示词
         document.getElementById('savePromptBtn').addEventListener('click', async () => {
-            const text = promptInput.value.trim();
+            let text = promptInput.value.trim();
             if (!text) {
                 await Dialog.alert({ icon: '⚠️', title: '提示', message: '请输入提示词内容' });
                 return;
             }
+
+            // 清理和规范化用户输入
+            text = cleanPromptText(text);
 
             // 更新或添加提示词
             const existingIndex = promptsData.findIndex(p => p.title === currentPromptTitle);
@@ -1265,11 +1423,12 @@
             await Dialog.alert({ icon: '🎉', title: '添加成功', message: `项目「${title}」已成功添加！` });
         });
 
-        // 初始化
-        (async function init() {
-            await initPrompts();
+        // 初始化 - 先渲染页面，提示词后台加载
+        (function init() {
             renderCategoryNav();
             renderProjects();
+            // 提示词异步加载，不阻塞页面渲染
+            initPrompts();
         })();
 
         // ========== 主题切换 ==========
