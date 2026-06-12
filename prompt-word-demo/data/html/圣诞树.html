@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 粒子圣诞树 - 手势互动</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #01100a; /* 极简深祖母绿 */
+            overflow: hidden;
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #text-overlay {
+            font-family: 'Cinzel', serif;
+            font-size: 5vw;
+            color: #ffd700;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        #text-overlay.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #loading, #error-msg {
+            color: #ffd700;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            background: rgba(1, 16, 10, 0.8);
+            padding: 20px 40px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            text-align: center;
+            pointer-events: auto;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            text-align: center;
+            line-height: 1.8;
+            letter-spacing: 1px;
+        }
+
+        .instructions span {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        video { display: none; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <video id="webcam" autoplay playsinline></video>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="loading">正在加载视觉模型与粒子引擎，请允许使用摄像头...</div>
+        <div id="error-msg" style="display: none;"></div>
+        <div id="text-overlay">Merry Christmas</div>
+        <div class="instructions" id="instructions" style="display:none;">
+            [ <span>握拳</span> ] 聚合成树 &nbsp;|&nbsp; [ <span>张开手掌</span> ] 粒子散开 &nbsp;|&nbsp; [ <span>捏合拇指食指(比心)</span> ] 魔法爱心 &nbsp;|&nbsp; [ <span>比耶(剪刀手)</span> ] 圣诞祝福<br>
+            提示：移动手部可以控制粒子的位置
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { GestureRecognizer, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js';
+
+        // ==========================================
+        // 1. 系统状态与配置
+        // ==========================================
+        const PARTICLE_COUNT = 8000;
+        let currentState = 'TREE'; // 'TREE', 'SCATTER', 'HEART'
+        let targetGroupPos = new THREE.Vector3(0, 0, 0);
+        let currentGroupPos = new THREE.Vector3(0, 0, 0);
+
+        // ==========================================
+        // 2. Three.js 初始化与电影级后处理 (辉光)
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x01100a, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const renderScene = new RenderPass(scene, camera);
+        // UnrealBloomPass 参数：分辨率, 强度, 半径, 阈值
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.8, 0.5, 0.1);
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // ==========================================
+        // 3. 粒子数据生成数学模型
+        // ==========================================
+        const positions = new Float32Array(PARTICLE_COUNT * 3);
+        const colors = new Float32Array(PARTICLE_COUNT * 3);
+        const sizes = new Float32Array(PARTICLE_COUNT);
+
+        const posTree = new Float32Array(PARTICLE_COUNT * 3);
+        const posScatter = new Float32Array(PARTICLE_COUNT * 3);
+        const posHeart = new Float32Array(PARTICLE_COUNT * 3);
+
+        const colorEmerald = new THREE.Color(0x147a46); // 祖母绿
+        const colorDarkGreen = new THREE.Color(0x0b4d2a); // 深绿
+        const colorBrown = new THREE.Color(0x3b2818); // 树干棕色
+        const lightColors = [0xff0000, 0xffff00, 0x0088ff, 0xaa00ff, 0xffffff].map(c => new THREE.Color(c));
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+
+            // --- 树干与树冠分配 ---
+            const isTrunk = i < PARTICLE_COUNT * 0.1; // 10% 做树干
+            const isLight = !isTrunk && Math.random() < 0.05; // 5% 做彩灯
+
+            // --- A. 树的形态计算 (Cone + Cylinder) ---
+            if (isTrunk) {
+                const y = Math.random() * 3 - 8;
+                const r = Math.random() * 0.8;
+                const theta = Math.random() * Math.PI * 2;
+                posTree[i3] = r * Math.cos(theta);
+                posTree[i3 + 1] = y;
+                posTree[i3 + 2] = r * Math.sin(theta);
+
+                colors[i3] = colorBrown.r;
+                colors[i3 + 1] = colorBrown.g;
+                colors[i3 + 2] = colorBrown.b;
+                sizes[i] = 1.0;
+            } else {
+                const h = 14; // 树高
+                const baseY = -5;
+                const y = Math.random() * h;
+                // 利用平方根实现底盘均匀分布
+                const r = 5 * (1 - y / h) * Math.sqrt(Math.random());
+                const theta = Math.random() * Math.PI * 2;
+
+                posTree[i3] = r * Math.cos(theta);
+                posTree[i3 + 1] = y + baseY;
+                posTree[i3 + 2] = r * Math.sin(theta);
+
+                if (isLight) {
+                    const lc = lightColors[Math.floor(Math.random() * lightColors.length)];
+                    colors[i3] = lc.r; colors[i3 + 1] = lc.g; colors[i3 + 2] = lc.b;
+                    sizes[i] = 2.5 + Math.random() * 1.5; // 灯大一点
+                } else {
+                    const mixedGreen = colorDarkGreen.clone().lerp(colorEmerald, Math.random());
+                    colors[i3] = mixedGreen.r; colors[i3 + 1] = mixedGreen.g; colors[i3 + 2] = mixedGreen.b;
+                    sizes[i] = 1.2 + Math.random() * 0.8;
+                }
+            }
+
+            // --- B. 散开形态计算 ---
+            posScatter[i3] = (Math.random() - 0.5) * 40;
+            posScatter[i3 + 1] = (Math.random() - 0.5) * 30;
+            posScatter[i3 + 2] = (Math.random() - 0.5) * 40;
+
+            // --- C. 爱心形态计算 ---
+            const t = Math.random() * Math.PI * 2;
+            const hx = 16 * Math.pow(Math.sin(t), 3);
+            const hy = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+            const noise = () => (Math.random() - 0.5) * 1.5;
+            posHeart[i3] = hx * 0.3 + noise();
+            posHeart[i3 + 1] = hy * 0.3 + noise() + 2;
+            posHeart[i3 + 2] = noise() * 2;
+
+            // 初始赋予散开状态
+            positions[i3] = posScatter[i3];
+            positions[i3+1] = posScatter[i3+1];
+            positions[i3+2] = posScatter[i3+2];
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        // 核心着色器：渲染带有发光软边缘的粒子，并应用轻微呼吸/摇曳效果
+        const particleMaterial = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0 } },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 color;
+                varying vec3 vColor;
+                varying float vOpacity;
+                uniform float time;
+                void main() {
+                    vColor = color;
+                    vec3 pos = position;
+                    // 模拟树枝微微摇曳
+                    pos.x += sin(time * 1.5 + pos.y * 0.5) * 0.05;
+                    pos.z += cos(time * 1.2 + pos.y * 0.5) * 0.05;
+
+                    // 让大光斑(灯)产生闪烁呼吸感
+                    vOpacity = size > 2.0 ? 0.5 + 0.5 * sin(time * 3.0 + pos.y * 10.0) : 1.0;
+
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    gl_PointSize = size * (250.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                    float dist = length(gl_PointCoord - vec2(0.5));
+                    if (dist > 0.5) discard;
+                    float alpha = smoothstep(0.5, 0.1, dist) * vOpacity;
+                    gl_FragColor = vec4(vColor, alpha);
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            transparent: true
+        });
+
+        const particleSystem = new THREE.Points(geometry, particleMaterial);
+        scene.add(particleSystem);
+
+        // ==========================================
+        // 4. 氛围效果：顶端金色星星与环境雪花
+        // ==========================================
+        const starGeom = new THREE.BufferGeometry();
+        starGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 9.5, 0]), 3));
+        starGeom.setAttribute('size', new THREE.BufferAttribute(new Float32Array([15]), 1));
+        const starMat = particleMaterial.clone();
+        starMat.uniforms = { time: { value: 0 } };
+        const starParticle = new THREE.Points(starGeom, starMat);
+        scene.add(starParticle);
+
+        const snowGeom = new THREE.BufferGeometry();
+        const snowPos = new Float32Array(1500);
+        for(let i=0; i<1500; i++) {
+            snowPos[i] = (Math.random() - 0.5) * 40;
+        }
+        snowGeom.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+        const snowMat = new THREE.PointsMaterial({
+            color: 0xffffff, size: 0.15, transparent: true, opacity: 0.4
+        });
+        const snowSystem = new THREE.Points(snowGeom, snowMat);
+        scene.add(snowSystem);
+
+        // ==========================================
+        // 5. MediaPipe 手势识别集成
+        // ==========================================
+        const video = document.getElementById('webcam');
+        let gestureRecognizer;
+        let runningMode = "VIDEO";
+        let lastVideoTime = -1;
+
+        async function initMediaPipe() {
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+                        delegate: "GPU"
+                    },
+                    runningMode: runningMode,
+                    numHands: 1
+                });
+
+                // 获取摄像头
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+                video.srcObject = stream;
+                video.addEventListener('loadeddata', () => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('instructions').style.display = 'block';
+                    animate(); // 启动渲染循环
+                });
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                const errMsg = document.getElementById('error-msg');
+                errMsg.style.display = 'block';
+                errMsg.innerHTML = "无法加载视觉模型或访问摄像头。<br>请确保在 HTTPS 或 Localhost 环境下运行，并允许摄像头权限。";
+                console.error(err);
+            }
+        }
+
+        // ==========================================
+        // 6. 核心渲染与状态更新循环
+        // ==========================================
+        const clock = new THREE.Clock();
+        const textOverlay = document.getElementById('text-overlay');
+        let hideTextTimeout;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+
+            particleMaterial.uniforms.time.value = elapsedTime;
+            starMat.uniforms.time.value = elapsedTime * 2.0;
+
+            // --- 识别手势 ---
+            if (gestureRecognizer && video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                const results = gestureRecognizer.recognizeForVideo(video, performance.now());
+
+                if (results.landmarks.length > 0) {
+                    const landmarks = results.landmarks[0];
+
+                    // 1. 计算手掌中心点映射到3D空间 (X, Y翻转以符合镜像习惯)
+                    const wrist = landmarks[0];
+                    const mappedX = -(wrist.x - 0.5) * 20;
+                    const mappedY = -(wrist.y - 0.5) * 20;
+                    targetGroupPos.set(mappedX, mappedY, 0);
+
+                    // 2. 检测比心 (拇指和食指捏合)
+                    const thumbTip = landmarks[4];
+                    const indexTip = landmarks[8];
+                    const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y, thumbTip.z - indexTip.z);
+
+                    // 3. 状态判定
+                    if (pinchDist < 0.08) {
+                        currentState = 'HEART';
+                    } else if (results.gestures.length > 0) {
+                        const gestureName = results.gestures[0][0].categoryName;
+                        if (gestureName === 'Open_Palm') currentState = 'SCATTER';
+                        else if (gestureName === 'Closed_Fist') currentState = 'TREE';
+                        else if (gestureName === 'Victory') {
+                            // 剪刀手触发圣诞文字
+                            textOverlay.classList.add('show');
+                            clearTimeout(hideTextTimeout);
+                            hideTextTimeout = setTimeout(() => textOverlay.classList.remove('show'), 3000);
+                        }
+                    }
+                } else {
+                    // 没识别到手时，缓慢归位
+                    targetGroupPos.set(0, 0, 0);
+                }
+            }
+
+            // --- 平滑插值更新整个粒子组位置 ---
+            currentGroupPos.lerp(targetGroupPos, 0.05);
+            particleSystem.position.copy(currentGroupPos);
+            starParticle.position.copy(currentGroupPos);
+
+            // --- 平滑插值更新数千粒子的具体坐标 ---
+            const posAttr = geometry.attributes.position;
+            const currentArr = posAttr.array;
+            const targetArr = currentState === 'TREE' ? posTree : (currentState === 'HEART' ? posHeart : posScatter);
+
+            // 采用极简高性能的 JS Lerp
+            for (let i = 0; i < currentArr.length; i++) {
+                currentArr[i] += (targetArr[i] - currentArr[i]) * 0.06;
+            }
+            posAttr.needsUpdate = true;
+
+            // --- 下雪动画 ---
+            const snowPositions = snowSystem.geometry.attributes.position.array;
+            for(let i=1; i<1500; i+=3) {
+                snowPositions[i] -= 0.05; // 飘落速度
+                if(snowPositions[i] < -15) {
+                    snowPositions[i] = 15; // 顶部重置
+                }
+            }
+            snowSystem.geometry.attributes.position.needsUpdate = true;
+            snowSystem.rotation.y += 0.002;
+
+            // 渲染带有辉光的画面
+            composer.render();
+        }
+
+        // 响应窗口大小变化
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 启动程序
+        initMediaPipe();
+    </script>
+</body>
+</html>

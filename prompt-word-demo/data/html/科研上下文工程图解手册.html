@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>科研上下文工程图解手册</title>
+    <style>
+        :root {
+            --primary-blue: #2a7dfb;
+            --tech-orange: #ff8c00;
+            --bg-light: #f8f9fa;
+            --text-main: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-main);
+            background-color: #eee;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        header {
+            text-align: center;
+            border-bottom: 3px solid var(--primary-blue);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+        h1 { color: var(--primary-blue); margin-bottom: 10px; }
+        .section {
+            margin-bottom: 60px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            color: var(--tech-orange);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        .section-title span {
+            background: var(--tech-orange);
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            font-size: 0.9rem;
+        }
+        .img-container {
+            width: 100%;
+            text-align: center;
+            margin: 20px 0;
+            background: #fff;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .analysis {
+            background: var(--bg-light);
+            padding: 20px;
+            border-left: 5px solid var(--primary-blue);
+            margin-top: 20px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e1ecfe;
+            color: var(--primary-blue);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        footer {
+            text-align: center;
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>AI 客服多模态上下文衔接工程</h1>
+        <p>科研上下文工程图解手册 · 本地版</p>
+    </header>
+
+    <div class="section">
+        <div class="section-title"><span>1</span> 技术架构图 (System Architecture)</div>
+        <div class="badge">位置：Methodology (方法论)</div>
+        <div class="img-container">
+            <img src="image/CAF-MN%20%E6%A8%A1%E5%9E%8B%E7%9A%84%E8%AF%A6%E7%BB%86%E5%B7%A5%E7%A8%8B%E6%9E%B6%E6%9E%84.jpg" alt="技术架构图">
+        </div>
+        <div class="analysis">
+            <strong>工程要点：</strong> 详细展示算法模型（如 Transformer 层、神经元连接）或软件系统的组件。使用标准的矩形、菱形和精确的连线，标注输入/输出张量的维度。
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title"><span>2</span> 算法流程图 (Algorithmic Flowchart)</div>
+        <div class="badge">位置：Methodology (算法描述)</div>
+        <div class="img-container">
+            <img src="image/CAF-MN%20%E5%A4%84%E7%90%86%E5%A4%9A%E6%A8%A1%E6%80%81%E8%BE%93%E5%85%A5%E7%9A%84%E5%86%B3%E7%AD%96%E6%B5%81%E7%A8%8B.jpg" alt="算法流程图">
+        </div>
+        <div class="analysis">
+            <strong>逻辑学习：</strong> 解释一个决策过程或多步骤处理逻辑。逻辑严密，展示判断节点（If-Else）和循环过程。
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title"><span>3</span> 数据特征图与可视化 (Data Visualization)</div>
+        <div class="badge">位置：Results (实验结果)</div>
+        <div class="img-container">
+            <img src="image/CAF-MN%20%E6%A8%A1%E5%9E%8B%E7%9A%84%E9%87%8F%E5%8C%96%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90.jpg" alt="数据可视化">
+        </div>
+        <div class="analysis">
+            <strong>科研价值：</strong> 这是支撑研究真实性的“硬骨头”数据。包含热力图、t-SNE 聚类图、折线/柱状图等形式。
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title"><span>4</span> 案例/消融对比图 (Qualitative Comparison)</div>
+        <div class="badge">位置：Experiments (实验部分)</div>
+        <div class="img-container">
+            <img src="image/%E5%9F%BA%E7%BA%BF%E6%A8%A1%E5%9E%8B%E4%B8%8E%20CAF-MN%20%E5%9C%A8%E4%B8%8A%E4%B8%8B%E6%96%87%E8%A1%94%E6%8E%A5%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E5%AE%9A%E6%80%A7%E5%AF%B9%E6%AF%94.jpg" alt="定性对比图">
+        </div>
+        <div class="analysis">
+            <strong>对比重点：</strong> 直观展示“有无你的技术”结果的差异，通过具体的对比（左边生硬，右边连贯）说服审稿人。
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 科研工程师手册 · 助力论文发表</p>
+    </footer>
+</div>
+
+</body>
+</html>
