@@ -14,7 +14,7 @@
   - **艺术与模板**: 分形艺术渲染、数码水墨扩散仿真、高颜值 APP UI 瀑布流展示。
 - **持久化与云同步 (Hybrid Storage)**:
   - **LocalStorage 本地缓存**: 无网络环境下，用户添加的自定义 HTML 项目将保存在本地。
-  - **GitHub API 远程云同步**: 在配置了 GitHub OAuth 令牌后，支持与远程存储库的 [projects.json](./data/projects.json) 自动同步读写。
+  - **GitHub API 远程云同步**: 在配置了 GitHub Personal Access Token (PAT) 后，支持与远程存储库的 [projects.json](./data/projects.json) 自动同步读写。
 - **AI 提示词管理器 (Prompt Manager)**:
   - 每个项目均附带了生成该项目的 AI 结构化提示词（System Prompt），点击即可复制代码，方便在各类大模型中直接迭代生成类似项目。
 - **双色皮肤自适应**: 支持一键切换深色/浅色现代化 UI 主题。
@@ -26,9 +26,10 @@
 ```
 prompt-word-demo/
 ├── index.html                  # 主展示大厅 (HTML/CSS/JS 混合单页)
-├── favicon.svg                 # 大厅图标
 ├── data/
-│   └── projects.json           # 云端/持久化项目配置文件
+│   ├── projects.json           # 用户自定义项目数据 (本地/云端同步)
+│   ├── prompts.json            # AI 提示词数据
+│   └── html/                   # 未编入大厅目录的独立 HTML 样例 (圣诞树/炼金术士等)
 ├── physics/                    # 物理/数学仿真 Canvas 页面
 ├── sports/                     # 运动物理分析页面
 ├── biology/                    # 人体与神经网络演化页面
@@ -61,11 +62,13 @@ prompt-word-demo/
 ## ⚙️ 云同步配置说明
 
 如需开启多端项目云存储同步功能：
-1. 打开 [index.html](./index.html#L772-L777)。
-2. 在 `GITHUB_CONFIG` 配置项中，填写您的 `owner` (用户名)、`repo` (仓库名)，并在 `token` 处填入您的 GitHub Personal Access Token (PAT)。
+1. 打开 [index.html](./index.html) 中第 772 行起的 `GITHUB_CONFIG` 配置项（提示词同步另有第 1007 行起的 `PROMPTS_CONFIG`）。
+2. 按需修改 `owner` (用户名,默认 `alanttor`)、`repo` (仓库名,默认 `ai-game`),并将 `token` 的占位符 `%%GITHUB_TOKEN%%` 替换为您的 GitHub Personal Access Token (PAT)。代码通过判断 token 是否仍为占位符来决定是否启用云端存储,未替换时自动回退到 LocalStorage 本地存储。
 3. 配置生效后，系统在新增/删除卡片时将自动通过 API 修改 `prompt-word-demo/data/projects.json`。
+
+> ⚠️ 安全提示:`token` 为明文写入前端 HTML,任何访问页面的人都可读取。请勿将含真实 PAT 的 `index.html` 部署到公开站点;生产环境应改用构建期注入或后端代理。
 
 ---
 
 ## 📄 许可协议
-本项目采用 MIT 协议开源。
+计划采用 MIT 协议开源（仓库内暂未包含 LICENSE 文件，规划中）。

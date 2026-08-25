@@ -7,8 +7,8 @@
 ## 🛠️ 技术栈
 
 - **开发语言**: Python 3.8+
-- **3D 引擎**: Ursina 3D Engine (基于 Panda3D)
-- **依赖库**: `ursina>=5.0.0` (详见 [requirements.txt](./requirements.txt))
+- **3D 引擎**: Ursina 3D Engine (基于 Panda3D) —— *目前为可选依赖，未安装时逻辑层以 Mock/占位符模式运行*
+- **依赖库**: `ursina>=5.0.0`；测试依赖 `pytest>=7.0.0`、`hypothesis>=6.0.0`；打包工具 `pyinstaller>=5.0.0` (详见 [requirements.txt](./requirements.txt))
 
 ---
 
@@ -41,9 +41,9 @@ Fanren_Attack_on_Titan/
 │   ├── audio.py                # 3D 空间音频驱动，提供 Ursina/Mock 双兼容运行环境
 │   ├── graphics.py             # 视角抖动、模糊后处理及光照环境管理
 │   ├── visual_effects.py       # 斩击刀光、喷气尾迹和血迹飞溅等粒子系统
-│   └── ui/                     # 游戏菜单、选人与主战斗界面的 HTML/CSS UI 定义
+│   └── ui/                     # 游戏菜单、选人与主战斗界面的 UI 逻辑（纯 Python，输出渲染数据字典，非 HTML/CSS）
 └── data/                       # 基础持久化层
-    ├── asset_loader.py         # 异步资源载入器，无 Ursina 环境下自动退避至 Placeholder 模式
+    ├── asset_loader.py         # 资源载入器（同步 + 缓存），无 Ursina 环境下自动退避至 Placeholder 模式
     └── save_system.py          # 基于 JSON 的游戏进度存档读写系统
 ```
 
@@ -77,10 +77,10 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 3. 运行 3D 图形主游戏 (需要安装 Ursina 环境支持)
-在完整游戏主循环整合完成后，通过将 `game_manager.py` 中的 `app.run()` 激活来唤醒 3D 视口。
+### 3. 运行 3D 图形主游戏 (规划中 / 未实现)
+> **说明（与代码现状一致）**: 完整的 3D 图形主循环目前 **尚未实现**。`game_manager.py` 与 `main.py` 中仅保留了 `app.run()` 的注释占位（`# 这里将来会集成Ursina的app.run()`），核心引擎层并未导入 `ursina`，无法直接启动 3D 视口。当前可运行的仅为上文的非图形化系统测试（`python main.py`）与单元测试。仅 `data/asset_loader.py`、`presentation/audio.py` 在需要时按需懒加载 `ursina`，且在缺失时退避到 Mock 模式。
 
 ---
 
 ## 📄 许可协议
-本项目基于 MIT License 协议开源。
+本项目计划采用 MIT License（仓库内当前 **尚未包含 `LICENSE` 文件**，待补充）。

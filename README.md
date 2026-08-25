@@ -41,4 +41,4 @@ To run the full suite of backend-enabled projects, you will need:
 ---
 
 ## 📄 License
-This repository is licensed under the [MIT License](./LICENSE). Feel free to learn, extend, and fork!
+This repository is intended for learning and reference. Each subproject's README notes "MIT License", but no top-level `LICENSE` file is currently committed. (规划中:补充实际的 LICENSE 文件。)

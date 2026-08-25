@@ -12,7 +12,7 @@
 
 ## 🛠️ 技术栈
 
-- **后端开发**: Python 3.8+, Flask 3.x
+- **后端开发**: Python 3.8+, Flask（`requirements.txt` 中固定为 `flask>=2.0.0`，未限定上限，安装时会取最新可用版本）
 - **状态存储**: Flask Session (基于加密 Cookie，免数据库持久化)
 - **前端页面**: 原生 HTML5, CSS3, JavaScript (ES6)
 - **声效引擎**: Web Audio API (基于 OscillatorNode 动态波形合成，零音频资源加载依赖)
@@ -50,8 +50,8 @@ chinese_horror_game/
 - **心跳过速效果**: 使用正弦波（`sine`）在低频区间每隔 500ms 产生一次指数衰减的脉冲。
 - **女鬼惨叫**: 采用锯齿波（`sawtooth`）高频振荡，并动态使用 `exponentialRampToValueAtTime` 产生声学刺耳感。
 
-### 3. 多分支与有向图剧情跳转
-场景跳转通过单向依赖图（Directed Acyclic Graph）设计。在 [app.py](./app.py) 中定义，前端通过 POST 请求发送玩家选项的 index。后端拦截校验：
+### 3. 多分支剧情跳转
+场景以 `SCENES` 字典（有向图，含回环——多个场景可返回正厅/正门，结局可重置回序章，并非无环图 DAG）的形式在 [app.py](./app.py) 中定义，前端通过 POST 请求发送玩家选项的 index。后端拦截校验：
 - **require_item / require_flag**: 校验会话状态中是否存在特定物品（如火折子、钥匙）或是否满足特定剧情分支前置，从而动态激活/禁用选择按钮。
 
 ---
@@ -71,7 +71,9 @@ python app.py
 ```
 
 ### 3. 访问游戏
-在浏览器中打开 `http://127.0.0.1:5000` 即可开始游玩。
+在浏览器中打开 `http://127.0.0.1:5008` 即可开始游玩。
+
+> 端口由 `app.py` 末尾的 `app.run(debug=True, port=5008, host='0.0.0.0')` 决定。如需修改请直接改该行。
 
 ---
 
@@ -83,4 +85,4 @@ python app.py
 ---
 
 ## 📄 许可证
-本项目采用 MIT 许可证授权。
+本项目意向采用 MIT 许可证授权（注：仓库根目录暂未提供 `LICENSE` 文件，如需正式开源请补充该文件）。
